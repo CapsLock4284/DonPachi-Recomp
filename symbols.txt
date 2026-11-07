@@ -1,0 +1,82 @@
+# DonPachi (MAME set 'donpachi', US, Ver.1.12 1995/05/2x) - 68000 program symbols
+#
+# Addresses and names only: no game data lives in this file.
+# Format:  ADDRESS  KIND  NAME  [LAYOUT]   [# comment]
+#   KIND: func = function entry, code = code label, data = data label
+# Addresses are the 68000's, 000000-07FFFF (the program has no mirrors; work RAM is at 100000-10FFFF).
+#
+# Modelled on tmntarcade-decomp's symbols.txt. The analysis starts at the exception vectors, so the reset and the
+# interrupt handlers are found without being listed; the lines here give them their names and add what the
+# analysis cannot work out alone (tables of code addresses, jumps through registers).
+#
+# Everything below was read from the vector table and the first bytes of the program (tools/show_vectors.py), not
+# yet from a disassembly: names are provisional.
+
+# ======== the C's files ========
+# ADDRESS file PATH  # description: the functions from ADDRESS up to the next file line go to src/PATH.c (a file may
+# take several stretches). One file for now; split it by subject as the code is understood.
+000420  file  game/program  # the whole program, to be split into files by subject
+
+# ======== the vectors and the version string ========
+# 000000-0003FF are the 256 vectors (stack pointer 00110000, reset 0003425A); the version string follows
+000400  data  version_string  # "DONPACHI Ver1.121995/05/2x XXXXX", 32 bytes, 000400-00041F
+
+# ======== the first stubs (000420-00043F) ========
+# read by hand from the bytes, to check against the listing: two NOPs and a branch back (60FA) to 000420
+000420  func  idle_loop
+# stop #$2700 (4E72 2700) and a jump back to it (4EF9 0000042A)
+00042A  func  halt
+# interrupt levels 2-7 (vectors 26-31) all go here: two NOPs and a branch back (60FA) to 000434
+000434  func  unused_interrupt_loop
+# The task table: 61 stubs of 8 bytes, "jmp $xxxxxx.l" and two bytes more, one for each of the main loop's 61 task slots
+# (the loop at 00083C-000876: "lea ($43a,PC), A0" ... "jsr (A0,D0.w)" with D0 = slot * 8). It ends exactly where
+# level_1_interrupt begins (00043A + 61 * 8 = 000622). TURN THIS LINE ON only after tools/probe_table.py 0x43A 8 61 shows
+# every record as a jmp, and delete this comment's "#":
+00043A  data  task_table  record=8 count=61 code=2
+
+# ======== the boot and the interrupts ========
+# the reset vector (vector 1): the first instruction after power-on
+03425A  func  reset
+# the level 1 interrupt (vector 25, at 000064): the only one the game uses (MAME's cave_state sets irq level 1), raised
+# every frame at the vblank; the cause is read from 900000-900007
+000622  func  level_1_interrupt
+
+# ======== the exceptions (vectors 2-5 and 6-15, 24) ========
+# five routines 0x1A bytes apart, probably copies of one stub, each for its own exception
+# ======== the main loop and the frame (read from the first listing) ========
+# the boot's last step jumps here (034464 "jmp $81a.l"): the loop that runs the 61 task slots each frame, then the
+# frame's other work. The listing shows it inside level_1_interrupt only because it follows the rte at 000818
+00081A  func  main_loop
+# toggles bit 0 of 101200 and points 101202/101206 at the sprite buffer to fill, 500000 or 504000 (the other half of
+# the 64 KB sprite RAM), and writes 0 or 1 to 900008: double-buffered sprites. The interrupt calls it first (000640)
+002E44  func  swap_sprite_buffers
+# D0 + 1 frames: wait_for_frame D0 + 1 times
+002EA4  func  wait_frames
+# enables interrupts, clears frame_flag and spins until the level 1 interrupt sets it (002ED2 "clr.w $100f44.l",
+# 002EDC "tst.w $100f44.l"), then looks at the buttons in 1018EA (a pause or a debug mode?)
+002EB8  func  wait_for_frame
+
+# A second, smaller set of tasks: 56 stubs of 8 bytes like task_table (tools/probe_table.py 0x2E096 8 56: every record
+# a jmp). Slot 0 is the main table's too (00694E), slots 5-54 all go to 012D50 (probably an empty slot) and the real ones
+# are 1-4 (02D50C, 02B968, 02B8CC, 0126B2) and 55 (02B148). The two bytes after each jmp are never run.
+02E096  data  task2_table  record=8 count=56 code=2
+# runs slots 1-55 once through task2_table, as the main loop does through task_table. Called over and over by the routine
+# at 02DEB4 (02E03C "bsr $2e04c") until bit 2 of the slot 1's byte 3 is set; that routine is called from the main loop's
+# button check (000910 "jsr $2deb4.l"): a mode of its own, to be named once the listing shows what it does
+02E04C  func  run_task_subset
+
+# ======== variables (work RAM 100000-10FFFF) ========
+# the task slot the main loop is on, 0-60 (000842 "move.w $100000.l, D0"); a second loop at 02E05A counts 1-55
+100000  var  current_task   u16
+# the frame flag: the interrupt sets it (000626 "st $100f44.l"), wait_for_frame clears it and waits for it
+100F44  var  frame_flag     u16
+# the buffer the sprites are written to (swap_sprite_buffers: bit 0 of 101200)
+101200  var  sprite_buffer  u8
+# frames since the boot: the interrupt adds one each (00080C "addq.w #1, $101260.l")
+101260  var  frame_counter  u16
+
+0364AE  func  exception_default
+0364C8  func  exception_bus_error
+0364E2  func  exception_address_error
+0364FC  func  exception_illegal_instruction
+036516  func  exception_divide_by_zero

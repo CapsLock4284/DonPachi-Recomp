@@ -28,8 +28,8 @@ GUARD = "DONPACHI"                                     # the generated headers' 
 REFERENCE = None
 ANALYSIS = "m68000.analysis"
 DISASSEMBLER = "m68000.disassembler"
-# TODO: 000000-0003FF are the vectors; MAME's notes put a version/date string at 000400-00041F. Look at the ROM for
-# where the first instruction really is.
+# 000000-0003FF are the vectors and 000400-00041F the version string ("DONPACHI Ver1.121995/05/2x XXXXX"); the first
+# instruction after them is at 000420 (checked with tools/show_vectors.py). The reset vector goes to 03425A.
 CODE_START = 0x000420
 
 # The board as the program's C sees it (memory map: donpachi_map in cave.cpp; an end address is the first byte past)

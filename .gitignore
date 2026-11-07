@@ -1,3 +1,4 @@
+rom/
+assets/
+build/
 *.zip
-*.rom
-*.assets

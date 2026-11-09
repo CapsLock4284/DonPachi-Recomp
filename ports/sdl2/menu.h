@@ -27,8 +27,6 @@ typedef struct
 	settings *file;             /* the file's: the menu's changes go to both, and this is saved */
 	const char *path;           /* donpachi.ini */
 	SDL_GameController *const *pads;    /* the two players' gamepads (NULL: none) */
-	bool debug;                 /* the debug keys' entries */
-	bool *fast_forward;         /* (debug) */
 	void (*reset)(bool service_menu);
 	void (*apply_window)(void); /* the window's size and full screen from options */
 	void (*apply_timing)(void); /* options->arcade_timing */

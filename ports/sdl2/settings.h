@@ -33,6 +33,7 @@ enum
 {
 	HOTKEY_RESET,               /* the board's reset */
 	HOTKEY_SERVICE_MENU,        /* the reset, with the service switch held for the player: the test mode */
+	HOTKEY_FAST_FORWARD,        /* held: the game runs fast_forward_speed frames a frame */
 	HOTKEYS
 };
 
@@ -51,6 +52,7 @@ typedef struct
 	/* [game] */
 	bool free_play;
 	bool arcade_timing;
+	int fast_forward_speed;     /* 2-16 */
 	/* [window] */
 	int scale;
 	bool fullscreen;

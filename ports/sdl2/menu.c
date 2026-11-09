@@ -43,9 +43,11 @@ enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NA
 
 enum
 {
-	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN,
-	ITEM_CONTROLS, ITEM_FAST_FORWARD, ITEM_QUIT,
-	ITEM_DEFAULTS, ITEM_BACK      /* (the controls page's, after its actions) */
+	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_VOLUME, ITEM_SCALE,
+	ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT,
+	ITEM_DEFAULTS, ITEM_BACK,     /* (the controls page's, after its actions) */
+	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
+	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
 
 static const char *const action_labels[ACTIONS] = {
@@ -68,16 +70,16 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
-			ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_FAST_FORWARD, ITEM_QUIT };
+			ITEM_FAST_SPEED, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
-			if (main_items[index] != ITEM_FAST_FORWARD || host.debug)
-				items[item_count++] = main_items[index];
+			items[item_count++] = main_items[index];
 	}
 	else
 	{
 		for (int action = 0; action < ACTIONS; action++)
-			items[item_count++] = 100 + action;
+			items[item_count++] = ITEM_ACTION + action;
+		items[item_count++] = ITEM_FAST_FORWARD_KEY;
 		items[item_count++] = ITEM_DEFAULTS;
 		items[item_count++] = ITEM_BACK;
 	}
@@ -149,6 +151,22 @@ static void change(int item, int step, bool wrap)
 		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
 		host.apply_timing();
 		break;
+	case ITEM_FAST_SPEED:
+	{
+		/* the speeds the menu offers (the file may hold any of 2-16: the next one up or down from it) */
+		static const int speeds[] = { 2, 3, 4, 8, 16 };
+		const int count = (int)(sizeof(speeds) / sizeof(speeds[0]));
+		int at = 0;
+
+		while (at < count - 1 && speeds[at] < in_use->fast_forward_speed)
+			at++;
+		if (step > 0 && speeds[at] <= in_use->fast_forward_speed)
+			at = at == count - 1 ? (wrap ? 0 : at) : at + 1;
+		else if (step < 0)
+			at = at > 0 ? at - 1 : 0;
+		in_use->fast_forward_speed = file->fast_forward_speed = speeds[at];
+		break;
+	}
 	case ITEM_VOLUME:
 		in_use->volume = wrap && in_use->volume >= 100 ? 0 : SDL_clamp(in_use->volume + step * 10, 0, 100);
 		file->volume = in_use->volume;
@@ -162,9 +180,6 @@ static void change(int item, int step, bool wrap)
 		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
 		host.apply_window();
 		break;
-	case ITEM_FAST_FORWARD:
-		*host.fast_forward = !*host.fast_forward;
-		return;    /* (not a setting of the file) */
 	default:
 		return;
 	}
@@ -201,6 +216,13 @@ static void choose(int item)
 		memcpy(host.options->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
 		memcpy(host.file->keys[player], defaults.keys[player], sizeof(defaults.keys[player]));
 		memcpy(host.file->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
+		for (settings *s = host.options; s; s = s == host.options ? host.file : NULL)
+		{
+			memcpy(s->hot_keys[HOTKEY_FAST_FORWARD], defaults.hot_keys[HOTKEY_FAST_FORWARD],
+				sizeof(defaults.hot_keys[HOTKEY_FAST_FORWARD]));
+			memcpy(s->hot_buttons[HOTKEY_FAST_FORWARD], defaults.hot_buttons[HOTKEY_FAST_FORWARD],
+				sizeof(defaults.hot_buttons[HOTKEY_FAST_FORWARD]));
+		}
 		save();
 		break;
 	}
@@ -210,9 +232,9 @@ static void choose(int item)
 		build_items();
 		break;
 	default:
-		if (item >= 100)
+		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
 		{
-			capture = item - 100;
+			capture = item;
 			capture_frames = CAPTURE_FRAMES;
 		}
 		else
@@ -257,12 +279,24 @@ static void navigate(int nav)
 
 /* ---- remapping: the next key or button is the action's ---- */
 
+/* the keys and buttons of the item being remapped, in 's' */
+static SDL_Scancode *captured_keys(settings *s)
+{
+	return capture == ITEM_FAST_FORWARD_KEY ? s->hot_keys[HOTKEY_FAST_FORWARD] : s->keys[player][capture - ITEM_ACTION];
+}
+
+static pad_input *captured_buttons(settings *s)
+{
+	return capture == ITEM_FAST_FORWARD_KEY ? s->hot_buttons[HOTKEY_FAST_FORWARD]
+		: s->buttons[player][capture - ITEM_ACTION];
+}
+
 static void bind_key(SDL_Scancode key)
 {
 	SDL_Scancode keys[BINDINGS_MAX] = { key };
 
-	memcpy(host.options->keys[player][capture], keys, sizeof(keys));
-	memcpy(host.file->keys[player][capture], keys, sizeof(keys));
+	memcpy(captured_keys(host.options), keys, sizeof(keys));
+	memcpy(captured_keys(host.file), keys, sizeof(keys));
 	capture = -1;
 	save();
 }
@@ -271,8 +305,8 @@ static void bind_pad(pad_input input)
 {
 	pad_input inputs[BINDINGS_MAX] = { input };
 
-	memcpy(host.options->buttons[player][capture], inputs, sizeof(inputs));
-	memcpy(host.file->buttons[player][capture], inputs, sizeof(inputs));
+	memcpy(captured_buttons(host.options), inputs, sizeof(inputs));
+	memcpy(captured_buttons(host.file), inputs, sizeof(inputs));
 	capture = -1;
 	save();
 }
@@ -476,11 +510,14 @@ static void fill(uint32_t *out, int x0, int y0, int x1, int y1, uint32_t colour)
 static const char *item_label(int item)
 {
 	static const char *const labels[] = {
-		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "VOLUME", "WINDOW SIZE", "FULL SCREEN",
-		"CONTROLS", "FAST FORWARD", "QUIT", "RESET TO DEFAULTS", "BACK"
+		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "VOLUME", "WINDOW SIZE",
+		"FULL SCREEN",
+		"CONTROLS", "QUIT", "RESET TO DEFAULTS", "BACK"
 	};
 
-	return item >= 100 ? action_labels[item - 100] : labels[item];
+	if (item == ITEM_FAST_FORWARD_KEY)
+		return "FAST FWD";
+	return item >= ITEM_ACTION ? action_labels[item - ITEM_ACTION] : labels[item];
 }
 
 static void item_value(int item, char *out, size_t size)
@@ -496,6 +533,9 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_TIMING:
 		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");
 		break;
+	case ITEM_FAST_SPEED:
+		snprintf(out, size, "%dX", s->fast_forward_speed);
+		break;
 	case ITEM_VOLUME:
 		snprintf(out, size, "%d%%", s->volume);
 		break;
@@ -505,21 +545,21 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_FULLSCREEN:
 		snprintf(out, size, "%s", s->fullscreen ? "ON" : "OFF");
 		break;
-	case ITEM_FAST_FORWARD:
-		snprintf(out, size, "%s", *host.fast_forward ? "ON" : "OFF");
-		break;
 	case ITEM_CONTROLS:
 		snprintf(out, size, ">");
 		break;
 	default:
-		if (item >= 100)
+		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
 		{
+			const bool hotkey = item == ITEM_FAST_FORWARD_KEY;
 			char key[32];
 
-			key_label(s->keys[player][item - 100][0], key, sizeof(key));
+			key_label(hotkey ? s->hot_keys[HOTKEY_FAST_FORWARD][0] : s->keys[player][item - ITEM_ACTION][0], key,
+				sizeof(key));
 			if (strlen(key) > 10)
 				key[10] = '\0';
-			snprintf(out, size, "%s / %s", key, pad_label(s->buttons[player][item - 100][0]));
+			snprintf(out, size, "%s / %s", key,
+				pad_label(hotkey ? s->hot_buttons[HOTKEY_FAST_FORWARD][0] : s->buttons[player][item - ITEM_ACTION][0]));
 		}
 		break;
 	}
@@ -555,7 +595,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		const bool chosen = index == selected;
 		char value[48];
 
-		if (items[index] == ITEM_DEFAULTS || items[index] == ITEM_QUIT)
+		if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY)
 			row++;    /* (a gap before them) */
 		if (chosen)
 			put_char(out, PANEL_LEFT + 1, row, '>', GOLD);

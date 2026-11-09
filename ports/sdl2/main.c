@@ -37,8 +37,7 @@
  *          F11 or Alt+Enter full screen.
  *    The options menu (menu.h): the gamepad's View button or Escape. The game is paused while it is open; Quit is
  *          there.
- *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
- *          fast forward on and off.
+ *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
  */
 #include "cave/cheats.h"
 #include "cave/free_play.h"
@@ -61,6 +60,7 @@ static settings options, file_options;
 static char settings_path[1024];
 static SDL_Window *window;
 static int running = 1;
+static bool fast_forwarding;
 
 /* ---- the gamepads ---- */
 
@@ -148,10 +148,11 @@ static bool hotkey_down(int hotkey)
 	return false;
 }
 
-/* A hotkey pressed (not held from before): the reset, or the reset into the test mode */
+/* A hotkey pressed (not held from before): the reset, or the reset into the test mode (fast forward is held: the
+   main loop asks hotkey_down) */
 static void hotkeys(void)
 {
-	for (int hotkey = 0; hotkey < HOTKEYS; hotkey++)
+	for (int hotkey = HOTKEY_RESET; hotkey <= HOTKEY_SERVICE_MENU; hotkey++)
 	{
 		const bool down = hotkey_down(hotkey);
 
@@ -283,66 +284,6 @@ static void audio_queue(void)
 	}
 }
 
-/* ==== DEBUG KEYS: begin ===============================================================================================
-   Autofire and fast forward, for testing only. Neither is the arcade's: the game's own rapid fire setting (the test
-   mode's) is what the finished port uses. To take them out, set DONPACHI_DEBUG_KEYS to 0, or delete everything between
-   "DEBUG KEYS: begin" and "DEBUG KEYS: end" here and in main(): nothing else uses them.
-     autofire:     while V (player 1) or W (player 2) is held, the shot button is pressed DEBUG_AUTOFIRE_ON frames, then
-                   released DEBUG_AUTOFIRE_OFF frames (taps, not a hold: holding the shot gives the laser). C and Q
-                   stay button 3, the game's own rapid fire when the test mode sets "C BUTTON FULL-AUTO".
-     fast forward: Tab turns it on and off (the window's title says when it is on); while on, the game runs as fast as
-                   it can, drawn one frame in DEBUG_FAST_DRAW */
-#ifndef DONPACHI_DEBUG_KEYS
-#define DONPACHI_DEBUG_KEYS 1
-#endif
-#if DONPACHI_DEBUG_KEYS
-#define DEBUG_AUTOFIRE_ON   2
-#define DEBUG_AUTOFIRE_OFF  2
-#define DEBUG_FAST_DRAW     8
-
-static const SDL_Scancode debug_autofire_keys[2] = { SDL_SCANCODE_V, SDL_SCANCODE_W };
-static unsigned debug_autofire_frame[2];
-
-/* The inputs (active low) with the autofire keys' taps */
-static void debug_autofire(void)
-{
-	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
-	uint16_t *const ports[2] = { &cave_board.in0, &cave_board.in1 };
-
-	for (int player = 0; player < 2; player++)
-	{
-		if (!keys[debug_autofire_keys[player]])
-		{
-			debug_autofire_frame[player] = 0;
-			continue;
-		}
-		if (debug_autofire_frame[player] < DEBUG_AUTOFIRE_ON)
-			*ports[player] &= (uint16_t)~CAVE_BUTTON1;
-		debug_autofire_frame[player] = (debug_autofire_frame[player] + 1u) % (DEBUG_AUTOFIRE_ON + DEBUG_AUTOFIRE_OFF);
-	}
-}
-
-static bool debug_fast_forward, debug_fast_forward_shown;
-
-/* Tab pressed (or the menu's entry): fast forward on, or off again */
-static void debug_toggle_fast_forward(void)
-{
-	debug_fast_forward = !debug_fast_forward;
-}
-
-/* the window's title and the sound, as fast forward is (once a frame) */
-static void debug_show_fast_forward(void)
-{
-	if (debug_fast_forward == debug_fast_forward_shown)
-		return;
-	debug_fast_forward_shown = debug_fast_forward;
-	if (!debug_fast_forward && audio)
-		audio_restart();
-	SDL_SetWindowTitle(window, debug_fast_forward ? "DonPachi (fast forward)" : "DonPachi");
-}
-#endif
-/* ==== DEBUG KEYS: end ================================================================================================= */
-
 /* ---- the EEPROM's file: loaded before the first frame, saved soon after the game changes it, and at the end ---- */
 
 #define EEPROM_CHECK_FRAMES 60u    /* how often it is checked for changes: about a second */
@@ -463,9 +404,6 @@ int main(int argc, char **argv)
 	bool settings_written;
 	const char *problem;
 	Uint64 next, period;
-#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
-	unsigned debug_fast_frames = 0;
-#endif                     /* ---- DEBUG KEYS: end ---- */
 
 	/* the settings file, then the command line over it */
 	settings_defaults(&options);
@@ -561,20 +499,12 @@ int main(int argc, char **argv)
 	if (options.arcade_timing)
 		program_after_vblank = draw_picture;
 	{
-		static bool no_fast_forward;
 		menu_host menu = { 0 };
 
 		menu.options = &options;
 		menu.file = &file_options;
 		menu.path = settings_path;
 		menu.pads = pads;
-#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
-		menu.debug = true;
-		menu.fast_forward = &debug_fast_forward;
-#else
-		menu.fast_forward = &no_fast_forward;
-#endif                     /* ---- DEBUG KEYS: end ---- */
-		(void)no_fast_forward;
 		menu.reset = menu_reset;
 		menu.apply_window = menu_apply_window;
 		menu.apply_timing = menu_apply_timing;
@@ -622,10 +552,6 @@ int main(int argc, char **argv)
 
 				if (key == SDLK_ESCAPE)
 					menu_open();
-#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
-				else if (key == SDLK_TAB)
-					debug_toggle_fast_forward();
-#endif                     /* ---- DEBUG KEYS: end ---- */
 			}
 		}
 		if (menu_just_closed())
@@ -647,32 +573,33 @@ int main(int argc, char **argv)
 			goto pace;
 		}
 		hotkeys();
-		read_keys();
-		if (options.free_play)
-			free_play_inputs();
-#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
-		debug_autofire();
-		debug_show_fast_forward();
-		if (debug_fast_forward)
 		{
-			program_run_frame();
-			cheats_apply();
-			cave_sound_drop();    /* (no sound while fast forwarding) */
-			video_latch_sprites();
-			if (++debug_fast_frames % DEBUG_FAST_DRAW == 0)
+			/* fast forward, while its key or button is held: fast_forward_speed of the game's frames in this one,
+			   the last one shown, no sound */
+			const bool fast = hotkey_down(HOTKEY_FAST_FORWARD);
+			const int frames = fast ? options.fast_forward_speed : 1;
+
+			if (fast != fast_forwarding)
 			{
-				if (!options.arcade_timing)
-					draw_picture();
-				show_picture(picture);
+				fast_forwarding = fast;
+				SDL_SetWindowTitle(window, fast ? "DonPachi (fast forward)" : "DonPachi");
+				if (!fast && audio)
+					audio_restart();
 			}
-			next = SDL_GetPerformanceCounter() + period;    /* (normal speed again from when it is turned off) */
-			continue;
+			for (int frame = 0; frame < frames; frame++)
+			{
+				read_keys();
+				if (options.free_play)
+					free_play_inputs();
+				program_run_frame();
+				cheats_apply();
+				if (fast)
+					cave_sound_drop();
+				else
+					audio_queue();
+				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
+			}
 		}
-#endif                     /* ---- DEBUG KEYS: end ---- */
-		program_run_frame();
-		cheats_apply();
-		audio_queue();
-		video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 		if (!options.arcade_timing)
 			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
 		show_picture(picture);

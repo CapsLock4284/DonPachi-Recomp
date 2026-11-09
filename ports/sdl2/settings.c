@@ -24,7 +24,7 @@ static const char *const action_names[ACTIONS] = {
 	"up", "down", "left", "right", "shot", "bomb", "button_c", "start", "coin", "service"
 };
 
-static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu" };
+static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu", "fast_forward" };
 
 static const char *const action_notes[ACTIONS] = {
 	NULL, NULL, NULL, NULL,
@@ -67,6 +67,7 @@ void settings_defaults(settings *s)
 	memset(s, 0, sizeof(*s));
 	s->free_play = true;
 	s->arcade_timing = false;
+	s->fast_forward_speed = 4;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->sound = true;
@@ -86,6 +87,8 @@ void settings_defaults(settings *s)
 	}
 	s->hot_keys[HOTKEY_RESET][0] = SDL_SCANCODE_F3;
 	s->hot_keys[HOTKEY_SERVICE_MENU][0] = SDL_SCANCODE_F4;
+	s->hot_keys[HOTKEY_FAST_FORWARD][0] = SDL_SCANCODE_TAB;
+	s->hot_buttons[HOTKEY_FAST_FORWARD][0] = (pad_input){ PAD_BUTTON, SDL_CONTROLLER_BUTTON_LEFTSHOULDER };
 }
 
 /* ---- reading ---- */
@@ -206,6 +209,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->free_play);
 		if (!SDL_strcasecmp(name, "arcade_timing"))
 			return parse_bool(value, &s->arcade_timing);
+		if (!SDL_strcasecmp(name, "fast_forward_speed"))
+			return parse_int(value, 2, 16, &s->fast_forward_speed);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "window"))
@@ -372,7 +377,9 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "free_play = %s\n", bool_text(s->free_play));
 	fputs("; false: each picture shown as soon as the game's frame is done (the fastest response: movement and shots\n"
 		"; on the 2nd picture). true: when the board shows it (as MAME: the 3rd). The game runs the same either way\n", file);
-	fprintf(file, "arcade_timing = %s\n\n", bool_text(s->arcade_timing));
+	fprintf(file, "arcade_timing = %s\n", bool_text(s->arcade_timing));
+	fputs("; while the fast forward key or button is held ([hotkeys]): the game's frames a frame, 2 to 16\n", file);
+	fprintf(file, "fast_forward_speed = %d\n\n", s->fast_forward_speed);
 
 	fputs("[window]\n", file);
 	fputs("; the window's size, in times the game's 240 x 320\n", file);
@@ -396,6 +403,11 @@ const char *settings_save(const settings *s, const char *path)
 	write_keys(file, s->hot_keys[HOTKEY_SERVICE_MENU]);
 	fputs("\nservice_menu_gamepad = ", file);
 	write_buttons(file, s->hot_buttons[HOTKEY_SERVICE_MENU]);
+	fputs("\n; held: fast forward ([game] fast_forward_speed), no sound meanwhile\n", file);
+	fputs("fast_forward = ", file);
+	write_keys(file, s->hot_keys[HOTKEY_FAST_FORWARD]);
+	fputs("\nfast_forward_gamepad = ", file);
+	write_buttons(file, s->hot_buttons[HOTKEY_FAST_FORWARD]);
 	fputs("\n\n", file);
 
 	fputs("[files]\n", file);
@@ -425,7 +437,7 @@ const char *settings_save(const settings *s, const char *path)
 			fputs("; The first gamepad plugged in is player 1's, the second player 2's. Buttons as on an Xbox pad:\n"
 				"; a, b, x, y, back (View), start, guide, leftshoulder, rightshoulder, lefttrigger, righttrigger,\n"
 				"; leftstick, rightstick, dpup, dpdown, dpleft, dpright. Up to 4 an action, with commas; none for none.\n"
-				"; (back is kept free for the options menu, still to come)\n", file);
+				"; (back opens the options menu; leftshoulder is fast forward, in [hotkeys])\n", file);
 		for (int action = 0; action < ACTIONS; action++)
 		{
 			fprintf(file, "%s = ", action_names[action]);

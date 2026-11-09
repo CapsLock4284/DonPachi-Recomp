@@ -47,6 +47,7 @@ enum
 	ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT,
 	ITEM_DEFAULTS, ITEM_BACK,     /* (the controls page's, after its actions) */
 	ITEM_GRAPHICS, ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
+	ITEM_DEADZONE,                /* the player's left stick: how far before it counts */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
@@ -89,6 +90,7 @@ static void build_items(void)
 		for (int action = 0; action < ACTIONS; action++)
 			items[item_count++] = ITEM_ACTION + action;
 		items[item_count++] = ITEM_FAST_FORWARD_KEY;
+		items[item_count++] = ITEM_DEADZONE;
 		items[item_count++] = ITEM_DEFAULTS;
 		items[item_count++] = ITEM_BACK;
 	}
@@ -203,6 +205,10 @@ static void change(int item, int step, bool wrap)
 		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
 		host.apply_window();
 		break;
+	case ITEM_DEADZONE:
+		in_use->stick_dead[player] = file->stick_dead[player] =
+			wrap && in_use->stick_dead[player] >= 95 ? 5 : SDL_clamp(in_use->stick_dead[player] + step * 5, 5, 95);
+		break;
 	case ITEM_SCALING:
 		in_use->scaling = file->scaling = cycle(in_use->scaling, VIDEO_SCALINGS, step, wrap);
 		break;
@@ -262,6 +268,8 @@ static void choose(int item)
 		memcpy(host.options->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
 		memcpy(host.file->keys[player], defaults.keys[player], sizeof(defaults.keys[player]));
 		memcpy(host.file->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
+		host.options->stick_dead[player] = host.file->stick_dead[player] = defaults.stick_dead[player];
+		host.options->left_stick[player] = host.file->left_stick[player] = defaults.left_stick[player];
 		for (settings *s = host.options; s; s = s == host.options ? host.file : NULL)
 		{
 			memcpy(s->hot_keys[HOTKEY_FAST_FORWARD], defaults.hot_keys[HOTKEY_FAST_FORWARD],
@@ -308,7 +316,7 @@ static void navigate(int nav)
 		break;
 	case NAV_LEFT:
 	case NAV_RIGHT:
-		if (page == PAGE_CONTROLS)
+		if (page == PAGE_CONTROLS && item != ITEM_DEADZONE)
 			player ^= 1;
 		else
 			change(item, nav == NAV_RIGHT ? 1 : -1, false);
@@ -563,8 +571,8 @@ static const char *item_label(int item)
 	static const char *const labels[] = {
 		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "HITBOX", "VOLUME",
 		"WINDOW SIZE", "FULL SCREEN",
-		"CONTROLS", "QUIT", "RESET TO DEFAULTS", "BACK",
-		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE"
+		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
+		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE"
 	};
 
 	if (item == ITEM_FAST_FORWARD_KEY)
@@ -603,6 +611,9 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:
 		snprintf(out, size, ">");
+		break;
+	case ITEM_DEADZONE:
+		snprintf(out, size, "%d%%", s->stick_dead[player]);
 		break;
 	case ITEM_SCALING:
 		snprintf(out, size, "%s", settings_scaling_names[s->scaling]);
@@ -701,7 +712,6 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	}
 	else
 	{
-		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHANGE   <>: PLAYER", GREY);
-		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 1, "A:CHANGE <>:PLAYER B:BACK", GREY);
 	}
 }

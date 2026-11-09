@@ -37,7 +37,13 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 - [ ] **Side panels ("widgets")**: the empty space left and right of the picture on a wide screen, filled with information about the game being played, drawn as nice panels (like the M2 ShotTriggers ports' gadgets)
   - [ ] **Score graph** against the #1 high score as the run goes on, with the stage marks and a percentage (as the RANKGRAPH picture: the run's line, the 50% and 100% lines, "ST" to "NOW")
+  - [ ] **Chain gauge** (the Get Point System): the time left to keep the chain going, as a bar that empties over the 30 frames after each kill, with the hits and the chain's points so far
   - [ ] **Hit combo counter**, with the run's best combo
+  - The game's chain, found (`func_0066C4` scores a kill, `006E3A` counts down once a frame), player 1 / player 2:
+    - `$101742` / `$101760`: the chain timer, set to 30 on each kill, down 1 a frame; a kill while it is above 0 goes on with the chain, at 0 the chain ends
+    - `$10174E` / `$10176C`: the hits of the chain (cleared 80 frames after the last kill: `$101744` / `$101762`)
+    - `$101754` / `$101772`: the best chain (the TOP PLAYERS' "MAX GP COUNTS")
+    - `$101746` / `$101764`: the chain's points so far (long); `$10173A`: the last kill's base value
   - [ ] **Lives and bombs** left
   - [ ] **Stage and loop** (area 1-10), with the **stage's progress** as a bar (its scroll position)
   - [ ] **Input display**: the stick and the buttons held, as on a stream overlay

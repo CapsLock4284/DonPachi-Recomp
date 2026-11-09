@@ -36,6 +36,7 @@ add_library(donpachi_runtime STATIC
 	runtime/src/inflate.c
 	runtime/src/cheats.c
 	runtime/src/sound.c
+	runtime/src/free_play.c
 )
 target_include_directories(donpachi_runtime PUBLIC runtime/include PRIVATE runtime/src)
 if(NOT MSVC)

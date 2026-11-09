@@ -5,17 +5,21 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--eeprom PATH] [--arcade-timing] [--cheat NAME ...]
+ *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH] [--arcade-timing]
+ *                    [--cheat NAME ...]
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
  *      --no-sound      plays no sound
+ *      --no-free-play  the coins as on the board (5, 6). By default Start drops in a coin first when the game has no
+ *                      credit (cave/free_play.h): DonPachi itself has no free play setting
  *      --arcade-timing shows each picture when the board does: as the game's vblank interrupt returns, with the
  *                      sprites latched as VBLANK began (as MAME). Without it (the default) each picture is shown as
  *                      soon as the game's frame is done, a frame sooner: movement and shots on the 2nd picture after
  *                      the controls are read instead of the 3rd, bombs on the 1st instead of the 2nd. The game runs the
  *                      same either way (tools/latency.py measures both)
  *      --eeprom PATH   where the EEPROM is kept: the test mode's settings (default: donpachi.eeprom beside the
- *                      program). 128 bytes, as MAME's nvram/donpachi/eeprom, which can be copied there
+ *                      program). 128 bytes, as MAME's nvram/donpachi/eeprom, which can be copied there. A new one
+ *                      starts from the ROM set's with the home defaults (eeprom_home_defaults)
  *      --cheat NAME    turns on the cheat of the cheat file whose name holds NAME ("p1 infinite lives"), as many
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
@@ -24,10 +28,15 @@
  *    Keys: arrows move, Z shot, X bomb, C button 3, 1 start, 5 coin; player 2: R F D G, A S Q, 2, 6;
  *          F2 the test mode (held while the game starts, as on the board), F11 or Alt+Enter full screen, Escape
  *          quits.
+ *    Gamepads (SDL's game controllers; the first plugged in is player 1, the second player 2; the Xbox layout's
+ *          names): d-pad or left stick move, X shot (held: the laser), A bomb, B button 3 (the board's rapid fire,
+ *          with "C BUTTON FULL-AUTO", the home default), Start start, View (Back) coin. They and the keys work
+ *          together.
  *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
  *          fast forward on and off.
  */
 #include "cave/cheats.h"
+#include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
 #include "cave/rom_set.h"
@@ -57,11 +66,89 @@ static const key_binding bindings[] = {
 	{ SDL_SCANCODE_2, 1, CAVE_START }, { SDL_SCANCODE_6, 1, CAVE_COIN },
 };
 
-/* The inputs from the keys held: active low */
+/* ---- the gamepads ---- */
+
+typedef struct
+{
+	SDL_GameControllerButton button;
+	uint16_t bit;
+} pad_binding;
+
+/* (SDL names the buttons by where they are: the Xbox pad's own names) */
+static const pad_binding pad_bindings[] = {
+	{ SDL_CONTROLLER_BUTTON_DPAD_UP, CAVE_UP }, { SDL_CONTROLLER_BUTTON_DPAD_DOWN, CAVE_DOWN },
+	{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, CAVE_LEFT }, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT, CAVE_RIGHT },
+	{ SDL_CONTROLLER_BUTTON_X, CAVE_BUTTON1 },       /* shot; held, the laser */
+	{ SDL_CONTROLLER_BUTTON_A, CAVE_BUTTON2 },       /* bomb */
+	{ SDL_CONTROLLER_BUTTON_B, CAVE_BUTTON3 },       /* button C: the board's rapid fire ("C BUTTON FULL-AUTO") */
+	{ SDL_CONTROLLER_BUTTON_START, CAVE_START },
+	{ SDL_CONTROLLER_BUTTON_BACK, CAVE_COIN },       /* (View) */
+};
+
+#define PAD_STICK_DEAD 13000    /* how far the left stick goes before it counts as a direction (of 32767): ~40% */
+
+static SDL_GameController *pads[2];    /* player 1's, player 2's: the first two plugged in */
+
+/* A gamepad plugged in (SDL also tells of those there at the start): the first free player's */
+static void pad_added(int device)
+{
+	SDL_GameController *pad;
+
+	for (int player = 0; player < 2; player++)
+		if (pads[player] && SDL_JoystickGetDeviceInstanceID(device)
+				== SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[player])))
+			return;    /* (already open) */
+	for (int player = 0; player < 2; player++)
+		if (!pads[player])
+		{
+			if ((pad = SDL_GameControllerOpen(device)) == NULL)
+				fprintf(stderr, "gamepad %d: %s\n", device, SDL_GetError());
+			pads[player] = pad;
+			return;
+		}
+}
+
+static void pad_removed(SDL_JoystickID instance)
+{
+	for (int player = 0; player < 2; player++)
+		if (pads[player] && SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pads[player])) == instance)
+		{
+			SDL_GameControllerClose(pads[player]);
+			pads[player] = NULL;
+		}
+}
+
+static uint16_t pad_inputs(SDL_GameController *pad)
+{
+	uint16_t pressed = 0;
+	int x, y;
+
+	if (!pad)
+		return 0;
+	for (size_t index = 0; index < sizeof(pad_bindings) / sizeof(pad_bindings[0]); index++)
+		if (SDL_GameControllerGetButton(pad, pad_bindings[index].button))
+			pressed |= pad_bindings[index].bit;
+	x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
+	y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+	if (x < -PAD_STICK_DEAD)
+		pressed |= CAVE_LEFT;
+	else if (x > PAD_STICK_DEAD)
+		pressed |= CAVE_RIGHT;
+	if (y < -PAD_STICK_DEAD)
+		pressed |= CAVE_UP;
+	else if (y > PAD_STICK_DEAD)
+		pressed |= CAVE_DOWN;
+	return pressed;
+}
+
+/* The inputs from the keys and the gamepads held: active low */
 static void read_keys(void)
 {
 	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
-	uint16_t pressed[2] = { 0, 0 };
+	uint16_t pressed[2];
+
+	pressed[0] = pad_inputs(pads[0]);
+	pressed[1] = pad_inputs(pads[1]);
 
 	for (size_t index = 0; index < sizeof(bindings) / sizeof(bindings[0]); index++)
 		if (keys[bindings[index].key])
@@ -197,6 +284,18 @@ static void debug_toggle_fast_forward(SDL_Window *window)
 static char eeprom_path[1024];
 static uint16_t eeprom_saved[CAVE_EEPROM_WORDS];
 
+/* The home defaults, for a new EEPROM: "C BUTTON FULL-AUTO" (test mode, configuration item 3: the board's own rapid
+   fire on button C). Words 1 and 4 as the test mode writes them when that is the only setting changed from the ROM
+   set's EEPROM: word 4's bit 2 is the setting (the game reads it at 034488 into $101287); word 1 goes from FFFB to
+   FFFF (the game does not check it) */
+static void eeprom_keep(bool always);
+
+static void eeprom_home_defaults(void)
+{
+	cave_board.eeprom.words[1] = 0xFFFFu;
+	cave_board.eeprom.words[4] |= 0x0004u;
+}
+
 static void eeprom_open(const char *path)
 {
 	if (path)
@@ -208,8 +307,19 @@ static void eeprom_open(const char *path)
 		snprintf(eeprom_path, sizeof(eeprom_path), "%sdonpachi.eeprom", base ? base : "");
 		SDL_free(base);
 	}
-	if (cave_eeprom_load(eeprom_path) < 0)
+	switch (cave_eeprom_load(eeprom_path))
+	{
+	case 1:
+		break;    /* (the player's own settings) */
+	case 0:
+		eeprom_home_defaults();
+		eeprom_keep(true);
+		break;
+	default:
 		fprintf(stderr, "%s is not an EEPROM of 128 bytes: the ROM set's is used (and saved over it)\n", eeprom_path);
+		eeprom_home_defaults();
+		break;
+	}
 	memcpy(eeprom_saved, cave_board.eeprom.words, sizeof(eeprom_saved));
 }
 
@@ -253,7 +363,7 @@ int main(int argc, char **argv)
 	const char *rom = "rom";
 	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
 	const char *eeprom = NULL;
-	int cheat_count = 0, list_cheats = 0, sound = 1, arcade_timing = 0;
+	int cheat_count = 0, list_cheats = 0, sound = 1, arcade_timing = 0, free_play = 1;
 	int scale = 3;
 	const char *problem;
 	SDL_Window *window;
@@ -275,6 +385,8 @@ int main(int argc, char **argv)
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--no-sound"))
 			sound = 0;
+		else if (!strcmp(argv[index], "--no-free-play"))
+			free_play = 0;
 		else if (!strcmp(argv[index], "--arcade-timing"))
 			arcade_timing = 1;
 		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
@@ -284,7 +396,7 @@ int main(int argc, char **argv)
 	}
 	if (scale < 1)
 		scale = 1;
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
 		return 1;
@@ -346,6 +458,10 @@ int main(int argc, char **argv)
 		{
 			if (event.type == SDL_QUIT)
 				running = 0;
+			else if (event.type == SDL_CONTROLLERDEVICEADDED)
+				pad_added(event.cdevice.which);
+			else if (event.type == SDL_CONTROLLERDEVICEREMOVED)
+				pad_removed(event.cdevice.which);
 			else if (event.type == SDL_KEYDOWN && !event.key.repeat)
 			{
 				const SDL_Keycode key = event.key.keysym.sym;
@@ -362,6 +478,8 @@ int main(int argc, char **argv)
 			}
 		}
 		read_keys();
+		if (free_play)
+			free_play_inputs();
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
 		debug_autofire();
 		if (debug_fast_forward)

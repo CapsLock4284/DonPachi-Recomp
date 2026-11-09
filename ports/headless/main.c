@@ -22,10 +22,12 @@
  *      --list-cheats   lists the cheat file's cheats
  *      --wav FILE      writes the sound (48 kHz, 16-bit mono WAV)
  *      --eeprom FILE   the EEPROM from FILE, if there is one, and back to it at the end (as the window's port)
+ *      --free-play     Start drops in a coin first when there is no credit (cave/free_play.h), as the window's port
  *      --arcade-timing the pictures drawn when the board's would be (program.h's program_after_vblank): a frame
  *                      later than the default, which draws each as soon as the game's frame is done
  */
 #include "cave/cheats.h"
+#include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
 #include "cave/rom_set.h"
@@ -154,7 +156,7 @@ static void draw_arcade_picture(void)
 
 int main(int argc, char **argv)
 {
-	int arcade_timing = 0;
+	int arcade_timing = 0, free_play = 0;
 	FILE *wav = NULL;
 	const char *eeprom = NULL;
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
@@ -210,6 +212,8 @@ int main(int argc, char **argv)
 			}
 			fseek(wav, 44L, SEEK_SET);
 		}
+		else if (!strcmp(argv[index], "--free-play"))
+			free_play = 1;
 		else if (!strcmp(argv[index], "--arcade-timing"))
 			arcade_timing = 1;
 		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
@@ -266,6 +270,8 @@ int main(int argc, char **argv)
 					pressed[inputs[input].player == 2] |= (uint16_t)inputs[input].bits;
 			cave_board.in0 = (uint16_t)~pressed[0];
 			cave_board.in1 = (uint16_t)~pressed[1];
+			if (free_play)
+				free_play_inputs();
 		}
 		program_run_frame();
 		cheats_apply();

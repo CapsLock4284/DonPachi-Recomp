@@ -50,6 +50,9 @@ What DonPachi does that TMNT's code does not, and that the core does not take:
    code starts with every register 0 (they hold nothing the game uses then), so it takes no parameters; so do the
    exception handlers (CRASH_HANDLERS), whose crash screen shows the registers they saved.
 
+9. A routine that returns for its caller too ("addq.w #4, A7; rts"): the core's LEFT_CALLER register, which its V60
+   profile has, is given to the 68000's too.
+
 And the calls MANUAL names: "jsr (A1)" at 012D22 runs the object types' init routines, "jmp (A1)" at 012D86 their
 routines at +4, and "jmp (A0)" at 02D9A2 the stage scripts' callbacks listed in build/callbacks.txt.
 
@@ -220,6 +223,12 @@ def depths(program_object, entry, body):
 # the instructions that save A7 itself to RAM: the exception handlers' "movem.l D0-D7/A0-A7, $100f4c.l", for the
 # crash screen that shows the registers. C has no stack pointer to save: the long A7 goes to is 0 instead
 SP_STORES = {0x0364AE, 0x0364C8, 0x0364E2, 0x0364FC, 0x036516}
+# 9. A routine that drops its own return address and returns ("addq.w #4, A7; rts" at 0294C0, in 0294A6, which the
+# state routines call): it returns for its caller too. The core's stack pass marks that way out with its LEFT_CALLER
+# register (33), which its callers test after the call to return too; the V60 has it, the 68000's profile did not
+# ("writes register 33"): here the 68000 has it as well
+LEFT_CALLER_NOTE = "decompiler/stack.py LEFT_CALLER"
+
 # the exception handlers that start there (default, bus error, address error, illegal instruction, divide by zero):
 # they save the registers for the crash screen, which never comes back (03663C goes to the reset). Like the reset code,
 # each starts with every register 0: C keeps the registers in its own variables, so the crash screen shows zeros, and
@@ -473,6 +482,14 @@ def stack_slots(function):
             return None
         return change
 
+    def reads_caller_stack(block):
+        # (a pop of what the function never pushed reads the stack at or above its start, its return address first:
+        # 030662's "movea.l (A7)+, A5" after player 1's pass. "addq.w #4, A7" before a return, which drops the return
+        # address unread to return for the caller too (0294C0), reads none)
+        return any(isinstance(node, ir.Stack) and node.offset >= 0
+                   for statement in block.statements + [block.end]
+                   for expression in ir.statement_expressions(statement) for node in ir.walk(expression))
+
     def sets_sp_first(block):
         for statement in block.statements:
             if isinstance(statement, ir.SetReg) and statement.index == sp_index:
@@ -563,7 +580,7 @@ def stack_slots(function):
             return None
         for statement in statements + [block.end]:
             ir.map_statement(statement, opaque)
-        if sp > 0 and not (isinstance(block.end, ir.Return) and sp == cpu.current.return_address_bytes):
+        if sp > 0 and reads_caller_stack(block):
             above.append(block)    # (a list: blocks compare by their contents)
         if isinstance(block.end, ir.Return) and sp == cpu.current.return_address_bytes:
             function.exits_caller = True
@@ -617,7 +634,8 @@ def stack_slots(function):
         # (with copies, a return 4 bytes up is the pop without the push too, not a return for the caller as well:
         # 02FFCE's "movea.l (A7)+, A5" on the way out after player 1's pass, which pushed nothing)
         for label, block in function.blocks.items():
-            if getattr(block.end, "leaves_caller", False) and label in done and block not in above:
+            if getattr(block.end, "leaves_caller", False) and label in done and block not in above \
+                    and reads_caller_stack(block):
                 above.append(block)
     for block in above:
         # (the other way the game never goes: the pop without the push. The block stops before it)
@@ -903,4 +921,14 @@ def install():
     program_class.split_shared_code = split_shared_code
     from decompiler import stack as decompiler_stack
     decompiler_stack.slots = stack_slots
+    # (9. a routine that returns for its caller too: see LEFT_CALLER_NOTE)
+    import dataclasses
+    from decompiler import cpu as decompiler_cpu
+    left = decompiler_stack.LEFT_CALLER
+    m68000 = decompiler_cpu.M68000
+    if left not in m68000.registers:
+        decompiler_cpu.M68000 = dataclasses.replace(
+            m68000, registers=m68000.registers + (left,), register_bits={**m68000.register_bits, left: 32},
+            register_names={**m68000.register_names, left: "left_caller"},
+            variable_names={**m68000.variable_names, left: "left_caller"})
     found_class._call_tables_installed = True

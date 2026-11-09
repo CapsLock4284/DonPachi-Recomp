@@ -72,3 +72,8 @@ DECOMPILER = "m68000.decompile"
 
 # the whole program runs in supervisor mode, so a privileged instruction needs no check of the mode
 SUPERVISOR_CODE = [(0x000000, 0x080000)]
+
+# where the main loop waits for its next frame: wait_for_frame's loop (002ED6 "addq.b #1, $101263.l", 002EDC "tst.w
+# $100f44.l", 002EE2 "beq $2ed6") reads frame_flag, which the interrupt sets. The decompiler puts frame_wait() before
+# this instruction (the runtime's frame) and take_interrupts() after it (the runtime runs level_1_interrupt)
+FRAME_WAIT = 0x002EDC

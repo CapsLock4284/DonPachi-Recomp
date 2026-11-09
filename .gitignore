@@ -2,3 +2,6 @@ rom/
 assets/
 build/
 *.zip
+src/
+__pycache__/
+symbols - Copy*.txt

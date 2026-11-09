@@ -1,0 +1,96 @@
+<mamecheat version="1">
+
+  <cheat desc="Infinite Credits">
+    <script state="run">
+      <action>maincpu.pb@10139B=09</action>
+    </script>
+  </cheat>
+
+  <cheat desc="Select Area to follow Area 1"> <comment>After End Sequence, Second Loop starts from Area 1.</comment>
+    <parameter>
+      <item value="0x01">Area 2</item>
+      <item value="0x02">Area 3</item>
+      <item value="0x03">Area 4</item>
+      <item value="0x04">Area 5</item>
+      <item value="0x05">End Sequence</item>
+    </parameter>
+    <script state="on">
+      <action>temp0 =maincpu.md@35CC2</action>
+      <action>temp1 =maincpu.mw@35CC6</action>
+    </script>
+    <script state="run">
+      <action>maincpu.md@35CC2=4EB90004</action> <!-- This ROM cheat was made by syndromtr -->
+      <action>maincpu.mw@35CC6=4000</action>
+      <action>maincpu.mq@44000=4A7900101A426612</action>
+      <action>maincpu.mq@44008=4A7900101A40660A</action>
+      <action>maincpu.mw@44010=13FC</action>
+      <action>maincpu.mb@44012=00</action>
+      <action>maincpu.mb@44013=param</action>
+      <action>maincpu.mq@44014=00101A414E755279</action>
+      <action>maincpu.mq@4401C=00101A404E750000</action>
+    </script>
+    <script state="off">
+      <action>maincpu.md@35CC2=temp0</action>
+      <action>maincpu.mw@35CC6=temp1</action>
+      <action>maincpu.mq@44000=0</action>
+      <action>maincpu.mq@44008=0</action>
+      <action>maincpu.mq@44010=0</action>
+      <action>maincpu.mq@44018=0</action>
+      <action>maincpu.mq@44020=0</action>
+    </script>
+  </cheat>
+
+  <cheat desc=" "/>
+
+  <cheat desc="P1 Infinite Lives">
+    <script state="run">
+      <action>maincpu.pb@101A2F=07</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P1 Infinite Bombs">
+    <script state="run">
+      <action>maincpu.pb@10217B=04</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P1 Invincibility"> <comment>Enable when you have a shield</comment>
+    <script state="run">
+      <action>maincpu.pb@102196=02</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P1 Maximum Fire Power">
+    <script state="run">
+      <action>maincpu.pb@102179=04</action>
+    </script>
+  </cheat>
+
+  <cheat desc=" "/>
+
+  <cheat desc="P2 Infinite Lives">
+    <script state="run">
+      <action>maincpu.pb@101A31=07</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P2 Infinite Bombs">
+    <script state="run">
+      <action>maincpu.pb@1021BB=04</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P2 Invincibility"> <comment>Enable when you have a shield</comment>
+    <script state="run">
+      <action>maincpu.pb@1021D6=02</action>
+    </script>
+  </cheat>
+
+  <cheat desc="P2 Maximum Fire Power">
+    <script state="run">
+      <action>maincpu.pb@1021B9=04</action>
+    </script>
+  </cheat>
+
+</mamecheat>
+<!-- Cheat file downloaded from https://www.mamecheat.co.uk, see cheat.txt for list of contributors. -->

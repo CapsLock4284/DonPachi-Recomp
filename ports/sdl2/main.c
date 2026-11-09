@@ -5,10 +5,15 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--eeprom PATH] [--cheat NAME ...]
+ *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--eeprom PATH] [--arcade-timing] [--cheat NAME ...]
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
  *      --no-sound      plays no sound
+ *      --arcade-timing shows each picture when the board does: as the game's vblank interrupt returns, with the
+ *                      sprites latched as VBLANK began (as MAME). Without it (the default) each picture is shown as
+ *                      soon as the game's frame is done, a frame sooner: movement and shots on the 2nd picture after
+ *                      the controls are read instead of the 3rd, bombs on the 1st instead of the 2nd. The game runs the
+ *                      same either way (tools/latency.py measures both)
  *      --eeprom PATH   where the EEPROM is kept: the test mode's settings (default: donpachi.eeprom beside the
  *                      program). 128 bytes, as MAME's nvram/donpachi/eeprom, which can be copied there
  *      --cheat NAME    turns on the cheat of the cheat file whose name holds NAME ("p1 infinite lives"), as many
@@ -220,20 +225,38 @@ static void eeprom_keep(bool always)
 		memcpy(eeprom_saved, cave_board.eeprom.words, sizeof(eeprom_saved));
 }
 
+/* ---- the picture ---- */
+
+static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
+static SDL_Renderer *renderer;
+static SDL_Texture *texture;
+
+/* the picture from the board's memories, with the sprites latched last */
+static void draw_picture(void)
+{
+	video_draw(frame);
+	video_rotated(frame, picture);
+}
+
+static void show_picture(void)
+{
+	SDL_UpdateTexture(texture, NULL, picture, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+}
+
 #define CHEATS_MAX 16
 
 int main(int argc, char **argv)
 {
-	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
 	const char *rom = "rom";
 	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
 	const char *eeprom = NULL;
-	int cheat_count = 0, list_cheats = 0, sound = 1;
+	int cheat_count = 0, list_cheats = 0, sound = 1, arcade_timing = 0;
 	int scale = 3;
 	const char *problem;
 	SDL_Window *window;
-	SDL_Renderer *renderer;
-	SDL_Texture *texture;
 	Uint64 next, period;
 	int running = 1;
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
@@ -252,6 +275,8 @@ int main(int argc, char **argv)
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--no-sound"))
 			sound = 0;
+		else if (!strcmp(argv[index], "--arcade-timing"))
+			arcade_timing = 1;
 		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
 			eeprom = argv[++index];
 		else if (!strcmp(argv[index], "--scale") && index + 1 < argc)
@@ -299,6 +324,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	SDL_RenderSetLogicalSize(renderer, VIDEO_HEIGHT, VIDEO_WIDTH);
+	if (arcade_timing)
+		program_after_vblank = draw_picture;
 	if (sound)
 		audio_open();
 	if (audio)
@@ -345,12 +372,9 @@ int main(int argc, char **argv)
 			video_latch_sprites();
 			if (++debug_fast_frames % DEBUG_FAST_DRAW == 0)
 			{
-				video_draw(frame);
-				video_rotated(frame, picture);
-				SDL_UpdateTexture(texture, NULL, picture, VIDEO_HEIGHT * (int)sizeof(uint32_t));
-				SDL_RenderClear(renderer);
-				SDL_RenderCopy(renderer, texture, NULL, NULL);
-				SDL_RenderPresent(renderer);
+				if (!arcade_timing)
+					draw_picture();
+				show_picture();
 			}
 			next = SDL_GetPerformanceCounter() + period;    /* (normal speed again from when it is turned off) */
 			continue;
@@ -359,13 +383,10 @@ int main(int argc, char **argv)
 		program_run_frame();
 		cheats_apply();
 		audio_queue();
-		video_latch_sprites();
-		video_draw(frame);
-		video_rotated(frame, picture);
-		SDL_UpdateTexture(texture, NULL, picture, VIDEO_HEIGHT * (int)sizeof(uint32_t));
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
-		SDL_RenderPresent(renderer);
+		video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
+		if (!arcade_timing)
+			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
+		show_picture();
 
 		/* (the board's 57.55 frames a second: SDL_Delay may sleep a whole tick of the system's timer longer than
 		   asked, up to 15 ms on Windows, so it sleeps only to 2 ms before the frame's time, and the rest is waited

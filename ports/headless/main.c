@@ -22,6 +22,8 @@
  *      --list-cheats   lists the cheat file's cheats
  *      --wav FILE      writes the sound (48 kHz, 16-bit mono WAV)
  *      --eeprom FILE   the EEPROM from FILE, if there is one, and back to it at the end (as the window's port)
+ *      --arcade-timing the pictures drawn when the board's would be (program.h's program_after_vblank): a frame
+ *                      later than the default, which draws each as soon as the game's frame is done
  */
 #include "cave/cheats.h"
 #include "cave/machine.h"
@@ -141,8 +143,18 @@ static void finish_wav(FILE *wav)
 	fclose(wav);
 }
 
+/* --arcade-timing: the picture, drawn as the vblank interrupt returns, with the sprites latched as VBLANK began */
+static uint32_t arcade_frame[VIDEO_WIDTH * VIDEO_HEIGHT], arcade_picture[VIDEO_WIDTH * VIDEO_HEIGHT];
+
+static void draw_arcade_picture(void)
+{
+	video_draw(arcade_frame);
+	video_rotated(arcade_frame, arcade_picture);
+}
+
 int main(int argc, char **argv)
 {
+	int arcade_timing = 0;
 	FILE *wav = NULL;
 	const char *eeprom = NULL;
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
@@ -198,6 +210,8 @@ int main(int argc, char **argv)
 			}
 			fseek(wav, 44L, SEEK_SET);
 		}
+		else if (!strcmp(argv[index], "--arcade-timing"))
+			arcade_timing = 1;
 		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
 			eeprom = argv[++index];
 		else if (!strcmp(argv[index], "--list-cheats"))
@@ -237,6 +251,8 @@ int main(int argc, char **argv)
 #ifndef _WIN32
 	signal(SIGALRM, on_alarm);
 #endif
+	if (arcade_timing)
+		program_after_vblank = draw_arcade_picture;
 	while (program_frames() < frames)
 	{
 #ifndef _WIN32
@@ -253,6 +269,8 @@ int main(int argc, char **argv)
 		}
 		program_run_frame();
 		cheats_apply();
+		if (arcade_timing)
+			video_latch_sprites();    /* (VBLANK: the sprites the next picture shows) */
 		take_sound(wav);
 		if (hashes)
 			fprintf(hashes, "%llu %016llx\n", (unsigned long long)program_frames(), (unsigned long long)cave_state_hash());
@@ -269,11 +287,14 @@ int main(int argc, char **argv)
 			{
 				char path[1024];
 
-				video_latch_sprites();
-				video_draw(frame);
-				video_rotated(frame, picture);
+				if (!arcade_timing)
+				{
+					video_latch_sprites();
+					video_draw(frame);
+					video_rotated(frame, picture);
+				}
 				snprintf(path, sizeof(path), "%s/frame_%05llu.bmp", shot_dir, (unsigned long long)program_frames());
-				write_bmp(path, picture, VIDEO_HEIGHT, VIDEO_WIDTH);
+				write_bmp(path, arcade_timing ? arcade_picture : picture, VIDEO_HEIGHT, VIDEO_WIDTH);
 			}
 		if (program_frames() % 60 == 0)
 			printf("frame %llu: %u interrupts, %u unmapped reads (last %06X), %u unmapped writes (last %06X)\n",

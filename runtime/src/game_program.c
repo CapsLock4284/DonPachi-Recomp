@@ -164,6 +164,8 @@ void return_from_exception(void)
 		status = saved[depth - 1];
 }
 
+void (*program_after_vblank)(void);
+
 void take_interrupts(void)
 {
 	for (;;)
@@ -182,6 +184,8 @@ void take_interrupts(void)
 		handler();
 		depth--;
 		status = saved[depth];
+		if (level == 1 && depth == 0 && program_after_vblank)
+			program_after_vblank();
 	}
 }
 

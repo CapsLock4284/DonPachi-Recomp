@@ -26,6 +26,13 @@ const char *program_start(void);
 /* Runs the program to its next frame: VBLANK has started when it returns */
 void program_run_frame(void);
 
+/* Called, when set, as the program's vblank interrupt (level 1) returns: its handler has flipped the sprite banks and
+   set the layers' scroll and the palette for the frame. MAME draws DonPachi's screen there (90 us after the
+   interrupt): a port that draws its picture there, with the sprites latched when VBLANK started, shows what the board
+   shows. A port that draws when program_run_frame returns shows the frame a frame sooner (all but the scroll and the
+   palette, which the next interrupt sets) */
+extern void (*program_after_vblank)(void);
+
 /* The frames so far, and the interrupts the program took */
 uint64_t program_frames(void);
 uint32_t program_interrupts(void);

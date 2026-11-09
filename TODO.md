@@ -35,6 +35,17 @@ The sections below: graphics options, the player features, accuracy checks, poli
 - [ ] **Cheats in the menu**: turn MAME's cheats (`cheats/donpachi.xml`) on and off while playing
   - while cheats, practice mode or save states have been used, mark the run and keep it off any saved high scores (DonPachi's own high scores are not saved in its EEPROM; this matters once the port keeps scores)
 
+- [ ] **Side panels ("widgets")**: the empty space left and right of the picture on a wide screen, filled with information about the game being played, drawn as nice panels (like the M2 ShotTriggers ports' gadgets)
+  - [ ] **Score graph** against the #1 high score as the run goes on, with the stage marks and a percentage (as the RANKGRAPH picture: the run's line, the 50% and 100% lines, "ST" to "NOW")
+  - [ ] **Hit combo counter**, with the run's best combo
+  - [ ] **Lives and bombs** left
+  - [ ] **Stage and loop** (area 1-10), with the **stage's progress** as a bar (its scroll position)
+  - [ ] **Input display**: the stick and the buttons held, as on a stream overlay
+  - [ ] **Rank**, if the game keeps one (to find in its memory)
+  - [ ] **Run statistics**: time played, lives lost per stage, bombs used, the session's best score
+  - [ ] **Settings in use**: input timing, free play, hitbox, cheats on (so a screenshot shows how the run was played)
+  - read from the game's memory each frame (score, the high score table, the combo, `stage` `101A40`, `scroll_position` `101A56`); the window gets wider to make room; on or off in the options menu, and which panels on which side
+
 ## Graphics
 
 - [ ] Window and fullscreen scaling: any window size and fullscreen, keeping the picture's aspect
@@ -44,6 +55,8 @@ The sections below: graphics options, the player features, accuracy checks, poli
 - [ ] Rotated-monitor (TATE) option: show the 320 x 240 picture unrotated for a monitor turned on its side
 
 ## Other versions
+
+The last step: once the US version plays and works the way it should.
 
 - [ ] **DonPachi (Japan)**, MAME's `donpachij` (Ver. 1.01, 1995/05/11): the original release, with the smallest hitbox (9x10 against the US version's 11x14)
   - its own program ROM (the other chips are shared with the US set): a second decompile of it, and the runtime choosing the program by the ROM set the player has (`rom_set.c` checks the CRCs)

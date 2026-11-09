@@ -37,8 +37,8 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 - [ ] **Side panels ("widgets")** (`ports/sdl2/widgets.c`; the GRAPHICS page's SIDE PANELS, `[video] side_panels`): the empty space left and right of the picture on a wide screen, filled with information about the game being played, drawn as nice panels (like the M2 ShotTriggers ports' gadgets)
   - [x] **Score graph** against the #1 high score as the run goes on, with the stage marks and a percentage (as the RANKGRAPH picture: the run's line, the 50% and 100% lines, "ST" to "NOW")
-  - [x] **Chain gauge** (the Get Point System): the time left to keep the chain going, as a bar that empties over the 30 frames after each kill, with the hits and the chain's points so far
-  - [ ] **Hit combo counter**, with the run's best combo
+  - [x] **Chain gauge** (the Get Point System): the time left to keep the chain going, as a bar that empties over the 30 frames (0.52 s) after each kill with the frames left counted down inside it, the hits and the chain's points so far; player 2's only when there is a player 2
+  - [x] **Hit combo counter**, with the run's best combo (in the chain gauge: the hits large, MAX the best)
   - The game's chain, found (`func_0066C4` scores a kill, `006E3A` counts down once a frame), player 1 / player 2:
     - `$101742` / `$101760`: the chain timer, set to 30 on each kill, down 1 a frame; a kill while it is above 0 goes on with the chain, at 0 the chain ends
     - `$10174E` / `$10176C`: the hits of the chain (cleared 80 frames after the last kill: `$101744` / `$101762`)

@@ -66,8 +66,16 @@ static uint32_t shade(uint32_t colour, int percent)
 		| (colour & 255u) * (uint32_t)percent / 100u;
 }
 
-/* a character of the game's font at (x, y), 'size' times as large (its tiles lie turned: a row is a column) */
+/* a character of the game's font at (x, y), 'size' times as large (its tiles lie turned: a row is a column); left of
+   'split' in 'left_colour' (the chain bar's numbers: dark on the bar, light past it) */
+static void put_char_split(panel *p, int x, int y, char ch, uint32_t left_colour, uint32_t colour, int split, int size);
+
 static void put_char(panel *p, int x, int y, char ch, uint32_t colour, int size)
+{
+	put_char_split(p, x, y, ch, colour, colour, -1, size);
+}
+
+static void put_char_split(panel *p, int x, int y, char ch, uint32_t left_colour, uint32_t colour, int split, int size)
 {
 	static const int pens[16] = { 0, 100, 92, 84, 76, 68, 60, 60, 60, 60, 60, 60, 60, 60, 60, -1 };
 	const int code = toupper((unsigned char)ch) - 0x20;
@@ -83,7 +91,10 @@ static void put_char(panel *p, int x, int y, char ch, uint32_t colour, int size)
 			const uint8_t byte = tile[ty * 4 + tx / 2];
 			const int pen = (tx & 1) ? (byte & 15) : (byte >> 4);
 
-			if (pen)
+			if (pen && x + i * size < split)
+				box(p, x + i * size, y + j * size, x + (i + 1) * size, y + (j + 1) * size,
+					pens[pen] < 0 ? left_colour : shade(left_colour, 100));    /* (one solid colour on the bar) */
+			else if (pen)
 				box(p, x + i * size, y + j * size, x + (i + 1) * size, y + (j + 1) * size,
 					pens[pen] < 0 ? 0x101018u : shade(colour, pens[pen]));
 		}
@@ -298,19 +309,26 @@ static void draw_chain(panel *p, int player, int top)
 	snprintf(text, sizeof(text), "%u", playing && count ? count : 0u);
 	put_text(p, 8, top + 14, text, playing && count ? (timer ? GOLD : GREY) : DIM, 3);
 	put_text(p, 8 + text_width(text, 3) + 4, top + 30, "HIT", playing && count ? colour : DIM, 1);
-	/* the time left: 30 frames after a kill, draining */
-	outline(p, 8, top + 44, WIDGET_W - 8, top + 54, playing ? GREY : DIM);
+	/* the time left: 30 frames after a kill, draining, the frames left counted down inside it (30 frames: 0.52 s) */
+	outline(p, 8, top + 44, WIDGET_W - 8, top + 56, playing ? GREY : DIM);
 	filled = (int)((WIDGET_W - 18) * (timer > CHAIN_FRAMES ? CHAIN_FRAMES : timer) / CHAIN_FRAMES);
 	if (playing && timer)
-		box(p, 9, top + 45, 9 + filled, top + 53, timer > 15 ? GREEN : timer > 7 ? YELLOW : RED);
+	{
+		box(p, 9, top + 45, 9 + filled, top + 55, timer > 15 ? GREEN : timer > 7 ? YELLOW : RED);
+		snprintf(text, sizeof(text), "%u", timer);
+		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+			put_char_split(p, x, top + 46, text[at], 0x10101Cu, WHITE, 9 + filled, 1);    /* (dark on the bar) */
+	}
 	/* its points so far, and the best chain */
-	put_text(p, 8, top + 60, "PTS", playing ? GREY : DIM, 1);
+	put_text(p, 8, top + 62, "PTS", playing ? GREY : DIM, 1);
 	number(text, sizeof(text), playing ? bcd_long(chain_points[player]) : 0u);
-	put_right(p, WIDGET_W - 8, top + 60, text, colour);
-	put_text(p, 8, top + 72, "MAX", playing ? GREY : DIM, 1);
+	put_right(p, WIDGET_W - 8, top + 62, text, colour);
+	put_text(p, 8, top + 74, "MAX", playing ? GREY : DIM, 1);
 	number(text, sizeof(text), playing ? word(bests[player]) : 0u);
-	put_right(p, WIDGET_W - 8, top + 72, text, colour);
+	put_right(p, WIDGET_W - 8, top + 74, text, colour);
 }
+
+#define CHAIN_HEIGHT 96     /* a player's chain, with the space before the next */
 
 static void draw_graph(panel *p)
 {
@@ -379,11 +397,18 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 
 	p.pixels = left;
 	frame_panel(&p, "GET POINT");
-	draw_chain(&p, 0, 26);
-	draw_chain(&p, 1, 26 + 100);
-	put_centre(&p, 240, "KILL AGAIN", DIM, 1);
-	put_centre(&p, 252, "WITHIN 30", DIM, 1);
-	put_centre(&p, 264, "FRAMES", DIM, 1);
+	{
+		/* the players in the game (player 1's, dimmed, when there is none); player 2's only when there is one */
+		int top = 26;
+
+		if (in_play(0) || !in_play(1))
+		{
+			draw_chain(&p, 0, top);
+			top += CHAIN_HEIGHT;
+		}
+		if (in_play(1))
+			draw_chain(&p, 1, top);
+	}
 
 	p.pixels = right;
 	frame_panel(&p, "SCORE GRAPH");

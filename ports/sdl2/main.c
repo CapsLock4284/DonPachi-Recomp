@@ -370,11 +370,100 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
 	return marked;
 }
 
+/* ---- the picture in the window ([video]: scaling, smoothing, scanlines, rotation) ---- */
+
+/* the picture's size on the screen, in the game's pixels: 240 x 320, or 320 x 240 turned for a monitor on its side */
+static int shown_width(void)
+{
+	return options.rotate == ROTATE_NONE ? VIDEO_HEIGHT : VIDEO_WIDTH;
+}
+
+static int shown_height(void)
+{
+	return options.rotate == ROTATE_NONE ? VIDEO_WIDTH : VIDEO_HEIGHT;
+}
+
+/* a point of the unturned picture's rectangle, turned about the centre (cx, cy) as the picture is */
+static void turn(float x, float y, float cx, float cy, float *out_x, float *out_y)
+{
+	if (options.rotate == ROTATE_RIGHT)
+	{
+		*out_x = cx - (y - cy);
+		*out_y = cy + (x - cx);
+	}
+	else if (options.rotate == ROTATE_LEFT)
+	{
+		*out_x = cx + (y - cy);
+		*out_y = cy - (x - cx);
+	}
+	else
+	{
+		*out_x = x;
+		*out_y = y;
+	}
+}
+
 static void show_picture(const uint32_t *pixels)
 {
+	static const Uint8 darkness[4] = { 0, 70, 120, 170 };    /* (the scanlines' dark half: off, light, medium, heavy) */
+	int out_w, out_h;
+	float scale_x, scale_y, w, h, x, y, cx, cy;
+	SDL_FRect unturned;
+
 	SDL_UpdateTexture(texture, NULL, pixels, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
+	scale_x = (float)out_w / (float)shown_width();
+	scale_y = (float)out_h / (float)shown_height();
+	if (options.scaling != VIDEO_STRETCH)
+	{
+		scale_x = scale_y = scale_x < scale_y ? scale_x : scale_y;
+		if (options.scaling == VIDEO_INTEGER && scale_x >= 1.0f)
+			scale_x = scale_y = (float)(int)scale_x;
+	}
+	w = (float)shown_width() * scale_x;
+	h = (float)shown_height() * scale_y;
+	x = ((float)out_w - w) / 2.0f;
+	y = ((float)out_h - h) / 2.0f;
+	if (options.scaling == VIDEO_INTEGER)
+	{
+		x = (float)(int)x;    /* (whole pixels: every game pixel the same size) */
+		y = (float)(int)y;
+	}
+	cx = x + w / 2.0f;
+	cy = y + h / 2.0f;
+	/* the texture's rectangle before it is turned: 240 x 320 in its own shape */
+	unturned.w = options.rotate == ROTATE_NONE ? w : h;
+	unturned.h = options.rotate == ROTATE_NONE ? h : w;
+	unturned.x = cx - unturned.w / 2.0f;
+	unturned.y = cy - unturned.h / 2.0f;
+	SDL_RenderCopyExF(renderer, texture, NULL, &unturned,
+		options.rotate == ROTATE_RIGHT ? 90.0 : options.rotate == ROTATE_LEFT ? 270.0 : 0.0, NULL, SDL_FLIP_NONE);
+
+	/* the scanlines: the arcade monitor's lines are the board's rows, the picture's columns (the monitor stands on
+	   its side in the cabinet): the dark half of each, turned with the picture; none when a line is under 2 pixels */
+	if (options.scanlines > 0 && unturned.w / VIDEO_HEIGHT >= 2.0f)
+	{
+		static SDL_FRect lines[VIDEO_HEIGHT];
+		const float band = unturned.w / VIDEO_HEIGHT;
+
+		for (int line = 0; line < VIDEO_HEIGHT; line++)
+		{
+			const float x0 = unturned.x + band * (float)line + band * 0.5f, x1 = unturned.x + band * (float)(line + 1);
+			float ax, ay, bx, by;
+
+			turn(x0, unturned.y, cx, cy, &ax, &ay);
+			turn(x1, unturned.y + unturned.h, cx, cy, &bx, &by);
+			lines[line].x = ax < bx ? ax : bx;
+			lines[line].y = ay < by ? ay : by;
+			lines[line].w = ax < bx ? bx - ax : ax - bx;
+			lines[line].h = ay < by ? by - ay : ay - by;
+		}
+		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, darkness[options.scanlines & 3]);
+		SDL_RenderFillRectsF(renderer, lines, VIDEO_HEIGHT);
+	}
 	SDL_RenderPresent(renderer);
 }
 
@@ -394,8 +483,16 @@ static void menu_apply_window(void)
 	else
 	{
 		SDL_SetWindowFullscreen(window, 0);
-		SDL_SetWindowSize(window, VIDEO_HEIGHT * options.scale, VIDEO_WIDTH * options.scale);
+		SDL_SetWindowSize(window, shown_width() * options.scale, shown_height() * options.scale);
 	}
+}
+
+/* the filter and vsync, as the settings have them */
+static void menu_apply_video(void)
+{
+	SDL_SetTextureScaleMode(texture, options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	if (SDL_RenderSetVSync(renderer, options.vsync ? 1 : 0) != 0)
+		fprintf(stderr, "vsync: %s\n", SDL_GetError());
 }
 
 static void menu_apply_timing(void)
@@ -497,7 +594,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		VIDEO_HEIGHT * options.scale, VIDEO_WIDTH * options.scale,
+		shown_width() * options.scale, shown_height() * options.scale,
 		SDL_WINDOW_RESIZABLE | (options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
 	if (!renderer)
@@ -510,7 +607,7 @@ int main(int argc, char **argv)
 		SDL_Quit();
 		return 1;
 	}
-	SDL_RenderSetLogicalSize(renderer, VIDEO_HEIGHT, VIDEO_WIDTH);
+	menu_apply_video();
 	if (options.arcade_timing)
 		program_after_vblank = draw_picture;
 	{
@@ -522,6 +619,7 @@ int main(int argc, char **argv)
 		menu.pads = pads;
 		menu.reset = menu_reset;
 		menu.apply_window = menu_apply_window;
+		menu.apply_video = menu_apply_video;
 		menu.apply_timing = menu_apply_timing;
 		menu.quit = menu_quit;
 		menu_init(&menu);

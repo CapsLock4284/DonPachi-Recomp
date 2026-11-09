@@ -48,11 +48,14 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Graphics
 
-- [ ] Window and fullscreen scaling: any window size and fullscreen, keeping the picture's aspect
-- [ ] Integer scaling (sharp pixels, no uneven rows)
-- [ ] Optional scanline / CRT filter
-- [ ] Vsync option (no tearing) vs. lowest delay (no vsync)
-- [ ] Rotated-monitor (TATE) option: show the 320 x 240 picture unrotated for a monitor turned on its side
+- [x] The options menu's GRAPHICS page and `[video]` (`ports/sdl2/main.c` show_picture):
+  - [x] Scaling: fit (as large as the window allows), integer (whole times only, every game pixel the same size), stretch
+  - [x] Smoothing: a soft filter, or sharp pixels
+  - [x] Scanlines: off, light, medium, heavy; up and down the picture, as the cabinet's monitor stands on its side (across it when the picture is rotated)
+  - [x] Vsync on (no tearing) or off (the least delay)
+  - [x] Rotate (TATE): the picture turned right or left for a monitor on its side
+  - [x] Window size and full screen moved to the page
+- [ ] A CRT shader (curvature, glow, a shadow mask), beyond the scanlines
 
 ## Other versions
 

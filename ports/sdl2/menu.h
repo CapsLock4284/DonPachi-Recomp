@@ -29,6 +29,7 @@ typedef struct
 	SDL_GameController *const *pads;    /* the two players' gamepads (NULL: none) */
 	void (*reset)(bool service_menu);
 	void (*apply_window)(void); /* the window's size and full screen from options */
+	void (*apply_video)(void);  /* the filter and vsync from options */
 	void (*apply_timing)(void); /* options->arcade_timing */
 	void (*quit)(void);
 } menu_host;

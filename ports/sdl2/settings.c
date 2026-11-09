@@ -24,6 +24,10 @@ static const char *const action_names[ACTIONS] = {
 	"up", "down", "left", "right", "shot", "bomb", "button_c", "start", "coin", "service"
 };
 
+const char *const settings_scaling_names[VIDEO_SCALINGS] = { "fit", "integer", "stretch" };
+const char *const settings_scanline_names[4] = { "off", "light", "medium", "heavy" };
+const char *const settings_rotate_names[ROTATIONS] = { "none", "right", "left" };
+
 static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu", "fast_forward" };
 
 static const char *const action_notes[ACTIONS] = {
@@ -71,6 +75,11 @@ void settings_defaults(settings *s)
 	s->hitbox = false;
 	s->scale = 3;
 	s->fullscreen = false;
+	s->scaling = VIDEO_FIT;
+	s->smooth = false;
+	s->scanlines = 0;
+	s->vsync = false;
+	s->rotate = ROTATE_NONE;
 	s->sound = true;
 	s->volume = 100;
 	snprintf(s->rom, sizeof(s->rom), "rom");
@@ -191,6 +200,15 @@ static bool parse_buttons(char *value, pad_input out[BINDINGS_MAX])
 	return true;
 }
 
+/* one of 'names' (any case): its index, or -1 */
+static int name_of(const char *value, const char *const *names, int count)
+{
+	for (int index = 0; index < count; index++)
+		if (!SDL_strcasecmp(value, names[index]))
+			return index;
+	return -1;
+}
+
 static int action_of(const char *name)
 {
 	for (int action = 0; action < ACTIONS; action++)
@@ -222,6 +240,22 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_int(value, 1, 16, &s->scale);
 		if (!SDL_strcasecmp(name, "fullscreen"))
 			return parse_bool(value, &s->fullscreen);
+		return false;
+	}
+	if (!SDL_strcasecmp(section, "video"))
+	{
+		if (!SDL_strcasecmp(name, "scaling"))
+			return (s->scaling = name_of(value, settings_scaling_names, VIDEO_SCALINGS)) >= 0
+				|| (s->scaling = VIDEO_FIT, false);
+		if (!SDL_strcasecmp(name, "smooth"))
+			return parse_bool(value, &s->smooth);
+		if (!SDL_strcasecmp(name, "scanlines"))
+			return (s->scanlines = name_of(value, settings_scanline_names, 4)) >= 0 || (s->scanlines = 0, false);
+		if (!SDL_strcasecmp(name, "vsync"))
+			return parse_bool(value, &s->vsync);
+		if (!SDL_strcasecmp(name, "rotate"))
+			return (s->rotate = name_of(value, settings_rotate_names, ROTATIONS)) >= 0
+				|| (s->rotate = ROTATE_NONE, false);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "sound"))
@@ -391,6 +425,20 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "scale = %d\n", s->scale);
 	fputs("; start in full screen (F11 or Alt+Enter switches while playing)\n", file);
 	fprintf(file, "fullscreen = %s\n\n", bool_text(s->fullscreen));
+
+	fputs("[video]\n", file);
+	fputs("; fit: as large as the window allows; integer: whole times the game's pixels only (all the same size);\n"
+		"; stretch: the whole window, out of shape\n", file);
+	fprintf(file, "scaling = %s\n", settings_scaling_names[s->scaling]);
+	fputs("; a soft filter instead of sharp pixels\n", file);
+	fprintf(file, "smooth = %s\n", bool_text(s->smooth));
+	fputs("; off, light, medium or heavy: the arcade monitor's lines (it stands on its side in the cabinet, so they run\n"
+		"; up and down the picture)\n", file);
+	fprintf(file, "scanlines = %s\n", settings_scanline_names[s->scanlines]);
+	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
+	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
+	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);
+	fprintf(file, "rotate = %s\n\n", settings_rotate_names[s->rotate]);
 
 	fputs("[sound]\n", file);
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));

@@ -40,6 +40,13 @@ enum
 #define BINDINGS_MAX 4          /* keys or buttons an action may have */
 
 enum { PAD_NONE, PAD_BUTTON, PAD_TRIGGER };
+enum { VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH, VIDEO_SCALINGS };
+enum { ROTATE_NONE, ROTATE_RIGHT, ROTATE_LEFT, ROTATIONS };
+
+/* the names of the [video] values, as the file and the menu have them (lower case in the file) */
+extern const char *const settings_scaling_names[VIDEO_SCALINGS];
+extern const char *const settings_scanline_names[4];
+extern const char *const settings_rotate_names[ROTATIONS];
 
 typedef struct
 {
@@ -57,6 +64,12 @@ typedef struct
 	/* [window] */
 	int scale;
 	bool fullscreen;
+	/* [video] */
+	int scaling;                /* VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH */
+	bool smooth;                /* a soft filter instead of sharp pixels */
+	int scanlines;              /* 0 off, 1 light, 2 medium, 3 heavy */
+	bool vsync;
+	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
 	/* [sound] */
 	bool sound;
 	int volume;                 /* 0-100 */

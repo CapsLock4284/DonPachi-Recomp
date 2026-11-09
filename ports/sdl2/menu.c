@@ -38,7 +38,7 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -46,6 +46,7 @@ enum
 	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME,
 	ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT,
 	ITEM_DEFAULTS, ITEM_BACK,     /* (the controls page's, after its actions) */
+	ITEM_GRAPHICS, ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
 	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
@@ -70,10 +71,18 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
-			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT };
+			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 			items[item_count++] = main_items[index];
+	}
+	else if (page == PAGE_GRAPHICS)
+	{
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
+			ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
+
+		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
+			items[item_count++] = graphics_items[index];
 	}
 	else
 	{
@@ -137,6 +146,17 @@ static void key_label(SDL_Scancode key, char *out, size_t size)
 
 /* ---- changing the settings (in use and the file's) ---- */
 
+/* a choice of 'count' moved by 'step', stopping at the ends, or round to the start (wrap) */
+static int cycle(int value, int count, int step, bool wrap)
+{
+	value += step;
+	if (value >= count)
+		return wrap ? 0 : count - 1;
+	if (value < 0)
+		return wrap ? count - 1 : 0;
+	return value;
+}
+
 /* a setting changed: by 'step' (left -1, right +1, stopping at the ends), or by A (wrap: round to the start) */
 static void change(int item, int step, bool wrap)
 {
@@ -183,6 +203,24 @@ static void change(int item, int step, bool wrap)
 		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
 		host.apply_window();
 		break;
+	case ITEM_SCALING:
+		in_use->scaling = file->scaling = cycle(in_use->scaling, VIDEO_SCALINGS, step, wrap);
+		break;
+	case ITEM_SMOOTH:
+		in_use->smooth = file->smooth = !in_use->smooth;
+		host.apply_video();
+		break;
+	case ITEM_SCANLINES:
+		in_use->scanlines = file->scanlines = cycle(in_use->scanlines, 4, step, wrap);
+		break;
+	case ITEM_VSYNC:
+		in_use->vsync = file->vsync = !in_use->vsync;
+		host.apply_video();
+		break;
+	case ITEM_ROTATE:
+		in_use->rotate = file->rotate = cycle(in_use->rotate, ROTATIONS, step, wrap);
+		host.apply_window();    /* (the window's shape turns with it) */
+		break;
 	default:
 		return;
 	}
@@ -203,6 +241,11 @@ static void choose(int item)
 		break;
 	case ITEM_CONTROLS:
 		page = PAGE_CONTROLS;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_GRAPHICS:
+		page = PAGE_GRAPHICS;
 		selected = 0;
 		build_items();
 		break;
@@ -230,10 +273,15 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
+	{
+		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : ITEM_CONTROLS;
+
 		page = PAGE_MAIN;
-		selected = 0;
 		build_items();
+		for (selected = 0; selected < item_count - 1 && items[selected] != opened_by; selected++)
+			;    /* (back on the entry that opened the page) */
 		break;
+	}
 	default:
 		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
 		{
@@ -269,7 +317,7 @@ static void navigate(int nav)
 		choose(item);
 		break;
 	case NAV_BACK:
-		if (page == PAGE_CONTROLS)
+		if (page != PAGE_MAIN)
 			choose(ITEM_BACK);
 		else
 			close_menu();
@@ -515,7 +563,8 @@ static const char *item_label(int item)
 	static const char *const labels[] = {
 		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "HITBOX", "VOLUME",
 		"WINDOW SIZE", "FULL SCREEN",
-		"CONTROLS", "QUIT", "RESET TO DEFAULTS", "BACK"
+		"CONTROLS", "QUIT", "RESET TO DEFAULTS", "BACK",
+		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE"
 	};
 
 	if (item == ITEM_FAST_FORWARD_KEY)
@@ -552,7 +601,23 @@ static void item_value(int item, char *out, size_t size)
 		snprintf(out, size, "%s", s->fullscreen ? "ON" : "OFF");
 		break;
 	case ITEM_CONTROLS:
+	case ITEM_GRAPHICS:
 		snprintf(out, size, ">");
+		break;
+	case ITEM_SCALING:
+		snprintf(out, size, "%s", settings_scaling_names[s->scaling]);
+		break;
+	case ITEM_SMOOTH:
+		snprintf(out, size, "%s", s->smooth ? "ON" : "OFF");
+		break;
+	case ITEM_SCANLINES:
+		snprintf(out, size, "%s", settings_scanline_names[s->scanlines]);
+		break;
+	case ITEM_VSYNC:
+		snprintf(out, size, "%s", s->vsync ? "ON" : "OFF");
+		break;
+	case ITEM_ROTATE:
+		snprintf(out, size, "%s", s->rotate == ROTATE_NONE ? "OFF" : settings_rotate_names[s->rotate]);
 		break;
 	default:
 		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
@@ -587,6 +652,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 
 	if (page == PAGE_MAIN)
 		put_centre(out, PANEL_TOP + 1, "OPTIONS", GOLD);
+	else if (page == PAGE_GRAPHICS)
+		put_centre(out, PANEL_TOP + 1, "GRAPHICS", GOLD);
 	else
 	{
 		char title[48];
@@ -601,7 +668,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		const bool chosen = index == selected;
 		char value[48];
 
-		if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY)
+		if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY
+				|| (items[index] == ITEM_BACK && page == PAGE_GRAPHICS) || items[index] == ITEM_SCALE)
 			row++;    /* (a gap before them) */
 		if (chosen)
 			put_char(out, PANEL_LEFT + 1, row, '>', GOLD);
@@ -625,6 +693,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B / VIEW: CLOSE", GREY);
+	}
+	else if (page == PAGE_GRAPHICS)
+	{
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);
 	}
 	else
 	{

@@ -1,0 +1,588 @@
+/**
+ *    Name:        menu.c
+ *    Description: the window port's options menu (menu.h)
+ *    Version:     0.1.0 (draft)
+ *    Created:     09-11-2026
+ *
+ *    license:BSD-3-Clause
+ *    The font is the game's text layer (atdp's text.u58, rom_set.layer[2]): its 8x8 tiles are ASCII less 0x20
+ *    (the test mode's "1P LEVER :SELECTION" is 0x11 0x30 0x00 0x2C 0x25 ...), uppercase only ('>' and '<' are
+ *    arrows), pens 1-6 a shade from light to dark and pen 15 the outline. The tiles lie as the board's screen does,
+ *    turned for the cabinet: a tile's row is the picture's column.
+ */
+#include "menu.h"
+
+#include "cave/rom_set.h"
+#include "cave/video.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+
+#define PICTURE_W   VIDEO_HEIGHT        /* 240: the picture as the cabinet shows it */
+#define PICTURE_H   VIDEO_WIDTH         /* 320 */
+#define COLUMNS     (PICTURE_W / 8)     /* 30 */
+
+#define PANEL_LEFT  1                   /* the panel's columns and rows, in characters */
+#define PANEL_RIGHT 28
+#define PANEL_TOP   3
+#define PANEL_ROWS  34
+
+#define WHITE       0xF0F0F0u
+#define GOLD        0xFFC83Cu
+#define GREY        0x8C8C9Cu
+#define CYAN        0x6CD8FFu
+
+#define REPEAT_FIRST 18                 /* frames a direction is held before it repeats, then every REPEAT_NEXT */
+#define REPEAT_NEXT  5
+#define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
+#define STICK_DEAD   16000
+
+enum { PAGE_MAIN, PAGE_CONTROLS };
+enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
+
+enum
+{
+	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN,
+	ITEM_CONTROLS, ITEM_FAST_FORWARD, ITEM_QUIT,
+	ITEM_DEFAULTS, ITEM_BACK      /* (the controls page's, after its actions) */
+};
+
+static const char *const action_labels[ACTIONS] = {
+	"UP", "DOWN", "LEFT", "RIGHT", "SHOT", "BOMB", "BUTTON C", "START", "COIN", "SERVICE"
+};
+
+static menu_host host;
+static bool open, just_closed;
+static int page, selected, player;
+static int items[16], item_count;
+static int capture = -1;                /* the action waiting for its key or button, or -1 */
+static int capture_frames;
+static int held_direction, held_frames; /* the gamepads' d-pad and stick, for their repeats */
+
+/* ---- the entries ---- */
+
+static void build_items(void)
+{
+	item_count = 0;
+	if (page == PAGE_MAIN)
+	{
+		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
+			ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_FAST_FORWARD, ITEM_QUIT };
+
+		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
+			if (main_items[index] != ITEM_FAST_FORWARD || host.debug)
+				items[item_count++] = main_items[index];
+	}
+	else
+	{
+		for (int action = 0; action < ACTIONS; action++)
+			items[item_count++] = 100 + action;
+		items[item_count++] = ITEM_DEFAULTS;
+		items[item_count++] = ITEM_BACK;
+	}
+	if (selected >= item_count)
+		selected = item_count - 1;
+}
+
+static void save(void)
+{
+	const char *const problem = settings_save(host.file, host.path);
+
+	if (problem)
+		fprintf(stderr, "%s: %s\n", host.path, problem);
+}
+
+static void close_menu(void)
+{
+	open = false;
+	just_closed = true;
+	capture = -1;
+}
+
+/* the key or button names as the menu shows them */
+static const char *pad_label(pad_input input)
+{
+	static const struct { int button; const char *label; } labels[] = {
+		{ SDL_CONTROLLER_BUTTON_A, "A" }, { SDL_CONTROLLER_BUTTON_B, "B" }, { SDL_CONTROLLER_BUTTON_X, "X" },
+		{ SDL_CONTROLLER_BUTTON_Y, "Y" }, { SDL_CONTROLLER_BUTTON_BACK, "VIEW" },
+		{ SDL_CONTROLLER_BUTTON_GUIDE, "XBOX" }, { SDL_CONTROLLER_BUTTON_START, "START" },
+		{ SDL_CONTROLLER_BUTTON_LEFTSTICK, "LS" }, { SDL_CONTROLLER_BUTTON_RIGHTSTICK, "RS" },
+		{ SDL_CONTROLLER_BUTTON_LEFTSHOULDER, "LB" }, { SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, "RB" },
+		{ SDL_CONTROLLER_BUTTON_DPAD_UP, "D-UP" }, { SDL_CONTROLLER_BUTTON_DPAD_DOWN, "D-DOWN" },
+		{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, "D-LEFT" }, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT, "D-RIGHT" },
+		{ SDL_CONTROLLER_BUTTON_MISC1, "SHARE" },
+	};
+
+	if (input.kind == PAD_TRIGGER)
+		return input.index == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? "LT" : "RT";
+	if (input.kind != PAD_BUTTON)
+		return "-";
+	for (size_t index = 0; index < sizeof(labels) / sizeof(labels[0]); index++)
+		if (labels[index].button == input.index)
+			return labels[index].label;
+	return "PAD";
+}
+
+static void key_label(SDL_Scancode key, char *out, size_t size)
+{
+	const char *const name = key == SDL_SCANCODE_UNKNOWN ? "-" : SDL_GetScancodeName(key);
+
+	snprintf(out, size, "%s", *name ? name : "?");
+	for (char *letter = out; *letter; letter++)
+		*letter = (char)toupper((unsigned char)*letter);
+}
+
+/* ---- changing the settings (in use and the file's) ---- */
+
+/* a setting changed: by 'step' (left -1, right +1, stopping at the ends), or by A (wrap: round to the start) */
+static void change(int item, int step, bool wrap)
+{
+	settings *const in_use = host.options, *const file = host.file;
+
+	switch (item)
+	{
+	case ITEM_FREE_PLAY:
+		in_use->free_play = file->free_play = !in_use->free_play;
+		break;
+	case ITEM_TIMING:
+		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
+		host.apply_timing();
+		break;
+	case ITEM_VOLUME:
+		in_use->volume = wrap && in_use->volume >= 100 ? 0 : SDL_clamp(in_use->volume + step * 10, 0, 100);
+		file->volume = in_use->volume;
+		break;
+	case ITEM_SCALE:
+		in_use->scale = wrap && in_use->scale >= 8 ? 1 : SDL_clamp(in_use->scale + step, 1, 8);
+		file->scale = in_use->scale;
+		host.apply_window();
+		break;
+	case ITEM_FULLSCREEN:
+		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
+		host.apply_window();
+		break;
+	case ITEM_FAST_FORWARD:
+		*host.fast_forward = !*host.fast_forward;
+		return;    /* (not a setting of the file) */
+	default:
+		return;
+	}
+	save();
+}
+
+static void choose(int item)
+{
+	switch (item)
+	{
+	case ITEM_RESUME:
+		close_menu();
+		break;
+	case ITEM_RESET:
+	case ITEM_SERVICE:
+		host.reset(item == ITEM_SERVICE);
+		close_menu();
+		break;
+	case ITEM_CONTROLS:
+		page = PAGE_CONTROLS;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_QUIT:
+		host.quit();
+		close_menu();
+		break;
+	case ITEM_DEFAULTS:
+	{
+		settings defaults;
+
+		settings_defaults(&defaults);
+		memcpy(host.options->keys[player], defaults.keys[player], sizeof(defaults.keys[player]));
+		memcpy(host.options->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
+		memcpy(host.file->keys[player], defaults.keys[player], sizeof(defaults.keys[player]));
+		memcpy(host.file->buttons[player], defaults.buttons[player], sizeof(defaults.buttons[player]));
+		save();
+		break;
+	}
+	case ITEM_BACK:
+		page = PAGE_MAIN;
+		selected = 0;
+		build_items();
+		break;
+	default:
+		if (item >= 100)
+		{
+			capture = item - 100;
+			capture_frames = CAPTURE_FRAMES;
+		}
+		else
+			change(item, 1, true);
+		break;
+	}
+}
+
+static void navigate(int nav)
+{
+	const int item = items[selected];
+
+	switch (nav)
+	{
+	case NAV_UP:
+		selected = (selected + item_count - 1) % item_count;
+		break;
+	case NAV_DOWN:
+		selected = (selected + 1) % item_count;
+		break;
+	case NAV_LEFT:
+	case NAV_RIGHT:
+		if (page == PAGE_CONTROLS)
+			player ^= 1;
+		else
+			change(item, nav == NAV_RIGHT ? 1 : -1, false);
+		break;
+	case NAV_CHOOSE:
+		choose(item);
+		break;
+	case NAV_BACK:
+		if (page == PAGE_CONTROLS)
+			choose(ITEM_BACK);
+		else
+			close_menu();
+		break;
+	case NAV_CLOSE:
+		close_menu();
+		break;
+	}
+}
+
+/* ---- remapping: the next key or button is the action's ---- */
+
+static void bind_key(SDL_Scancode key)
+{
+	SDL_Scancode keys[BINDINGS_MAX] = { key };
+
+	memcpy(host.options->keys[player][capture], keys, sizeof(keys));
+	memcpy(host.file->keys[player][capture], keys, sizeof(keys));
+	capture = -1;
+	save();
+}
+
+static void bind_pad(pad_input input)
+{
+	pad_input inputs[BINDINGS_MAX] = { input };
+
+	memcpy(host.options->buttons[player][capture], inputs, sizeof(inputs));
+	memcpy(host.file->buttons[player][capture], inputs, sizeof(inputs));
+	capture = -1;
+	save();
+}
+
+static bool capture_event(const SDL_Event *event)
+{
+	if (event->type == SDL_KEYDOWN && !event->key.repeat)
+	{
+		if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+			capture = -1;    /* (cancel) */
+		else
+			bind_key(event->key.keysym.scancode);
+	}
+	else if (event->type == SDL_CONTROLLERBUTTONDOWN)
+		bind_pad((pad_input){ PAD_BUTTON, event->cbutton.button });
+	else if (event->type == SDL_CONTROLLERAXISMOTION && event->caxis.value > 16384
+			&& (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT))
+		bind_pad((pad_input){ PAD_TRIGGER, event->caxis.axis });
+	return true;
+}
+
+/* ---- the menu's own input ---- */
+
+void menu_init(const menu_host *menu)
+{
+	host = *menu;
+}
+
+bool menu_is_open(void)
+{
+	return open;
+}
+
+void menu_open(void)
+{
+	open = true;
+	page = PAGE_MAIN;
+	selected = 0;
+	capture = -1;
+	held_direction = NAV_NONE;
+	build_items();
+}
+
+bool menu_just_closed(void)
+{
+	const bool closed = just_closed;
+
+	just_closed = false;
+	return closed;
+}
+
+bool menu_event(const SDL_Event *event)
+{
+	if (!open)
+		return false;
+	if (capture >= 0)
+		return capture_event(event);
+	if (event->type == SDL_KEYDOWN)
+	{
+		const SDL_Scancode key = event->key.keysym.scancode;
+		int nav = NAV_NONE;
+
+		if (key == SDL_SCANCODE_UP)
+			nav = NAV_UP;
+		else if (key == SDL_SCANCODE_DOWN)
+			nav = NAV_DOWN;
+		else if (key == SDL_SCANCODE_LEFT)
+			nav = NAV_LEFT;
+		else if (key == SDL_SCANCODE_RIGHT)
+			nav = NAV_RIGHT;
+		else if (event->key.repeat)
+			nav = NAV_NONE;    /* (only the arrows repeat) */
+		else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER || key == SDL_SCANCODE_Z
+				|| key == SDL_SCANCODE_SPACE)
+			nav = NAV_CHOOSE;
+		else if (key == SDL_SCANCODE_BACKSPACE || key == SDL_SCANCODE_X)
+			nav = NAV_BACK;
+		else if (key == SDL_SCANCODE_ESCAPE)
+			nav = NAV_CLOSE;
+		navigate(nav);
+	}
+	else if (event->type == SDL_CONTROLLERBUTTONDOWN)
+	{
+		const int button = event->cbutton.button;
+
+		if (button == SDL_CONTROLLER_BUTTON_A || button == SDL_CONTROLLER_BUTTON_START)
+			navigate(NAV_CHOOSE);
+		else if (button == SDL_CONTROLLER_BUTTON_B)
+			navigate(NAV_BACK);
+		else if (button == SDL_CONTROLLER_BUTTON_BACK)
+			navigate(NAV_CLOSE);
+		/* (the d-pad is read in menu_tick, with the stick, for their repeats) */
+	}
+	return true;
+}
+
+/* the direction the gamepads' d-pads and sticks point */
+static int pad_direction(void)
+{
+	for (int index = 0; index < 2; index++)
+	{
+		SDL_GameController *const pad = host.pads[index];
+		int x, y;
+
+		if (!pad)
+			continue;
+		x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
+		y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_UP) || y < -STICK_DEAD)
+			return NAV_UP;
+		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_DOWN) || y > STICK_DEAD)
+			return NAV_DOWN;
+		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_LEFT) || x < -STICK_DEAD)
+			return NAV_LEFT;
+		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || x > STICK_DEAD)
+			return NAV_RIGHT;
+	}
+	return NAV_NONE;
+}
+
+void menu_tick(void)
+{
+	int direction;
+
+	if (!open)
+		return;
+	if (capture >= 0)
+	{
+		if (--capture_frames <= 0)
+			capture = -1;    /* (nothing pressed: no change) */
+		return;
+	}
+	direction = pad_direction();
+	if (direction != held_direction)
+	{
+		held_direction = direction;
+		held_frames = 0;
+		navigate(direction);
+	}
+	else if (direction != NAV_NONE && ++held_frames >= REPEAT_FIRST && (held_frames - REPEAT_FIRST) % REPEAT_NEXT == 0)
+		navigate(direction);
+}
+
+/* ---- drawing ---- */
+
+static uint32_t shade(uint32_t colour, int percent)
+{
+	const uint32_t r = (colour >> 16 & 255u) * (uint32_t)percent / 100u, g = (colour >> 8 & 255u) * (uint32_t)percent / 100u,
+		b = (colour & 255u) * (uint32_t)percent / 100u;
+
+	return r << 16 | g << 8 | b;
+}
+
+/* character 'ch' at character column 'column' and row 'row' of the picture */
+static void put_char(uint32_t *out, int column, int row, char ch, uint32_t colour)
+{
+	static const int pens[16] = { 0, 100, 92, 84, 76, 68, 60, 60, 60, 60, 60, 60, 60, 60, 60, -1 };
+	const int code = toupper((unsigned char)ch) - 0x20;
+	const uint8_t *tile;
+
+	if (code <= 0 || code >= 0x60 || column < 0 || column >= COLUMNS || !rom_set.layer[2])
+		return;
+	tile = rom_set.layer[2] + code * 32;
+	for (int i = 0; i < 8; i++)          /* the picture's x within the character: the tile's row */
+		for (int j = 0; j < 8; j++)      /* its y: the tile's column, from the right */
+		{
+			const int tx = 7 - j, ty = i;
+			const uint8_t byte = tile[ty * 4 + tx / 2];
+			const int pen = (tx & 1) ? (byte & 15) : (byte >> 4);
+			uint32_t *const pixel = &out[(row * 8 + j) * PICTURE_W + column * 8 + i];
+
+			if (pen == 0)
+				continue;
+			*pixel = pens[pen] < 0 ? 0x101018u : shade(colour, pens[pen]);
+		}
+}
+
+static void put_text(uint32_t *out, int column, int row, const char *text, uint32_t colour)
+{
+	for (; *text; text++, column++)
+		put_char(out, column, row, *text, colour);
+}
+
+static void put_right(uint32_t *out, int right_column, int row, const char *text, uint32_t colour)
+{
+	put_text(out, right_column - (int)strlen(text) + 1, row, text, colour);
+}
+
+static void put_centre(uint32_t *out, int row, const char *text, uint32_t colour)
+{
+	put_text(out, (COLUMNS - (int)strlen(text)) / 2, row, text, colour);
+}
+
+static void fill(uint32_t *out, int x0, int y0, int x1, int y1, uint32_t colour)
+{
+	for (int y = y0; y < y1; y++)
+		for (int x = x0; x < x1; x++)
+			out[y * PICTURE_W + x] = colour;
+}
+
+static const char *item_label(int item)
+{
+	static const char *const labels[] = {
+		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "VOLUME", "WINDOW SIZE", "FULL SCREEN",
+		"CONTROLS", "FAST FORWARD", "QUIT", "RESET TO DEFAULTS", "BACK"
+	};
+
+	return item >= 100 ? action_labels[item - 100] : labels[item];
+}
+
+static void item_value(int item, char *out, size_t size)
+{
+	const settings *const s = host.options;
+
+	out[0] = '\0';
+	switch (item)
+	{
+	case ITEM_FREE_PLAY:
+		snprintf(out, size, "%s", s->free_play ? "ON" : "OFF");
+		break;
+	case ITEM_TIMING:
+		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");
+		break;
+	case ITEM_VOLUME:
+		snprintf(out, size, "%d%%", s->volume);
+		break;
+	case ITEM_SCALE:
+		snprintf(out, size, "%dX", s->scale);
+		break;
+	case ITEM_FULLSCREEN:
+		snprintf(out, size, "%s", s->fullscreen ? "ON" : "OFF");
+		break;
+	case ITEM_FAST_FORWARD:
+		snprintf(out, size, "%s", *host.fast_forward ? "ON" : "OFF");
+		break;
+	case ITEM_CONTROLS:
+		snprintf(out, size, ">");
+		break;
+	default:
+		if (item >= 100)
+		{
+			char key[32];
+
+			key_label(s->keys[player][item - 100][0], key, sizeof(key));
+			if (strlen(key) > 10)
+				key[10] = '\0';
+			snprintf(out, size, "%s / %s", key, pad_label(s->buttons[player][item - 100][0]));
+		}
+		break;
+	}
+}
+
+void menu_draw(const uint32_t *game, uint32_t *out)
+{
+	const int left = PANEL_LEFT * 8 - 4, right = (PANEL_RIGHT + 1) * 8 + 4;
+	const int top = PANEL_TOP * 8 - 4, bottom = (PANEL_TOP + PANEL_ROWS) * 8 + 4;
+	int row;
+
+	for (int index = 0; index < PICTURE_W * PICTURE_H; index++)
+		out[index] = shade(game[index], 30);
+	fill(out, left, top, right, bottom, 0x0C0C1Cu);
+	fill(out, left, top, right, top + 2, GOLD);
+	fill(out, left, bottom - 2, right, bottom, GOLD);
+	fill(out, left, top, left + 2, bottom, GOLD);
+	fill(out, right - 2, top, right, bottom, GOLD);
+
+	if (page == PAGE_MAIN)
+		put_centre(out, PANEL_TOP + 1, "OPTIONS", GOLD);
+	else
+	{
+		char title[48];
+
+		snprintf(title, sizeof(title), "CONTROLS  < PLAYER %d >", player + 1);
+		put_centre(out, PANEL_TOP + 1, title, GOLD);
+		put_centre(out, PANEL_TOP + 2, "KEY / GAMEPAD", GREY);
+	}
+	row = PANEL_TOP + 4;
+	for (int index = 0; index < item_count; index++)
+	{
+		const bool chosen = index == selected;
+		char value[48];
+
+		if (items[index] == ITEM_DEFAULTS || items[index] == ITEM_QUIT)
+			row++;    /* (a gap before them) */
+		if (chosen)
+			put_char(out, PANEL_LEFT + 1, row, '>', GOLD);
+		put_text(out, PANEL_LEFT + 3, row, item_label(items[index]), chosen ? GOLD : WHITE);
+		item_value(items[index], value, sizeof(value));
+		if (chosen && capture >= 0)
+			snprintf(value, sizeof(value), "PRESS...");
+		put_right(out, PANEL_RIGHT - 1, row, value, chosen ? CYAN : GREY);
+		row += 2;
+	}
+
+	if (capture >= 0)
+	{
+		char seconds[40];
+
+		snprintf(seconds, sizeof(seconds), "PRESS A KEY OR BUTTON  %d", capture_frames / 58 + 1);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, seconds, CYAN);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "(ESC: NO CHANGE)", GREY);
+	}
+	else if (page == PAGE_MAIN)
+	{
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B / VIEW: CLOSE", GREY);
+	}
+	else
+	{
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHANGE   <>: PLAYER", GREY);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);
+	}
+}

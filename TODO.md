@@ -19,18 +19,11 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 - [x] Gamepads (SDL game controllers, hot-plugging, two players): Xbox layout X shot/laser, A bomb, B button C (rapid fire), Start, d-pad and left stick; View kept for the options menu
 - [x] Settings file `donpachi.ini` beside the program (free play, timing, window, volume, files) and remapping of every key and gamepad button for both players (`ports/sdl2/settings.c`)
 - [x] Game reset (`program_reset`: the board's reset, the EEPROM kept; identical to a fresh start, checked frame by frame): F3, and F4 "service menu" (the reset with the service switch held for you); both bindable to gamepad buttons in `[hotkeys]`
+- [x] Options menu (`ports/sdl2/menu.c`): View or Escape opens it over the paused game, in the game's own font; resume, reset, service menu, free play, input timing, volume, window size, full screen, controls (remap by pressing the new key or button, per player), fast forward (debug), quit; changes saved to `donpachi.ini` at once; buttons held as it closes are ignored until let go
 
 ## Next
 
-
-- [ ] **Options menu** drawn by the port over the paused game
-  - [ ] opened with the gamepad's View button (and a key); the port takes the press, so the game sees no coin or start
-  - [ ] while it is open every input goes to the menu (d-pad/stick move, A choose, B back, View or B close); after it closes the game ignores a button until it is let go (the A that chose "Resume" is not a bomb)
-  - [ ] remapping from the menu (writes `donpachi.ini`)
-  - [ ] the game is frozen while it is open (no frames run), and goes on from the same frame
-  - [ ] drawn with the game's own 8x8 font from the ROM, to match the arcade
-  - [ ] entries: input timing (fast / arcade), window size, fullscreen, scaling, volume, controls, debug toggles
-  - [ ] "Reset" and "Service menu" entries (`program_reset`, as F3 and F4)
+The sections below: graphics options, the player features, accuracy checks, polish.
 
 ## Player features (the owner's ideas)
 

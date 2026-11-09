@@ -32,9 +32,11 @@
  *          F2 the test mode (held while the game starts, as on the board); player 2 R F D G, A S Q, 2, 6. Gamepads
  *          (the first plugged in is player 1's, the second player 2's; the Xbox layout's names): d-pad or left stick
  *          move, X shot (held: the laser), A bomb, B button C (the board's rapid fire, with "C BUTTON FULL-AUTO",
- *          the home default), Start start; View is kept for the options menu. Keys and gamepads work together.
+ *          the home default), Start start; View opens the options menu. Keys and gamepads work together.
  *          F3 resets the game, F4 resets it into the test mode (the service menu: the service switch held for you),
- *          F11 or Alt+Enter full screen, Escape quits.
+ *          F11 or Alt+Enter full screen.
+ *    The options menu (menu.h): the gamepad's View button or Escape. The game is paused while it is open; Quit is
+ *          there.
  *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
  *          fast forward on and off.
  */
@@ -45,6 +47,7 @@
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
+#include "menu.h"
 #include "settings.h"
 
 #include <SDL.h>
@@ -53,8 +56,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* the settings: donpachi.ini, then the command line (settings.h) */
-static settings options;
+/* the settings: donpachi.ini, then the command line (settings.h); the file's own, which the menu changes and saves */
+static settings options, file_options;
+static char settings_path[1024];
+static SDL_Window *window;
+static int running = 1;
 
 /* ---- the gamepads ---- */
 
@@ -159,20 +165,41 @@ static void hotkeys(void)
 	}
 }
 
+/* what the player holds on their keys and gamepad: the board's input bits, 1 = held */
+static uint16_t held_inputs(int player)
+{
+	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
+	uint16_t pressed = pad_inputs(player);
+
+	for (int action = 0; action < ACTIONS; action++)
+		for (int binding = 0; binding < BINDINGS_MAX; binding++)
+			if (options.keys[player][action][binding] != SDL_SCANCODE_UNKNOWN
+					&& keys[options.keys[player][action][binding]])
+				pressed |= settings_action_bits[action];
+	return pressed;
+}
+
+/* what the game does not see until it is let go: what was held as the menu closed (the A that chose "Resume" is
+   no bomb) */
+static uint16_t ignored[2];
+
+static void ignore_held_inputs(void)
+{
+	ignored[0] = held_inputs(0);
+	ignored[1] = held_inputs(1);
+}
+
 /* The inputs from the keys and the gamepads held: active low */
 static void read_keys(void)
 {
-	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
 	uint16_t pressed[2];
 
 	for (int player = 0; player < 2; player++)
 	{
-		pressed[player] = pad_inputs(player);
-		for (int action = 0; action < ACTIONS; action++)
-			for (int binding = 0; binding < BINDINGS_MAX; binding++)
-				if (options.keys[player][action][binding] != SDL_SCANCODE_UNKNOWN
-						&& keys[options.keys[player][action][binding]])
-					pressed[player] |= settings_action_bits[action];
+		const uint16_t held = held_inputs(player);
+
+		ignored[player] &= held;    /* (let go: seen again) */
+		pressed[player] = (uint16_t)(held & ~ignored[player]);
 	}
 	if (service_held)
 	{
@@ -295,12 +322,20 @@ static void debug_autofire(void)
 	}
 }
 
-static int debug_fast_forward;
+static bool debug_fast_forward, debug_fast_forward_shown;
 
-/* Tab pressed: fast forward on, or off again */
-static void debug_toggle_fast_forward(SDL_Window *window)
+/* Tab pressed (or the menu's entry): fast forward on, or off again */
+static void debug_toggle_fast_forward(void)
 {
 	debug_fast_forward = !debug_fast_forward;
+}
+
+/* the window's title and the sound, as fast forward is (once a frame) */
+static void debug_show_fast_forward(void)
+{
+	if (debug_fast_forward == debug_fast_forward_shown)
+		return;
+	debug_fast_forward_shown = debug_fast_forward;
 	if (!debug_fast_forward && audio)
 		audio_restart();
 	SDL_SetWindowTitle(window, debug_fast_forward ? "DonPachi (fast forward)" : "DonPachi");
@@ -379,12 +414,44 @@ static void draw_picture(void)
 	video_rotated(frame, picture);
 }
 
-static void show_picture(void)
+static void show_picture(const uint32_t *pixels)
 {
-	SDL_UpdateTexture(texture, NULL, picture, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+	SDL_UpdateTexture(texture, NULL, pixels, VIDEO_HEIGHT * (int)sizeof(uint32_t));
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
+}
+
+/* ---- what the options menu does (menu.h's menu_host) ---- */
+
+static void menu_reset(bool service_menu)
+{
+	program_reset();
+	free_play_reset();
+	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
+}
+
+static void menu_apply_window(void)
+{
+	if (options.fullscreen)
+		SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	else
+	{
+		SDL_SetWindowFullscreen(window, 0);
+		SDL_SetWindowSize(window, VIDEO_HEIGHT * options.scale, VIDEO_WIDTH * options.scale);
+	}
+}
+
+static void menu_apply_timing(void)
+{
+	program_after_vblank = options.arcade_timing ? draw_picture : NULL;
+	if (options.arcade_timing)
+		draw_picture();    /* (the picture until the next interrupt draws it) */
+}
+
+static void menu_quit(void)
+{
+	running = 0;
 }
 
 #define CHEATS_MAX 16
@@ -392,13 +459,10 @@ static void show_picture(void)
 int main(int argc, char **argv)
 {
 	const char *cheat_names[CHEATS_MAX];
-	char settings_path[1024];
 	int cheat_count = 0, list_cheats = 0;
 	bool settings_written;
 	const char *problem;
-	SDL_Window *window;
 	Uint64 next, period;
-	int running = 1;
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
 	unsigned debug_fast_frames = 0;
 #endif                     /* ---- DEBUG KEYS: end ---- */
@@ -416,7 +480,9 @@ int main(int argc, char **argv)
 		snprintf(settings_path, sizeof(settings_path), "%sdonpachi.ini", base ? base : "");
 		SDL_free(base);
 	}
-	if ((problem = settings_load(&options, settings_path, &settings_written)) != NULL)
+	problem = settings_load(&options, settings_path, &settings_written);
+	file_options = options;    /* (before the command line's options) */
+	if (problem)
 	{
 		char message[1400];
 
@@ -494,6 +560,27 @@ int main(int argc, char **argv)
 	SDL_RenderSetLogicalSize(renderer, VIDEO_HEIGHT, VIDEO_WIDTH);
 	if (options.arcade_timing)
 		program_after_vblank = draw_picture;
+	{
+		static bool no_fast_forward;
+		menu_host menu = { 0 };
+
+		menu.options = &options;
+		menu.file = &file_options;
+		menu.path = settings_path;
+		menu.pads = pads;
+#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
+		menu.debug = true;
+		menu.fast_forward = &debug_fast_forward;
+#else
+		menu.fast_forward = &no_fast_forward;
+#endif                     /* ---- DEBUG KEYS: end ---- */
+		(void)no_fast_forward;
+		menu.reset = menu_reset;
+		menu.apply_window = menu_apply_window;
+		menu.apply_timing = menu_apply_timing;
+		menu.quit = menu_quit;
+		menu_init(&menu);
+	}
 	if (options.sound)
 		audio_open();
 	if (audio)
@@ -518,20 +605,46 @@ int main(int argc, char **argv)
 				pad_added(event.cdevice.which);
 			else if (event.type == SDL_CONTROLLERDEVICEREMOVED)
 				pad_removed(event.cdevice.which);
+			else if (event.type == SDL_KEYDOWN && !event.key.repeat
+					&& (event.key.keysym.sym == SDLK_F11
+						|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
+			{
+				options.fullscreen = !(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP);
+				SDL_SetWindowFullscreen(window, options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+			}
+			else if (menu_is_open())
+				menu_event(&event);
+			else if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)
+				menu_open();
 			else if (event.type == SDL_KEYDOWN && !event.key.repeat)
 			{
 				const SDL_Keycode key = event.key.keysym.sym;
 
 				if (key == SDLK_ESCAPE)
-					running = 0;
+					menu_open();
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
 				else if (key == SDLK_TAB)
-					debug_toggle_fast_forward(window);
+					debug_toggle_fast_forward();
 #endif                     /* ---- DEBUG KEYS: end ---- */
-				else if (key == SDLK_F11 || (key == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT)))
-					SDL_SetWindowFullscreen(window,
-						(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 			}
+		}
+		if (menu_just_closed())
+		{
+			ignore_held_inputs();
+			if (audio)
+				audio_restart();
+		}
+		if (!running)
+			break;
+		if (menu_is_open())
+		{
+			/* (the game paused: the menu over its last picture, at the board's pace) */
+			static uint32_t menu_picture[VIDEO_WIDTH * VIDEO_HEIGHT];
+
+			menu_tick();
+			menu_draw(picture, menu_picture);
+			show_picture(menu_picture);
+			goto pace;
 		}
 		hotkeys();
 		read_keys();
@@ -539,6 +652,7 @@ int main(int argc, char **argv)
 			free_play_inputs();
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
 		debug_autofire();
+		debug_show_fast_forward();
 		if (debug_fast_forward)
 		{
 			program_run_frame();
@@ -549,7 +663,7 @@ int main(int argc, char **argv)
 			{
 				if (!options.arcade_timing)
 					draw_picture();
-				show_picture();
+				show_picture(picture);
 			}
 			next = SDL_GetPerformanceCounter() + period;    /* (normal speed again from when it is turned off) */
 			continue;
@@ -561,8 +675,9 @@ int main(int argc, char **argv)
 		video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 		if (!options.arcade_timing)
 			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
-		show_picture();
+		show_picture(picture);
 
+	pace:
 		/* (the board's 57.55 frames a second: SDL_Delay may sleep a whole tick of the system's timer longer than
 		   asked, up to 15 ms on Windows, so it sleeps only to 2 ms before the frame's time, and the rest is waited
 		   out on the counter) */

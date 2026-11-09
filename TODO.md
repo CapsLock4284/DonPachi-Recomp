@@ -43,6 +43,13 @@ The sections below: graphics options, the player features, accuracy checks, poli
 - [ ] Vsync option (no tearing) vs. lowest delay (no vsync)
 - [ ] Rotated-monitor (TATE) option: show the 320 x 240 picture unrotated for a monitor turned on its side
 
+## Other versions
+
+- [ ] **DonPachi (Japan)**, MAME's `donpachij` (Ver. 1.01, 1995/05/11): the original release, with the smallest hitbox (9x10 against the US version's 11x14)
+  - its own program ROM (the other chips are shared with the US set): a second decompile of it, and the runtime choosing the program by the ROM set the player has (`rom_set.c` checks the CRCs)
+  - the hitbox dot needs nothing: it reads the box the game sets up
+  - later, perhaps the other versions the same way: Korea (`donpachikr`), Hong Kong (`donpachihk`, the largest hitboxes), Japan Satsuei (`donpachijs`)
+
 ## Accuracy, to check later
 
 - [ ] Fast timing: sprites are a frame ahead of the background scroll compared with the board (at most ~1 pixel against the ground); arcade timing is exact

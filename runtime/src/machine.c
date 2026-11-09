@@ -291,6 +291,44 @@ void cave_reset(void)
 	cave_sound_reset();
 }
 
+/* ---- the EEPROM's file ---- */
+
+int cave_eeprom_load(const char *path)
+{
+	uint8_t bytes[2 * CAVE_EEPROM_WORDS + 1];
+	FILE *file = fopen(path, "rb");
+	size_t size;
+
+	if (!file)
+		return 0;
+	size = fread(bytes, 1, sizeof(bytes), file);
+	fclose(file);
+	if (size != 2 * CAVE_EEPROM_WORDS)
+		return -1;
+	for (int word = 0; word < CAVE_EEPROM_WORDS; word++)
+		cave_board.eeprom.words[word] = (uint16_t)(bytes[2 * word] << 8 | bytes[2 * word + 1]);
+	return 1;
+}
+
+const char *cave_eeprom_save(const char *path)
+{
+	uint8_t bytes[2 * CAVE_EEPROM_WORDS];
+	FILE *file;
+	bool written;
+
+	for (int word = 0; word < CAVE_EEPROM_WORDS; word++)
+	{
+		bytes[2 * word] = (uint8_t)(cave_board.eeprom.words[word] >> 8);
+		bytes[2 * word + 1] = (uint8_t)cave_board.eeprom.words[word];
+	}
+	if (!(file = fopen(path, "wb")))
+		return "cannot write the EEPROM's file";
+	written = fwrite(bytes, 1, sizeof(bytes), file) == sizeof(bytes);
+	if (fclose(file) != 0 || !written)
+		return "cannot write the EEPROM's file";
+	return NULL;
+}
+
 /* ---- for the checks ---- */
 
 static uint64_t fnv(uint64_t hash, const void *data, size_t size)

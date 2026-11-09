@@ -21,6 +21,7 @@
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
  *      --list-cheats   lists the cheat file's cheats
  *      --wav FILE      writes the sound (48 kHz, 16-bit mono WAV)
+ *      --eeprom FILE   the EEPROM from FILE, if there is one, and back to it at the end (as the window's port)
  */
 #include "cave/cheats.h"
 #include "cave/machine.h"
@@ -143,6 +144,7 @@ static void finish_wav(FILE *wav)
 int main(int argc, char **argv)
 {
 	FILE *wav = NULL;
+	const char *eeprom = NULL;
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
 	unsigned long long shots[SHOTS_MAX];
 	int shot_count = 0;
@@ -196,6 +198,8 @@ int main(int argc, char **argv)
 			}
 			fseek(wav, 44L, SEEK_SET);
 		}
+		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
+			eeprom = argv[++index];
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--frames") && index + 1 < argc)
@@ -216,6 +220,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "The game does not start: %s\n", problem);
 		return 1;
 	}
+	if (eeprom && cave_eeprom_load(eeprom) < 0)
+		fprintf(stderr, "%s is not an EEPROM of 128 bytes: the ROM set's is used\n", eeprom);
 	if (list_cheats)
 	{
 		printf("the cheats of %s:\n", cheat_file);
@@ -279,6 +285,8 @@ int main(int argc, char **argv)
 		fclose(hashes);
 	if (wav)
 		finish_wav(wav);
+	if (eeprom && (problem = cave_eeprom_save(eeprom)) != NULL)
+		fprintf(stderr, "%s: %s\n", eeprom, problem);
 	printf("ran %llu frames\n", (unsigned long long)program_frames());
 	{
 		unsigned layers[3] = { 0 }, sprites = 0, colours = 0;

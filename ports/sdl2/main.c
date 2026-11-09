@@ -5,18 +5,21 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--cheat NAME ...]
+ *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--eeprom PATH] [--cheat NAME ...]
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
  *      --no-sound      plays no sound
+ *      --eeprom PATH   where the EEPROM is kept: the test mode's settings (default: donpachi.eeprom beside the
+ *                      program). 128 bytes, as MAME's nvram/donpachi/eeprom, which can be copied there
  *      --cheat NAME    turns on the cheat of the cheat file whose name holds NAME ("p1 infinite lives"), as many
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
  *      --list-cheats   lists the cheat file's cheats
  *
  *    Keys: arrows move, Z shot, X bomb, C button 3, 1 start, 5 coin; player 2: R F D G, A S Q, 2, 6;
- *          F2 the test mode, F11 or Alt+Enter full screen, Escape quits.
- *    Debug keys (DONPACHI_DEBUG_KEYS, below): C autofire for player 1 (Q for player 2) instead of button 3, Tab turns
+ *          F2 the test mode (held while the game starts, as on the board), F11 or Alt+Enter full screen, Escape
+ *          quits.
+ *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
  *          fast forward on and off.
  */
 #include "cave/cheats.h"
@@ -134,9 +137,9 @@ static void audio_queue(void)
    Autofire and fast forward, for testing only. Neither is the arcade's: the game's own rapid fire setting (the test
    mode's) is what the finished port uses. To take them out, set DONPACHI_DEBUG_KEYS to 0, or delete everything between
    "DEBUG KEYS: begin" and "DEBUG KEYS: end" here and in main(): nothing else uses them.
-     autofire:     while C (player 1) or Q (player 2) is held, the shot button is pressed DEBUG_AUTOFIRE_ON frames, then
-                   released DEBUG_AUTOFIRE_OFF frames (taps, not a hold: holding the shot gives the laser). Button 3,
-                   which the game does not use, is no longer on those keys.
+     autofire:     while V (player 1) or W (player 2) is held, the shot button is pressed DEBUG_AUTOFIRE_ON frames, then
+                   released DEBUG_AUTOFIRE_OFF frames (taps, not a hold: holding the shot gives the laser). C and Q
+                   stay button 3, the game's own rapid fire when the test mode sets "C BUTTON FULL-AUTO".
      fast forward: Tab turns it on and off (the window's title says when it is on); while on, the game runs as fast as
                    it can, drawn one frame in DEBUG_FAST_DRAW */
 #ifndef DONPACHI_DEBUG_KEYS
@@ -147,7 +150,7 @@ static void audio_queue(void)
 #define DEBUG_AUTOFIRE_OFF  2
 #define DEBUG_FAST_DRAW     8
 
-static const SDL_Scancode debug_autofire_keys[2] = { SDL_SCANCODE_C, SDL_SCANCODE_Q };
+static const SDL_Scancode debug_autofire_keys[2] = { SDL_SCANCODE_V, SDL_SCANCODE_W };
 static unsigned debug_autofire_frame[2];
 
 /* The inputs (active low) with the autofire keys' taps */
@@ -163,7 +166,6 @@ static void debug_autofire(void)
 			debug_autofire_frame[player] = 0;
 			continue;
 		}
-		*ports[player] |= CAVE_BUTTON3;    /* (the key is the autofire's, not button 3's) */
 		if (debug_autofire_frame[player] < DEBUG_AUTOFIRE_ON)
 			*ports[player] &= (uint16_t)~CAVE_BUTTON1;
 		debug_autofire_frame[player] = (debug_autofire_frame[player] + 1u) % (DEBUG_AUTOFIRE_ON + DEBUG_AUTOFIRE_OFF);
@@ -183,6 +185,41 @@ static void debug_toggle_fast_forward(SDL_Window *window)
 #endif
 /* ==== DEBUG KEYS: end ================================================================================================= */
 
+/* ---- the EEPROM's file: loaded before the first frame, saved soon after the game changes it, and at the end ---- */
+
+#define EEPROM_CHECK_FRAMES 60u    /* how often it is checked for changes: about a second */
+
+static char eeprom_path[1024];
+static uint16_t eeprom_saved[CAVE_EEPROM_WORDS];
+
+static void eeprom_open(const char *path)
+{
+	if (path)
+		snprintf(eeprom_path, sizeof(eeprom_path), "%s", path);
+	else
+	{
+		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
+
+		snprintf(eeprom_path, sizeof(eeprom_path), "%sdonpachi.eeprom", base ? base : "");
+		SDL_free(base);
+	}
+	if (cave_eeprom_load(eeprom_path) < 0)
+		fprintf(stderr, "%s is not an EEPROM of 128 bytes: the ROM set's is used (and saved over it)\n", eeprom_path);
+	memcpy(eeprom_saved, cave_board.eeprom.words, sizeof(eeprom_saved));
+}
+
+static void eeprom_keep(bool always)
+{
+	const char *problem;
+
+	if (!always && !memcmp(eeprom_saved, cave_board.eeprom.words, sizeof(eeprom_saved)))
+		return;
+	if ((problem = cave_eeprom_save(eeprom_path)) != NULL)
+		fprintf(stderr, "%s: %s\n", eeprom_path, problem);
+	else
+		memcpy(eeprom_saved, cave_board.eeprom.words, sizeof(eeprom_saved));
+}
+
 #define CHEATS_MAX 16
 
 int main(int argc, char **argv)
@@ -190,6 +227,7 @@ int main(int argc, char **argv)
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
 	const char *rom = "rom";
 	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
+	const char *eeprom = NULL;
 	int cheat_count = 0, list_cheats = 0, sound = 1;
 	int scale = 3;
 	const char *problem;
@@ -214,6 +252,8 @@ int main(int argc, char **argv)
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--no-sound"))
 			sound = 0;
+		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
+			eeprom = argv[++index];
 		else if (!strcmp(argv[index], "--scale") && index + 1 < argc)
 			scale = atoi(argv[++index]);
 	}
@@ -237,6 +277,7 @@ int main(int argc, char **argv)
 		SDL_Quit();
 		return 0;
 	}
+	eeprom_open(eeprom);
 	for (int cheat = 0; cheat < cheat_count; cheat++)
 		if ((problem = cheats_enable(cheat_file, cheat_names[cheat])) != NULL)
 		{
@@ -270,6 +311,9 @@ int main(int argc, char **argv)
 	while (running)
 	{
 		SDL_Event event;
+
+		if (program_frames() % EEPROM_CHECK_FRAMES == 0)
+			eeprom_keep(false);
 
 		while (SDL_PollEvent(&event))
 		{
@@ -337,6 +381,7 @@ int main(int argc, char **argv)
 			next = (now > next + 4u * period) ? now + period : next + period;
 		}
 	}
+	eeprom_keep(true);
 	if (audio)
 		SDL_CloseAudioDevice(audio);
 	SDL_Quit();

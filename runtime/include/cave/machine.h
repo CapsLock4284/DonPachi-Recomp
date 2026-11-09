@@ -113,6 +113,12 @@ int cave_irq_level(void);
 /* The screen's VBLANK begins: the interrupt, and the frame's sound (cave_sound_frame) */
 void cave_vblank_start(void);
 
+/* The EEPROM's 64 words to and from a file: 128 bytes, each word big endian, as MAME's nvram/donpachi/eeprom and
+   the ROM set's eeprom-donpachi.u10. cave_eeprom_load: 1 loaded, 0 no such file (the EEPROM stays as it is),
+   -1 a file of another size (left alone). cave_eeprom_save: NULL, or what went wrong */
+int cave_eeprom_load(const char *path);
+const char *cave_eeprom_save(const char *path);
+
 /* A hash of what the program has made of the board's memories (work RAM, layers and their registers, sprites,
    palette, video registers), for comparing the decompiled program with the original on MAME's 68000 (tools/cref) */
 uint64_t cave_state_hash(void);

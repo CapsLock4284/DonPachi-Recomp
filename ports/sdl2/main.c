@@ -49,6 +49,7 @@
 
 #include "hitbox.h"
 #include "menu.h"
+#include "widgets.h"
 #include "settings.h"
 
 #include <SDL.h>
@@ -372,9 +373,21 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
 
 /* ---- the picture in the window ([video]: scaling, smoothing, scanlines, rotation) ---- */
 
-/* the picture's size on the screen, in the game's pixels: 240 x 320, or 320 x 240 turned for a monitor on its side */
+/* the side panels beside the picture (widgets.h): when they are on, and the picture is not turned */
+static bool panels_shown(void)
+{
+	return options.panels && options.rotate == ROTATE_NONE;
+}
+
+static SDL_Texture *panel_textures[2];
+static uint32_t panel_pixels[2][WIDGET_W * WIDGET_H];
+
+/* the picture's size on the screen, in the game's pixels: 240 x 320, or 320 x 240 turned for a monitor on its side;
+   with the side panels, the panels' and their gaps' width too */
 static int shown_width(void)
 {
+	if (panels_shown())
+		return VIDEO_HEIGHT + 2 * (WIDGET_W + WIDGET_GAP);
 	return options.rotate == ROTATE_NONE ? VIDEO_HEIGHT : VIDEO_WIDTH;
 }
 
@@ -430,6 +443,22 @@ static void show_picture(const uint32_t *pixels)
 	{
 		x = (float)(int)x;    /* (whole pixels: every game pixel the same size) */
 		y = (float)(int)y;
+	}
+	if (panels_shown())
+	{
+		/* the panels at the sides, the picture between them: all at the picture's scale */
+		const SDL_FRect left = { x, y, WIDGET_W * scale_x, WIDGET_H * scale_y };
+		const SDL_FRect right = { x + w - WIDGET_W * scale_x, y, WIDGET_W * scale_x, WIDGET_H * scale_y };
+
+		widgets_draw(panel_pixels[0], panel_pixels[1]);
+		for (int side = 0; side < 2; side++)
+		{
+			SDL_UpdateTexture(panel_textures[side], NULL, panel_pixels[side], WIDGET_W * (int)sizeof(uint32_t));
+			SDL_SetTextureScaleMode(panel_textures[side], options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+			SDL_RenderCopyF(renderer, panel_textures[side], NULL, side ? &right : &left);
+		}
+		x += (WIDGET_W + WIDGET_GAP) * scale_x;
+		w = VIDEO_HEIGHT * scale_x;
 	}
 	cx = x + w / 2.0f;
 	cy = y + h / 2.0f;
@@ -601,6 +630,10 @@ int main(int argc, char **argv)
 		renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE) : NULL;
 	texture = renderer ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
 		VIDEO_HEIGHT, VIDEO_WIDTH) : NULL;
+	for (int side = 0; side < 2 && texture; side++)
+		if (!(panel_textures[side] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+				WIDGET_W, WIDGET_H)))
+			texture = NULL;
 	if (!texture)
 	{
 		show_problem(SDL_GetError());
@@ -712,6 +745,7 @@ int main(int argc, char **argv)
 					audio_queue();
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
+				widgets_frame();
 			}
 		}
 		if (!options.arcade_timing)

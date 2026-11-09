@@ -80,6 +80,7 @@ void settings_defaults(settings *s)
 	s->scanlines = 0;
 	s->vsync = false;
 	s->rotate = ROTATE_NONE;
+	s->panels = true;
 	s->sound = true;
 	s->volume = 100;
 	snprintf(s->rom, sizeof(s->rom), "rom");
@@ -253,6 +254,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return (s->scanlines = name_of(value, settings_scanline_names, 4)) >= 0 || (s->scanlines = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
 			return parse_bool(value, &s->vsync);
+		if (!SDL_strcasecmp(name, "side_panels"))
+			return parse_bool(value, &s->panels);
 		if (!SDL_strcasecmp(name, "rotate"))
 			return (s->rotate = name_of(value, settings_rotate_names, ROTATIONS)) >= 0
 				|| (s->rotate = ROTATE_NONE, false);
@@ -438,7 +441,10 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
 	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);
-	fprintf(file, "rotate = %s\n\n", settings_rotate_names[s->rotate]);
+	fprintf(file, "rotate = %s\n", settings_rotate_names[s->rotate]);
+	fputs("; the panels beside the picture: the chain's gauge (left), the score against the #1 high score (right);\n"
+		"; not with the picture rotated\n", file);
+	fprintf(file, "side_panels = %s\n\n", bool_text(s->panels));
 
 	fputs("[sound]\n", file);
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));

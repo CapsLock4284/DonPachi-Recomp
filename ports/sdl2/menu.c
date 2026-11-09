@@ -48,6 +48,7 @@ enum
 	ITEM_DEFAULTS, ITEM_BACK,     /* (the controls page's, after its actions) */
 	ITEM_GRAPHICS, ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
 	ITEM_DEADZONE,                /* the player's left stick: how far before it counts */
+	ITEM_PANELS,                  /* the side panels */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
@@ -80,7 +81,7 @@ static void build_items(void)
 	else if (page == PAGE_GRAPHICS)
 	{
 		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
-			ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
+			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
 			items[item_count++] = graphics_items[index];
@@ -204,6 +205,10 @@ static void change(int item, int step, bool wrap)
 	case ITEM_FULLSCREEN:
 		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
 		host.apply_window();
+		break;
+	case ITEM_PANELS:
+		in_use->panels = file->panels = !in_use->panels;
+		host.apply_window();    /* (the window widens for them) */
 		break;
 	case ITEM_DEADZONE:
 		in_use->stick_dead[player] = file->stick_dead[player] =
@@ -572,7 +577,7 @@ static const char *item_label(int item)
 		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "HITBOX", "VOLUME",
 		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
-		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE"
+		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS"
 	};
 
 	if (item == ITEM_FAST_FORWARD_KEY)
@@ -611,6 +616,9 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:
 		snprintf(out, size, ">");
+		break;
+	case ITEM_PANELS:
+		snprintf(out, size, "%s", s->panels ? "ON" : "OFF");
 		break;
 	case ITEM_DEADZONE:
 		snprintf(out, size, "%d%%", s->stick_dead[player]);

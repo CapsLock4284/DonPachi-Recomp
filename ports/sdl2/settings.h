@@ -70,6 +70,7 @@ typedef struct
 	int scanlines;              /* 0 off, 1 light, 2 medium, 3 heavy */
 	bool vsync;
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
+	bool panels;                /* the side panels (widgets.h) beside the picture */
 	/* [sound] */
 	bool sound;
 	int volume;                 /* 0-100 */

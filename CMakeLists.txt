@@ -75,7 +75,8 @@ if(SDL2_FOUND)
 	if(TARGET SDL2::SDL2main)
 		list(APPEND DONPACHI_SDL2 SDL2::SDL2main)
 	endif()
-	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/menu.c ports/sdl2/hitbox.c)
+	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/menu.c ports/sdl2/hitbox.c
+		ports/sdl2/widgets.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
 	if(WIN32)
 		add_custom_command(TARGET donpachi POST_BUILD

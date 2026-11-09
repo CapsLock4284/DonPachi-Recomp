@@ -24,6 +24,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "cave/sound.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -74,9 +76,7 @@ typedef struct
 	uint16_t palette[CAVE_PALETTE_WORDS];
 	bool vblank_irq;                          /* raised when VBLANK starts, cleared by reading 900004 */
 	bool unknown_irq;
-	/* the sound: what the program last wrote (the chips themselves come later) */
-	uint8_t oki_bank[8];
-	uint8_t oki_command[2];
+	cave_sound sound;                         /* the M6295s and the NMK112 (cave/sound.h) */
 	uint8_t eeprom_lines;                     /* the last byte written to D00000 */
 	cave_eeprom eeprom;
 	uint16_t in0, in1;                        /* active low, as the port sets them */
@@ -110,7 +110,7 @@ void cave_write16(uint32_t address, uint16_t data, uint16_t mem_mask);
 /* The interrupt level the 68000 sees: 1 while an interrupt is pending, else 0 */
 int cave_irq_level(void);
 
-/* The screen's VBLANK begins: the interrupt */
+/* The screen's VBLANK begins: the interrupt, and the frame's sound (cave_sound_frame) */
 void cave_vblank_start(void);
 
 /* A hash of what the program has made of the board's memories (work RAM, layers and their registers, sprites,

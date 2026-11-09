@@ -1,13 +1,14 @@
 /**
  *    Name:        main.c
- *    Description: DonPachi in a window, on SDL2: the decompiled program, its picture, the keyboard (no sound yet)
+ *    Description: DonPachi in a window, on SDL2: the decompiled program, its picture, its sound, the keyboard
  *    Version:     0.1.0 (draft)
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--rom PATH] [--scale N] [--cheat NAME ...]
+ *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--cheat NAME ...]
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
+ *      --no-sound      plays no sound
  *      --cheat NAME    turns on the cheat of the cheat file whose name holds NAME ("p1 infinite lives"), as many
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
@@ -67,6 +68,68 @@ static void show_problem(const char *problem)
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DonPachi", problem, NULL);
 }
 
+/* ---- the sound: the board's samples (cave/sound.h), queued to SDL's audio device a frame at a time ---- */
+
+#define AUDIO_AHEAD_MS     50u     /* silence queued at the start: what the device plays from while frames come */
+#define AUDIO_MOST_MS      200u    /* past this much queued (the device's clock slower than the frame's), it starts
+                                      again from AUDIO_AHEAD_MS: a skip, rarely */
+
+static SDL_AudioDeviceID audio;
+
+static Uint32 audio_bytes(unsigned milliseconds)
+{
+	return (Uint32)(CAVE_SOUND_RATE * milliseconds / 1000u * sizeof(int16_t));
+}
+
+static void audio_open(void)
+{
+	SDL_AudioSpec want, have;
+
+	if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0)
+	{
+		fprintf(stderr, "no sound: %s\n", SDL_GetError());
+		return;
+	}
+	SDL_zero(want);
+	want.freq = (int)CAVE_SOUND_RATE;
+	want.format = AUDIO_S16SYS;
+	want.channels = 1;
+	want.samples = 512;
+	audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);    /* (SDL converts to what the device takes) */
+	if (!audio)
+	{
+		fprintf(stderr, "no sound: %s\n", SDL_GetError());
+		return;
+	}
+	SDL_PauseAudioDevice(audio, 0);
+}
+
+/* silence, so the device has something to play while the frames come */
+static void audio_restart(void)
+{
+	static const int16_t silence[CAVE_SOUND_RATE * AUDIO_AHEAD_MS / 1000u];
+
+	SDL_ClearQueuedAudio(audio);
+	SDL_QueueAudio(audio, silence, (Uint32)sizeof(silence));
+}
+
+/* the frame's samples to the device */
+static void audio_queue(void)
+{
+	int16_t samples[2048];
+	unsigned count;
+
+	if (!audio)
+	{
+		cave_sound_drop();
+		return;
+	}
+	if (SDL_GetQueuedAudioSize(audio) > audio_bytes(AUDIO_MOST_MS))
+		audio_restart();
+	while ((count = cave_sound_take(samples, 2048u)) > 0)
+		SDL_QueueAudio(audio, samples, (Uint32)(count * sizeof(int16_t)));
+}
+
 /* ==== DEBUG KEYS: begin ===============================================================================================
    Autofire and fast forward, for testing only. Neither is the arcade's: the game's own rapid fire setting (the test
    mode's) is what the finished port uses. To take them out, set DONPACHI_DEBUG_KEYS to 0, or delete everything between
@@ -113,6 +176,8 @@ static int debug_fast_forward;
 static void debug_toggle_fast_forward(SDL_Window *window)
 {
 	debug_fast_forward = !debug_fast_forward;
+	if (!debug_fast_forward && audio)
+		audio_restart();
 	SDL_SetWindowTitle(window, debug_fast_forward ? "DonPachi (fast forward)" : "DonPachi");
 }
 #endif
@@ -125,7 +190,7 @@ int main(int argc, char **argv)
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
 	const char *rom = "rom";
 	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
-	int cheat_count = 0, list_cheats = 0;
+	int cheat_count = 0, list_cheats = 0, sound = 1;
 	int scale = 3;
 	const char *problem;
 	SDL_Window *window;
@@ -147,6 +212,8 @@ int main(int argc, char **argv)
 			cheat_file = argv[++index];
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
+		else if (!strcmp(argv[index], "--no-sound"))
+			sound = 0;
 		else if (!strcmp(argv[index], "--scale") && index + 1 < argc)
 			scale = atoi(argv[++index]);
 	}
@@ -191,6 +258,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	SDL_RenderSetLogicalSize(renderer, VIDEO_HEIGHT, VIDEO_WIDTH);
+	if (sound)
+		audio_open();
+	if (audio)
+		audio_restart();
 	SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 
@@ -226,6 +297,7 @@ int main(int argc, char **argv)
 		{
 			program_run_frame();
 			cheats_apply();
+			cave_sound_drop();    /* (no sound while fast forwarding) */
 			video_latch_sprites();
 			if (++debug_fast_frames % DEBUG_FAST_DRAW == 0)
 			{
@@ -242,6 +314,7 @@ int main(int argc, char **argv)
 #endif                     /* ---- DEBUG KEYS: end ---- */
 		program_run_frame();
 		cheats_apply();
+		audio_queue();
 		video_latch_sprites();
 		video_draw(frame);
 		video_rotated(frame, picture);
@@ -264,6 +337,8 @@ int main(int argc, char **argv)
 			next = (now > next + 4u * period) ? now + period : next + period;
 		}
 	}
+	if (audio)
+		SDL_CloseAudioDevice(audio);
 	SDL_Quit();
 	return 0;
 }

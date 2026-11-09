@@ -28,15 +28,19 @@ if(MSVC)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
-# The board: its memory map, the EEPROM, the picture, the ROM set's reader
+# The board: its memory map, the EEPROM, the picture, the sound, the ROM set's reader
 add_library(donpachi_runtime STATIC
 	runtime/src/machine.c
 	runtime/src/video.c
 	runtime/src/rom_set.c
 	runtime/src/inflate.c
 	runtime/src/cheats.c
+	runtime/src/sound.c
 )
 target_include_directories(donpachi_runtime PUBLIC runtime/include PRIVATE runtime/src)
+if(NOT MSVC)
+	target_link_libraries(donpachi_runtime PUBLIC m)    # (sound.c: pow, floor, lrint)
+endif()
 
 # The game: the decompiled 68000 program (tools/decompile.py writes src/) on its runtime (game_program.c: the
 # frames, the interrupt, the program's data and tables from the ROM set; tasks.c: the program's own stack)

@@ -1,6 +1,6 @@
 /**
  *    Name:        main.c
- *    Description: DonPachi with no window or sound: runs the decompiled program for a number of frames from the
+ *    Description: DonPachi with no window: runs the decompiled program for a number of frames from the
  *                 player's ROM set, for the checks
  *    Version:     0.1.0 (draft)
  *    Created:     09-11-2026
@@ -20,6 +20,7 @@
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
  *      --list-cheats   lists the cheat file's cheats
+ *      --wav FILE      writes the sound (48 kHz, 16-bit mono WAV)
  */
 #include "cave/cheats.h"
 #include "cave/machine.h"
@@ -95,8 +96,53 @@ typedef struct
 	unsigned bits;
 } held_input;
 
+/* the sound so far into 'wav' (its header is written at the end, when its size is known) */
+static unsigned long wav_samples;
+
+static void take_sound(FILE *wav)
+{
+	int16_t samples[4096];
+	unsigned count;
+
+	while ((count = cave_sound_take(samples, 4096u)) > 0)
+		if (wav)
+		{
+			for (unsigned index = 0; index < count; index++)
+			{
+				fputc(samples[index] & 0xFF, wav);
+				fputc((samples[index] >> 8) & 0xFF, wav);
+			}
+			wav_samples += count;
+		}
+}
+
+static void put32(FILE *file, uint32_t value)
+{
+	for (int byte = 0; byte < 4; byte++)
+		fputc((int)(value >> (8 * byte)) & 0xFF, file);
+}
+
+static void finish_wav(FILE *wav)
+{
+	const uint32_t data = (uint32_t)wav_samples * 2u;
+
+	rewind(wav);
+	fputs("RIFF", wav);
+	put32(wav, 36u + data);
+	fputs("WAVEfmt ", wav);
+	put32(wav, 16u);
+	put32(wav, 1u | 1u << 16);                  /* PCM, mono */
+	put32(wav, CAVE_SOUND_RATE);
+	put32(wav, CAVE_SOUND_RATE * 2u);
+	put32(wav, 2u | 16u << 16);                 /* 2 bytes a sample, 16 bits */
+	fputs("data", wav);
+	put32(wav, data);
+	fclose(wav);
+}
+
 int main(int argc, char **argv)
 {
+	FILE *wav = NULL;
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
 	unsigned long long shots[SHOTS_MAX];
 	int shot_count = 0;
@@ -141,6 +187,15 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[index], "--dump") && index + 1 < argc)
 			while (index + 1 < argc && argv[index + 1][0] != '-' && dump_count < SHOTS_MAX)
 				dumps[dump_count++] = strtoull(argv[++index], NULL, 10);
+		else if (!strcmp(argv[index], "--wav") && index + 1 < argc)
+		{
+			if (!(wav = fopen(argv[++index], "wb")))
+			{
+				fprintf(stderr, "cannot write %s\n", argv[index]);
+				return 1;
+			}
+			fseek(wav, 44L, SEEK_SET);
+		}
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--frames") && index + 1 < argc)
@@ -192,6 +247,7 @@ int main(int argc, char **argv)
 		}
 		program_run_frame();
 		cheats_apply();
+		take_sound(wav);
 		if (hashes)
 			fprintf(hashes, "%llu %016llx\n", (unsigned long long)program_frames(), (unsigned long long)cave_state_hash());
 		for (int dump = 0; dump < dump_count; dump++)
@@ -221,6 +277,8 @@ int main(int argc, char **argv)
 	}
 	if (hashes)
 		fclose(hashes);
+	if (wav)
+		finish_wav(wav);
 	printf("ran %llu frames\n", (unsigned long long)program_frames());
 	{
 		unsigned layers[3] = { 0 }, sprites = 0, colours = 0;

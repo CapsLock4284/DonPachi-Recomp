@@ -24,6 +24,8 @@ static const char *const action_names[ACTIONS] = {
 	"up", "down", "left", "right", "shot", "bomb", "button_c", "start", "coin", "service"
 };
 
+static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu" };
+
 static const char *const action_notes[ACTIONS] = {
 	NULL, NULL, NULL, NULL,
 	"shot; held, the laser",
@@ -82,6 +84,8 @@ void settings_defaults(settings *s)
 		s->left_stick[player] = true;
 		s->stick_dead[player] = 40;
 	}
+	s->hot_keys[HOTKEY_RESET][0] = SDL_SCANCODE_F3;
+	s->hot_keys[HOTKEY_SERVICE_MENU][0] = SDL_SCANCODE_F4;
 }
 
 /* ---- reading ---- */
@@ -218,6 +222,20 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->sound);
 		if (!SDL_strcasecmp(name, "volume"))
 			return parse_int(value, 0, 100, &s->volume);
+		return false;
+	}
+	if (!SDL_strcasecmp(section, "hotkeys"))
+	{
+		for (int hotkey = 0; hotkey < HOTKEYS; hotkey++)
+		{
+			char gamepad[64];
+
+			snprintf(gamepad, sizeof(gamepad), "%s_gamepad", hotkey_names[hotkey]);
+			if (!SDL_strcasecmp(name, hotkey_names[hotkey]))
+				return parse_keys(value, s->hot_keys[hotkey]);
+			if (!SDL_strcasecmp(name, gamepad))
+				return parse_buttons(value, s->hot_buttons[hotkey]);
+		}
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "files"))
@@ -366,6 +384,19 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));
 	fputs("; 0 to 100\n", file);
 	fprintf(file, "volume = %d\n\n", s->volume);
+
+	fputs("[hotkeys]\n", file);
+	fputs("; the board's reset (keys, then the gamepad's buttons, either player's)\n", file);
+	fputs("reset = ", file);
+	write_keys(file, s->hot_keys[HOTKEY_RESET]);
+	fputs("\nreset_gamepad = ", file);
+	write_buttons(file, s->hot_buttons[HOTKEY_RESET]);
+	fputs("\n; the test mode (the service menu): the reset, with the service switch held for you until it comes up\n", file);
+	fputs("service_menu = ", file);
+	write_keys(file, s->hot_keys[HOTKEY_SERVICE_MENU]);
+	fputs("\nservice_menu_gamepad = ", file);
+	write_buttons(file, s->hot_buttons[HOTKEY_SERVICE_MENU]);
+	fputs("\n\n", file);
 
 	fputs("[files]\n", file);
 	fputs("; the ROM set: MAME's donpachi.zip, or the folder that holds it (from the folder the game is started in)\n", file);

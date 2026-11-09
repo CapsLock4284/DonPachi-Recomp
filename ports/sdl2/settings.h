@@ -28,6 +28,14 @@ enum
 	ACTIONS
 };
 
+/* What the port does itself, from either player's keyboard or gamepad: [hotkeys] */
+enum
+{
+	HOTKEY_RESET,               /* the board's reset */
+	HOTKEY_SERVICE_MENU,        /* the reset, with the service switch held for the player: the test mode */
+	HOTKEYS
+};
+
 #define BINDINGS_MAX 4          /* keys or buttons an action may have */
 
 enum { PAD_NONE, PAD_BUTTON, PAD_TRIGGER };
@@ -56,6 +64,9 @@ typedef struct
 	/* [player1.keyboard] ... [player2.gamepad] */
 	SDL_Scancode keys[2][ACTIONS][BINDINGS_MAX];
 	pad_input buttons[2][ACTIONS][BINDINGS_MAX];
+	/* [hotkeys] */
+	SDL_Scancode hot_keys[HOTKEYS][BINDINGS_MAX];
+	pad_input hot_buttons[HOTKEYS][BINDINGS_MAX];
 	bool left_stick[2];         /* the left stick moves too */
 	int stick_dead[2];          /* how far it goes before it counts, in % */
 } settings;

@@ -22,6 +22,7 @@
  *      --list-cheats   lists the cheat file's cheats
  *      --wav FILE      writes the sound (48 kHz, 16-bit mono WAV)
  *      --eeprom FILE   the EEPROM from FILE, if there is one, and back to it at the end (as the window's port)
+ *      --reset FRAME   presses the board's reset after that frame (program_reset); several may follow
  *      --free-play     Start drops in a coin first when there is no credit (cave/free_play.h), as the window's port
  *      --arcade-timing the pictures drawn when the board's would be (program.h's program_after_vblank): a frame
  *                      later than the default, which draws each as soon as the game's frame is done
@@ -157,6 +158,8 @@ static void draw_arcade_picture(void)
 int main(int argc, char **argv)
 {
 	int arcade_timing = 0, free_play = 0;
+	unsigned long long resets[SHOTS_MAX];
+	int reset_count = 0;
 	FILE *wav = NULL;
 	const char *eeprom = NULL;
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
@@ -212,6 +215,9 @@ int main(int argc, char **argv)
 			}
 			fseek(wav, 44L, SEEK_SET);
 		}
+		else if (!strcmp(argv[index], "--reset") && index + 1 < argc)
+			while (index + 1 < argc && argv[index + 1][0] != '-' && reset_count < SHOTS_MAX)
+				resets[reset_count++] = strtoull(argv[++index], NULL, 10);
 		else if (!strcmp(argv[index], "--free-play"))
 			free_play = 1;
 		else if (!strcmp(argv[index], "--arcade-timing"))
@@ -278,6 +284,13 @@ int main(int argc, char **argv)
 		if (arcade_timing)
 			video_latch_sprites();    /* (VBLANK: the sprites the next picture shows) */
 		take_sound(wav);
+		for (int reset = 0; reset < reset_count; reset++)
+			if (resets[reset] == program_frames())
+			{
+				program_reset();
+				if (free_play)
+					free_play_reset();
+			}
 		if (hashes)
 			fprintf(hashes, "%llu %016llx\n", (unsigned long long)program_frames(), (unsigned long long)cave_state_hash());
 		for (int dump = 0; dump < dump_count; dump++)

@@ -26,6 +26,12 @@ const char *program_start(void);
 /* Runs the program to its next frame: VBLANK has started when it returns */
 void program_run_frame(void);
 
+/* The board's reset, as its reset button: the next program_run_frame starts the program again from its reset vector,
+   with the RAMs, the video and the sound chips cleared and the EEPROM kept (the test mode's settings). The frames go
+   on being counted. A player holding the service switch from then on (as the board's: about 140 frames) gets the
+   test mode */
+void program_reset(void);
+
 /* Called, when set, as the program's vblank interrupt (level 1) returns: its handler has flipped the sprite banks and
    set the layers' scroll and the palette for the frame. MAME draws DonPachi's screen there (90 us after the
    interrupt): a port that draws its picture there, with the sprites latched when VBLANK started, shows what the board

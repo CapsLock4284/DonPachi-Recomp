@@ -18,6 +18,7 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 - [x] Free play (DonPachi has no such setting): Start drops in a coin first (`runtime/src/free_play.c`); `--no-free-play` for the board's coins
 - [x] Gamepads (SDL game controllers, hot-plugging, two players): Xbox layout X shot/laser, A bomb, B button C (rapid fire), Start, d-pad and left stick; View kept for the options menu
 - [x] Settings file `donpachi.ini` beside the program (free play, timing, window, volume, files) and remapping of every key and gamepad button for both players (`ports/sdl2/settings.c`)
+- [x] Game reset (`program_reset`: the board's reset, the EEPROM kept; identical to a fresh start, checked frame by frame): F3, and F4 "service menu" (the reset with the service switch held for you); both bindable to gamepad buttons in `[hotkeys]`
 
 ## Next
 
@@ -29,9 +30,7 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
   - [ ] the game is frozen while it is open (no frames run), and goes on from the same frame
   - [ ] drawn with the game's own 8x8 font from the ROM, to match the arcade
   - [ ] entries: input timing (fast / arcade), window size, fullscreen, scaling, volume, controls, debug toggles
-  - [ ] "Service menu": restart the game into the test mode (needs a game reset in the runtime)
-- [ ] **Game reset** in the runtime (restart the program cleanly without quitting): for the menu, and a reset key like MAME's F3
-- [ ] **A cleaner way into the service menu** than holding F2 at launch: hold F2 (or a gamepad button) and press the reset key, or the options menu's "Service menu" entry
+  - [ ] "Reset" and "Service menu" entries (`program_reset`, as F3 and F4)
 
 ## Player features (the owner's ideas)
 

@@ -17,6 +17,7 @@
 #include "cave/rom_set.h"
 #include "host/tasks.h"
 
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +32,8 @@ static uint32_t saved[MAX_DEPTH];
 static size_t depth;
 static uint32_t interrupts;
 static host_task *port_task, *game_task;
+static jmp_buf restart;            /* (run_program's start, on the game task's own stack: program_reset) */
+static bool reset_pending;
 
 /* ---- stopping, with where ---- */
 
@@ -191,11 +194,18 @@ void take_interrupts(void)
 
 /* ---- the frames ---- */
 
-/* The program waits for its next frame: VBLANK starts, and the port has the frame */
+/* The program waits for its next frame: VBLANK starts, and the port has the frame. A reset asked for meanwhile
+   (program_reset) starts the program again from its reset vector: back up the game task's own stack to
+   run_program, past every call the program is in */
 static void next_frame(void)
 {
 	cave_vblank_start();
 	host_task_switch(port_task);
+	if (reset_pending)
+	{
+		reset_pending = false;
+		longjmp(restart, 1);
+	}
 }
 
 void frame_wait(void)
@@ -216,8 +226,22 @@ void reset_devices(void)
 	/* (the board connects nothing to the 68000's RESET line) */
 }
 
+/* The board as its reset leaves it (cave_reset: the RAMs, the video, the sound chips cleared, the EEPROM kept), the
+   68000's status, and the frames counted on */
+static void reset_board(void)
+{
+	const uint64_t frame = cave_board.frame;
+
+	cave_reset();
+	cave_board.frame = frame;
+	status = 0x2700u;
+	depth = 0;
+}
+
 static void run_program(void)
 {
+	if (setjmp(restart))
+		reset_board();
 	game_entry();
 	stopped("the program came to its end, after", 0);
 }
@@ -237,6 +261,11 @@ const char *program_start(void)
 	port_task = host_task_main();
 	game_task = host_task_create(run_program);
 	return NULL;
+}
+
+void program_reset(void)
+{
+	reset_pending = true;
 }
 
 void program_run_frame(void)

@@ -33,6 +33,7 @@
  *          (the first plugged in is player 1's, the second player 2's; the Xbox layout's names): d-pad or left stick
  *          move, X shot (held: the laser), A bomb, B button C (the board's rapid fire, with "C BUTTON FULL-AUTO",
  *          the home default), Start start; View is kept for the options menu. Keys and gamepads work together.
+ *          F3 resets the game, F4 resets it into the test mode (the service menu: the service switch held for you),
  *          F11 or Alt+Enter full screen, Escape quits.
  *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
  *          fast forward on and off.
@@ -116,6 +117,48 @@ static uint16_t pad_inputs(int player)
 	return pressed;
 }
 
+/* ---- the hotkeys: what the port does itself ([hotkeys]) ---- */
+
+#define SERVICE_MENU_FRAMES 180    /* the service switch held after the service menu's reset: the game looks at it
+                                      between 110 and 140 frames after its start */
+
+static unsigned service_held;      /* frames the service switch is still held for the player */
+static bool hotkey_was_down[HOTKEYS];
+
+static bool hotkey_down(int hotkey)
+{
+	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
+
+	for (int binding = 0; binding < BINDINGS_MAX; binding++)
+	{
+		const SDL_Scancode key = options.hot_keys[hotkey][binding];
+
+		if (key != SDL_SCANCODE_UNKNOWN && keys[key])
+			return true;
+		for (int player = 0; player < 2; player++)
+			if (pads[player] && settings_pad_pressed(pads[player], options.hot_buttons[hotkey][binding]))
+				return true;
+	}
+	return false;
+}
+
+/* A hotkey pressed (not held from before): the reset, or the reset into the test mode */
+static void hotkeys(void)
+{
+	for (int hotkey = 0; hotkey < HOTKEYS; hotkey++)
+	{
+		const bool down = hotkey_down(hotkey);
+
+		if (down && !hotkey_was_down[hotkey])
+		{
+			program_reset();
+			free_play_reset();
+			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
+		}
+		hotkey_was_down[hotkey] = down;
+	}
+}
+
 /* The inputs from the keys and the gamepads held: active low */
 static void read_keys(void)
 {
@@ -130,6 +173,11 @@ static void read_keys(void)
 				if (options.keys[player][action][binding] != SDL_SCANCODE_UNKNOWN
 						&& keys[options.keys[player][action][binding]])
 					pressed[player] |= settings_action_bits[action];
+	}
+	if (service_held)
+	{
+		pressed[0] |= CAVE_SERVICE;
+		service_held--;
 	}
 	cave_board.in0 = (uint16_t)~pressed[0];
 	cave_board.in1 = (uint16_t)~pressed[1];
@@ -485,6 +533,7 @@ int main(int argc, char **argv)
 						(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 			}
 		}
+		hotkeys();
 		read_keys();
 		if (options.free_play)
 			free_play_inputs();

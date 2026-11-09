@@ -37,6 +37,7 @@
  *          F11 or Alt+Enter full screen.
  *    The options menu (menu.h): the gamepad's View button or Escape. The game is paused while it is open; Quit is
  *          there.
+ *    Hitbox: the options menu's HITBOX (or [game] hitbox) shows each ship's hitbox as a white glowing dot (hitbox.h).
  *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
  */
 #include "cave/cheats.h"
@@ -46,6 +47,7 @@
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
+#include "hitbox.h"
 #include "menu.h"
 #include "settings.h"
 
@@ -355,6 +357,19 @@ static void draw_picture(void)
 	video_rotated(frame, picture);
 }
 
+/* The picture with the ships' hitboxes over it, when they are shown (hitbox.h): the boxes of the frame whose
+   sprites the picture has, a frame back (two with arcade timing) */
+static const uint32_t *with_hitboxes(const uint32_t *pixels)
+{
+	static uint32_t marked[VIDEO_WIDTH * VIDEO_HEIGHT];
+
+	if (!options.hitbox)
+		return pixels;
+	memcpy(marked, pixels, sizeof(marked));
+	hitbox_draw(marked, options.arcade_timing ? 2 : 1);
+	return marked;
+}
+
 static void show_picture(const uint32_t *pixels)
 {
 	SDL_UpdateTexture(texture, NULL, pixels, VIDEO_HEIGHT * (int)sizeof(uint32_t));
@@ -598,11 +613,12 @@ int main(int argc, char **argv)
 				else
 					audio_queue();
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
+				hitbox_record();
 			}
 		}
 		if (!options.arcade_timing)
 			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
-		show_picture(picture);
+		show_picture(with_hitboxes(picture));
 
 	pace:
 		/* (the board's 57.55 frames a second: SDL_Delay may sleep a whole tick of the system's timer longer than

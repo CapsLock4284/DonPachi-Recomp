@@ -53,6 +53,7 @@ typedef struct
 	bool free_play;
 	bool arcade_timing;
 	int fast_forward_speed;     /* 2-16 */
+	bool hitbox;                /* the ships' hitboxes shown */
 	/* [window] */
 	int scale;
 	bool fullscreen;

@@ -26,8 +26,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Player features (the owner's ideas)
 
-- [ ] **Hitbox dot**: a white glowing dot over the player's ship showing its real hitbox, as in Touhou or Mushihimesama
-  - find the hitbox's size and offset in the game's collision code; the port draws the dot over the picture at the ship's position (player 1 at `102158`, player 2 at `102198`), on or off in the options menu
+- [x] **Hitbox dot**: the menu's HITBOX (`[game] hitbox`): each ship's real hitbox as a white glowing box, from the game's own test (`func_0055DA`: a bullet's centre, or an enemy's box, against the box at `+10`-`+16` of the ship's record around its position `+06`/`+08`, in 64ths of a pixel); drawn from the frame of the sprites on screen (a frame back, two with arcade timing) so it stays on the ship as it moves (`ports/sdl2/hitbox.c`)
 - [ ] **Practice mode**: pick a part of a stage and warp straight to it (each boss and mid-boss) to practice
   - from the stage script's records and the stage variables (`stage` `101A40`, `scroll_position` `101A56`), or from save states made at those places
 - [x] **Fast forward** as a real feature: held, LB or Tab (`[hotkeys]`, remappable in the menu), `fast_forward_speed` 2-16 (4 by default; the menu offers 2x, 3x, 4x, 8x, 16x), no sound meanwhile

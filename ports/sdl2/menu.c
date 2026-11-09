@@ -43,8 +43,8 @@ enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NA
 
 enum
 {
-	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_VOLUME, ITEM_SCALE,
-	ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT,
+	ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME,
+	ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT,
 	ITEM_DEFAULTS, ITEM_BACK,     /* (the controls page's, after its actions) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
@@ -70,7 +70,7 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
-			ITEM_FAST_SPEED, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT };
+			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_CONTROLS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 			items[item_count++] = main_items[index];
@@ -146,6 +146,9 @@ static void change(int item, int step, bool wrap)
 	{
 	case ITEM_FREE_PLAY:
 		in_use->free_play = file->free_play = !in_use->free_play;
+		break;
+	case ITEM_HITBOX:
+		in_use->hitbox = file->hitbox = !in_use->hitbox;
 		break;
 	case ITEM_TIMING:
 		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
@@ -510,8 +513,8 @@ static void fill(uint32_t *out, int x0, int y0, int x1, int y1, uint32_t colour)
 static const char *item_label(int item)
 {
 	static const char *const labels[] = {
-		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "VOLUME", "WINDOW SIZE",
-		"FULL SCREEN",
+		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "HITBOX", "VOLUME",
+		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT", "RESET TO DEFAULTS", "BACK"
 	};
 
@@ -529,6 +532,9 @@ static void item_value(int item, char *out, size_t size)
 	{
 	case ITEM_FREE_PLAY:
 		snprintf(out, size, "%s", s->free_play ? "ON" : "OFF");
+		break;
+	case ITEM_HITBOX:
+		snprintf(out, size, "%s", s->hitbox ? "ON" : "OFF");
 		break;
 	case ITEM_TIMING:
 		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");

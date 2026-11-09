@@ -68,6 +68,7 @@ void settings_defaults(settings *s)
 	s->free_play = true;
 	s->arcade_timing = false;
 	s->fast_forward_speed = 4;
+	s->hitbox = false;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->sound = true;
@@ -211,6 +212,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->arcade_timing);
 		if (!SDL_strcasecmp(name, "fast_forward_speed"))
 			return parse_int(value, 2, 16, &s->fast_forward_speed);
+		if (!SDL_strcasecmp(name, "hitbox"))
+			return parse_bool(value, &s->hitbox);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "window"))
@@ -379,7 +382,9 @@ const char *settings_save(const settings *s, const char *path)
 		"; on the 2nd picture). true: when the board shows it (as MAME: the 3rd). The game runs the same either way\n", file);
 	fprintf(file, "arcade_timing = %s\n", bool_text(s->arcade_timing));
 	fputs("; while the fast forward key or button is held ([hotkeys]): the game's frames a frame, 2 to 16\n", file);
-	fprintf(file, "fast_forward_speed = %d\n\n", s->fast_forward_speed);
+	fprintf(file, "fast_forward_speed = %d\n", s->fast_forward_speed);
+	fputs("; a white dot over each ship: its hitbox, the box the game tests bullets and enemies against\n", file);
+	fprintf(file, "hitbox = %s\n\n", bool_text(s->hitbox));
 
 	fputs("[window]\n", file);
 	fputs("; the window's size, in times the game's 240 x 320\n", file);

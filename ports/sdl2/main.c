@@ -15,6 +15,8 @@
  *
  *    Keys: arrows move, Z shot, X bomb, C button 3, 1 start, 5 coin; player 2: R F D G, A S Q, 2, 6;
  *          F2 the test mode, F11 or Alt+Enter full screen, Escape quits.
+ *    Debug keys (DONPACHI_DEBUG_KEYS, below): C autofire for player 1 (Q for player 2) instead of button 3, Tab turns
+ *          fast forward on and off.
  */
 #include "cave/cheats.h"
 #include "cave/machine.h"
@@ -65,6 +67,57 @@ static void show_problem(const char *problem)
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DonPachi", problem, NULL);
 }
 
+/* ==== DEBUG KEYS: begin ===============================================================================================
+   Autofire and fast forward, for testing only. Neither is the arcade's: the game's own rapid fire setting (the test
+   mode's) is what the finished port uses. To take them out, set DONPACHI_DEBUG_KEYS to 0, or delete everything between
+   "DEBUG KEYS: begin" and "DEBUG KEYS: end" here and in main(): nothing else uses them.
+     autofire:     while C (player 1) or Q (player 2) is held, the shot button is pressed DEBUG_AUTOFIRE_ON frames, then
+                   released DEBUG_AUTOFIRE_OFF frames (taps, not a hold: holding the shot gives the laser). Button 3,
+                   which the game does not use, is no longer on those keys.
+     fast forward: Tab turns it on and off (the window's title says when it is on); while on, the game runs as fast as
+                   it can, drawn one frame in DEBUG_FAST_DRAW */
+#ifndef DONPACHI_DEBUG_KEYS
+#define DONPACHI_DEBUG_KEYS 1
+#endif
+#if DONPACHI_DEBUG_KEYS
+#define DEBUG_AUTOFIRE_ON   2
+#define DEBUG_AUTOFIRE_OFF  2
+#define DEBUG_FAST_DRAW     8
+
+static const SDL_Scancode debug_autofire_keys[2] = { SDL_SCANCODE_C, SDL_SCANCODE_Q };
+static unsigned debug_autofire_frame[2];
+
+/* The inputs (active low) with the autofire keys' taps */
+static void debug_autofire(void)
+{
+	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
+	uint16_t *const ports[2] = { &cave_board.in0, &cave_board.in1 };
+
+	for (int player = 0; player < 2; player++)
+	{
+		if (!keys[debug_autofire_keys[player]])
+		{
+			debug_autofire_frame[player] = 0;
+			continue;
+		}
+		*ports[player] |= CAVE_BUTTON3;    /* (the key is the autofire's, not button 3's) */
+		if (debug_autofire_frame[player] < DEBUG_AUTOFIRE_ON)
+			*ports[player] &= (uint16_t)~CAVE_BUTTON1;
+		debug_autofire_frame[player] = (debug_autofire_frame[player] + 1u) % (DEBUG_AUTOFIRE_ON + DEBUG_AUTOFIRE_OFF);
+	}
+}
+
+static int debug_fast_forward;
+
+/* Tab pressed: fast forward on, or off again */
+static void debug_toggle_fast_forward(SDL_Window *window)
+{
+	debug_fast_forward = !debug_fast_forward;
+	SDL_SetWindowTitle(window, debug_fast_forward ? "DonPachi (fast forward)" : "DonPachi");
+}
+#endif
+/* ==== DEBUG KEYS: end ================================================================================================= */
+
 #define CHEATS_MAX 16
 
 int main(int argc, char **argv)
@@ -80,6 +133,9 @@ int main(int argc, char **argv)
 	SDL_Texture *texture;
 	Uint64 next, period;
 	int running = 1;
+#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
+	unsigned debug_fast_frames = 0;
+#endif                     /* ---- DEBUG KEYS: end ---- */
 
 	for (int index = 1; index < argc; index++)
 	{
@@ -154,12 +210,36 @@ int main(int argc, char **argv)
 
 				if (key == SDLK_ESCAPE)
 					running = 0;
+#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
+				else if (key == SDLK_TAB)
+					debug_toggle_fast_forward(window);
+#endif                     /* ---- DEBUG KEYS: end ---- */
 				else if (key == SDLK_F11 || (key == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT)))
 					SDL_SetWindowFullscreen(window,
 						(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 			}
 		}
 		read_keys();
+#if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
+		debug_autofire();
+		if (debug_fast_forward)
+		{
+			program_run_frame();
+			cheats_apply();
+			video_latch_sprites();
+			if (++debug_fast_frames % DEBUG_FAST_DRAW == 0)
+			{
+				video_draw(frame);
+				video_rotated(frame, picture);
+				SDL_UpdateTexture(texture, NULL, picture, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+				SDL_RenderClear(renderer);
+				SDL_RenderCopy(renderer, texture, NULL, NULL);
+				SDL_RenderPresent(renderer);
+			}
+			next = SDL_GetPerformanceCounter() + period;    /* (normal speed again from when it is turned off) */
+			continue;
+		}
+#endif                     /* ---- DEBUG KEYS: end ---- */
 		program_run_frame();
 		cheats_apply();
 		video_latch_sprites();

@@ -39,6 +39,8 @@ extern "C" {
 #define CAVE_PALETTE_WORDS    0x800u        /* A08000-A08FFF */
 #define CAVE_VIDEO_REG_WORDS  0x40u
 #define CAVE_EEPROM_WORDS     64u           /* 93C46, 16-bit words */
+#define CAVE_STACK_FLOOR      0x10F800u     /* the 68000's stack, down from 110000 (reset's SP): the decompiled
+                                               program keeps its own in C, so the checks leave these 2 KB out */
 
 /* The inputs, MAME's IN0 and IN1: active low */
 enum
@@ -110,6 +112,13 @@ int cave_irq_level(void);
 
 /* The screen's VBLANK begins: the interrupt */
 void cave_vblank_start(void);
+
+/* A hash of what the program has made of the board's memories (work RAM, layers and their registers, sprites,
+   palette, video registers), for comparing the decompiled program with the original on MAME's 68000 (tools/cref) */
+uint64_t cave_state_hash(void);
+
+/* The board's memories, one region after the other, for finding where two runs differ: NULL, or what is wrong */
+const char *cave_dump(const char *path);
 
 #ifdef __cplusplus
 }

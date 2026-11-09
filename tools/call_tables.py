@@ -53,6 +53,12 @@ What DonPachi does that TMNT's code does not, and that the core does not take:
 9. A routine that returns for its caller too ("addq.w #4, A7; rts"): the core's LEFT_CALLER register, which its V60
    profile has, is given to the 68000's too.
 
+10. A return address pushed with "pea (back,PC)" before a jump (PUSHED_RETURNS: the stage scripts' interpreter, 02DA3C
+   and 02DBF0, runs a command through its table at 02DA48 and the command's rts goes to the loop at 02DA98 or 02DBF8,
+   which runs the next command when it is due at the same scroll position). The core took the command's rts for the
+   interpreter's own return: one command a frame, and the rest of the frame's script skipped. Here the pea is a call of
+   the code it runs into (02DA40, a function of its own), which comes back to 'back', as the core's register calls do.
+
 And the calls MANUAL names: "jsr (A1)" at 012D22 runs the object types' init routines, "jmp (A1)" at 012D86 their
 routines at +4, and "jmp (A0)" at 02D9A2 the stage scripts' callbacks listed in build/callbacks.txt.
 
@@ -177,7 +183,7 @@ def stack_effect(instruction):
             return unit * len(second.registers)
         return 0
     if mnemonic == "pea":
-        return -4
+        return 0 if instruction.address in PUSHED_RETURNS else -4    # (10. a call: see PUSHED_RETURNS)
     if len(operands) == 2 and operands[1].mode == "areg" and operands[1].reg == "A7":
         source = operands[0]
         if mnemonic == "lea" and source.mode == "disp" and source.reg == "A7":
@@ -234,6 +240,9 @@ LEFT_CALLER_NOTE = "decompiler/stack.py LEFT_CALLER"
 # each starts with every register 0: C keeps the registers in its own variables, so the crash screen shows zeros, and
 # the handlers take no parameters (the divide one is also run from every divu/divs, as the 68000 does)
 CRASH_HANDLERS = set(SP_STORES)
+
+# 10. {the pea's address: (the code it runs into, where that code's rts goes)}
+PUSHED_RETURNS = {0x02DA3C: (0x02DA40, 0x02DA98), 0x02DBF0: (0x02DA40, 0x02DBF8)}
 
 MAX_STACK_COPIES = 512   # blocks one function may get copied before the core's error stands (a loop that pushes would
                          # need copies without end)
@@ -808,6 +817,10 @@ def install():
         self.handlers = [handler if handler in instructions else self.handlers[0] for handler in self.handlers]
         self.inline_switches = {}
         self.find_register_returns()
+        for address, (routine, back) in PUSHED_RETURNS.items():
+            # (10. a pushed return address: a call of 'routine' that comes back to 'back')
+            if address in instructions and instructions[address].mnemonic == "pea":
+                self.register_calls[address] = (routine, back, None)
 
         entries = set(self.analysis.functions) | self.analysis.computed_targets
         entries.update(self.handlers)
@@ -818,6 +831,7 @@ def install():
         entries.update(address for address, symbol in symbols.items() if symbol.kind in ("func", "code"))
         entries -= set(self.return_points)
         entries |= set(self.register_routines)
+        entries |= {routine for address, (routine, back) in PUSHED_RETURNS.items() if address in self.register_calls}
         self.entries = {address for address in entries if address in instructions}
         keep_switches_inside(self, symbols)
 

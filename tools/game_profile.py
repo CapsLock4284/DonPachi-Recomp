@@ -75,5 +75,7 @@ SUPERVISOR_CODE = [(0x000000, 0x080000)]
 
 # where the main loop waits for its next frame: wait_for_frame's loop (002ED6 "addq.b #1, $101263.l", 002EDC "tst.w
 # $100f44.l", 002EE2 "beq $2ed6") reads frame_flag, which the interrupt sets. The decompiler puts frame_wait() before
-# this instruction (the runtime's frame) and take_interrupts() after it (the runtime runs level_1_interrupt)
-FRAME_WAIT = 0x002EDC
+# this instruction (the runtime's frame) and take_interrupts() after it (the runtime runs level_1_interrupt). It is
+# the loop's first instruction, so that the interrupt has set frame_flag when the tst reads it: at 002EDC the tst read
+# it before the interrupt, and every wait took two frames (the game ran at half speed)
+FRAME_WAIT = 0x002ED6

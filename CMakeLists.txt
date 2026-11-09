@@ -11,7 +11,7 @@
 #
 # The executables go to build/bin: donpachi_headless (no window), and donpachi (a window, with SDL2: on Windows
 # its development package, SDL2-devel-2.x.x-VC.zip, unpacked in build/downloads/sdl2). Both read the player's own
-# ROM set, MAME's donpachi.zip (--rom PATH, default rom/donpachi.zip... or rom/).
+# ROM set, MAME's donpachi.zip (--rom PATH, default rom: the folder holding it).
 cmake_minimum_required(VERSION 3.20)
 project(donpachi C)
 
@@ -78,4 +78,42 @@ if(SDL2_FOUND)
 	endif()
 else()
 	message(STATUS "No SDL2: the window port (donpachi) is not built")
+endif()
+
+# The reference (tools/cref): the original program on MAME's 68000 core (tools/core/konami/reference/mame,
+# MAME 0.289's, BSD-3-Clause), against the same board model, a frame at a time; tools/cref/compare.py compares its
+# --hashes and --dump files with the headless port's. On with -DDONPACHI_REFERENCE=ON (Python writes the core's
+# handlers from m68000.lst, as MAME's build does)
+option(DONPACHI_REFERENCE "Build tools/cref, the original program on MAME's 68000" OFF)
+if(DONPACHI_REFERENCE)
+	enable_language(CXX)
+	find_package(Python3 REQUIRED COMPONENTS Interpreter)
+	set(DONPACHI_MAME68K ${CMAKE_SOURCE_DIR}/tools/core/konami/reference)
+	set(DONPACHI_M68000 ${DONPACHI_MAME68K}/mame/m68000)
+	set(DONPACHI_M68000_GENERATED ${CMAKE_BINARY_DIR}/generated/cpu/m68000)
+	set(DONPACHI_M68000_OUTPUTS "")
+	foreach(part header:m68000-head.h decode:m68000-decode.cpp sdf:m68000-sdf.cpp sdp:m68000-sdp.cpp)
+		string(REPLACE ":" ";" part "${part}")
+		list(GET part 0 mode)
+		list(GET part 1 file)
+		add_custom_command(OUTPUT ${DONPACHI_M68000_GENERATED}/${file}
+			COMMAND ${CMAKE_COMMAND} -E make_directory ${DONPACHI_M68000_GENERATED}
+			COMMAND Python3::Interpreter ${DONPACHI_M68000}/m68000gen.py ${mode} ${DONPACHI_M68000}/m68000.lst
+				${DONPACHI_M68000_GENERATED}/${file}
+			DEPENDS ${DONPACHI_M68000}/m68000gen.py ${DONPACHI_M68000}/m68000.lst
+			VERBATIM)
+		list(APPEND DONPACHI_M68000_OUTPUTS ${DONPACHI_M68000_GENERATED}/${file})
+	endforeach()
+	add_executable(cref
+		tools/cref/cref.cpp
+		${DONPACHI_M68000}/m68000.cpp
+		${DONPACHI_M68000}/m68kdasm.cpp
+		${DONPACHI_MAME68K}/m68000_spaces.cpp
+		${DONPACHI_M68000_OUTPUTS})
+	target_include_directories(cref PRIVATE ${DONPACHI_MAME68K}/stub ${DONPACHI_M68000} ${DONPACHI_M68000_GENERATED})
+	target_compile_features(cref PRIVATE cxx_std_20)
+	target_link_libraries(cref PRIVATE donpachi_runtime)
+	if(MSVC)
+		target_compile_options(cref PRIVATE /bigobj /wd4244 /wd4267 /wd4100 /wd4146 /wd4127)
+	endif()
 endif()

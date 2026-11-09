@@ -13,6 +13,9 @@
  *      --shot-dir  where the pictures go (default: the current folder)
  *      --input FROM:TO:PLAYER:BITS  holds inputs from frame FROM to TO (player 1 or 2; BITS hexadecimal, 1 =
  *                      pressed: 1 up, 2 down, 4 left, 8 right, 10 shot, 20 bomb, 40 button 3, 80 start, 100 coin)
+ *      --hashes FILE   writes "FRAME HASH" for every frame, the board's memories (cave_state_hash), to compare
+ *                      with tools/cref's, the original program on MAME's 68000
+ *      --dump FRAME    writes that frame's memories to the shot folder (dump_FRAME.bin); several may follow
  *      --cheat NAME    turns on the cheat of the cheat file whose name holds NAME ("p1 infinite lives"), as many
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
@@ -41,7 +44,7 @@ static void on_alarm(int signal_number)
 }
 #endif
 
-#define SHOTS_MAX 64
+#define SHOTS_MAX 512
 
 static void write_bmp(const char *path, const uint32_t *pixels, int width, int height)
 {
@@ -102,6 +105,9 @@ int main(int argc, char **argv)
 	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
 	int cheat_count = 0, list_cheats = 0;
 	held_input inputs[INPUTS_MAX];
+	FILE *hashes = NULL;
+	unsigned long long dumps[SHOTS_MAX];
+	int dump_count = 0;
 	int input_count = 0;
 	unsigned long long frames = 600;
 	const char *problem;
@@ -124,6 +130,17 @@ int main(int argc, char **argv)
 				return 2;
 			}
 		}
+		else if (!strcmp(argv[index], "--hashes") && index + 1 < argc)
+		{
+			if (!(hashes = fopen(argv[++index], "w")))
+			{
+				fprintf(stderr, "cannot write %s\n", argv[index]);
+				return 2;
+			}
+		}
+		else if (!strcmp(argv[index], "--dump") && index + 1 < argc)
+			while (index + 1 < argc && argv[index + 1][0] != '-' && dump_count < SHOTS_MAX)
+				dumps[dump_count++] = strtoull(argv[++index], NULL, 10);
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--frames") && index + 1 < argc)
@@ -175,6 +192,16 @@ int main(int argc, char **argv)
 		}
 		program_run_frame();
 		cheats_apply();
+		if (hashes)
+			fprintf(hashes, "%llu %016llx\n", (unsigned long long)program_frames(), (unsigned long long)cave_state_hash());
+		for (int dump = 0; dump < dump_count; dump++)
+			if (dumps[dump] == program_frames())
+			{
+				char path[1024];
+
+				snprintf(path, sizeof(path), "%s/dump_%05llu.bin", shot_dir, (unsigned long long)program_frames());
+				cave_dump(path);
+			}
 		for (int shot = 0; shot < shot_count; shot++)
 			if (shots[shot] == program_frames())
 			{
@@ -192,6 +219,8 @@ int main(int argc, char **argv)
 				(unsigned)cave_board.unmapped_reads, (unsigned)cave_board.last_unmapped_read,
 				(unsigned)cave_board.unmapped_writes, (unsigned)cave_board.last_unmapped_write);
 	}
+	if (hashes)
+		fclose(hashes);
 	printf("ran %llu frames\n", (unsigned long long)program_frames());
 	{
 		unsigned layers[3] = { 0 }, sprites = 0, colours = 0;

@@ -16,15 +16,16 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 - [x] Debug keys: V autofire, Tab fast forward (`DONPACHI_DEBUG_KEYS`)
 - [x] Home-friendly defaults: a new `donpachi.eeprom` has "C BUTTON FULL-AUTO" on (EEPROM word 4 bit 2, word 1 as the test mode writes it)
 - [x] Free play (DonPachi has no such setting): Start drops in a coin first (`runtime/src/free_play.c`); `--no-free-play` for the board's coins
-- [x] Gamepads (SDL game controllers, hot-plugging, two players): Xbox layout X shot/laser, A bomb, B button C (rapid fire), Start, View coin, d-pad and left stick
+- [x] Gamepads (SDL game controllers, hot-plugging, two players): Xbox layout X shot/laser, A bomb, B button C (rapid fire), Start, d-pad and left stick; View kept for the options menu
+- [x] Settings file `donpachi.ini` beside the program (free play, timing, window, volume, files) and remapping of every key and gamepad button for both players (`ports/sdl2/settings.c`)
 
 ## Next
 
 
-- [ ] **Button remapping** for keyboard and gamepad
-- [ ] **Settings file** beside the program (window size, fullscreen, scaling, volume, timing, controls), read at start
 - [ ] **Options menu** drawn by the port over the paused game
-  - [ ] opened from a gamepad button (Back/Select or Guide) or a held combo (e.g. Start + Coin), and a key
+  - [ ] opened with the gamepad's View button (and a key); the port takes the press, so the game sees no coin or start
+  - [ ] while it is open every input goes to the menu (d-pad/stick move, A choose, B back, View or B close); after it closes the game ignores a button until it is let go (the A that chose "Resume" is not a bomb)
+  - [ ] remapping from the menu (writes `donpachi.ini`)
   - [ ] the game is frozen while it is open (no frames run), and goes on from the same frame
   - [ ] drawn with the game's own 8x8 font from the ROM, to match the arcade
   - [ ] entries: input timing (fast / arcade), window size, fullscreen, scaling, volume, controls, debug toggles

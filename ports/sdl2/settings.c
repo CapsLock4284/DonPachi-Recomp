@@ -1,0 +1,421 @@
+/**
+ *    Name:        settings.c
+ *    Description: the window port's settings (settings.h): donpachi.ini, read and written
+ *    Version:     0.1.0 (draft)
+ *    Created:     09-11-2026
+ *
+ *    license:BSD-3-Clause
+ */
+#include "settings.h"
+
+#include "cave/machine.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+const uint16_t settings_action_bits[ACTIONS] = {
+	CAVE_UP, CAVE_DOWN, CAVE_LEFT, CAVE_RIGHT,
+	CAVE_BUTTON1, CAVE_BUTTON2, CAVE_BUTTON3, CAVE_START, CAVE_COIN, CAVE_SERVICE
+};
+
+static const char *const action_names[ACTIONS] = {
+	"up", "down", "left", "right", "shot", "bomb", "button_c", "start", "coin", "service"
+};
+
+static const char *const action_notes[ACTIONS] = {
+	NULL, NULL, NULL, NULL,
+	"shot; held, the laser",
+	"bomb",
+	"button C: the board's rapid fire, with the test mode's \"C BUTTON FULL-AUTO\" (the home default)",
+	"start; with free play it drops in a coin first",
+	"coin",
+	"the test mode: held while the game starts"
+};
+
+/* ---- the defaults ---- */
+
+static void set_keys(settings *s, int player, int action, SDL_Scancode first, SDL_Scancode second)
+{
+	s->keys[player][action][0] = first;
+	s->keys[player][action][1] = second;
+}
+
+static void set_button(settings *s, int player, int action, int kind, int index)
+{
+	s->buttons[player][action][0].kind = kind;
+	s->buttons[player][action][0].index = index;
+}
+
+void settings_defaults(settings *s)
+{
+	static const SDL_Scancode keys[2][ACTIONS] = {
+		{ SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_Z, SDL_SCANCODE_X,
+		  SDL_SCANCODE_C, SDL_SCANCODE_1, SDL_SCANCODE_5, SDL_SCANCODE_F2 },
+		{ SDL_SCANCODE_R, SDL_SCANCODE_F, SDL_SCANCODE_D, SDL_SCANCODE_G, SDL_SCANCODE_A, SDL_SCANCODE_S,
+		  SDL_SCANCODE_Q, SDL_SCANCODE_2, SDL_SCANCODE_6, SDL_SCANCODE_UNKNOWN }
+	};
+	static const int buttons[ACTIONS] = {
+		SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+		SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B,
+		SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_INVALID, SDL_CONTROLLER_BUTTON_INVALID
+	};
+
+	memset(s, 0, sizeof(*s));
+	s->free_play = true;
+	s->arcade_timing = false;
+	s->scale = 3;
+	s->fullscreen = false;
+	s->sound = true;
+	s->volume = 100;
+	snprintf(s->rom, sizeof(s->rom), "rom");
+	snprintf(s->cheats, sizeof(s->cheats), "cheats/donpachi.xml");
+	for (int player = 0; player < 2; player++)
+	{
+		for (int action = 0; action < ACTIONS; action++)
+		{
+			set_keys(s, player, action, keys[player][action], SDL_SCANCODE_UNKNOWN);
+			if (buttons[action] != SDL_CONTROLLER_BUTTON_INVALID)
+				set_button(s, player, action, PAD_BUTTON, buttons[action]);
+		}
+		s->left_stick[player] = true;
+		s->stick_dead[player] = 40;
+	}
+}
+
+/* ---- reading ---- */
+
+static char *trim(char *text)
+{
+	char *end;
+
+	while (isspace((unsigned char)*text))
+		text++;
+	end = text + strlen(text);
+	while (end > text && isspace((unsigned char)end[-1]))
+		*--end = '\0';
+	return text;
+}
+
+static bool parse_bool(const char *value, bool *out)
+{
+	static const char *const yes[] = { "true", "yes", "on", "1" }, *const no[] = { "false", "no", "off", "0" };
+
+	for (int index = 0; index < 4; index++)
+	{
+		if (!SDL_strcasecmp(value, yes[index]))
+		{
+			*out = true;
+			return true;
+		}
+		if (!SDL_strcasecmp(value, no[index]))
+		{
+			*out = false;
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool parse_int(const char *value, int low, int high, int *out)
+{
+	char *end;
+	const long number = strtol(value, &end, 10);
+
+	if (end == value || *trim(end) || number < low || number > high)
+		return false;
+	*out = (int)number;
+	return true;
+}
+
+/* "Z, Left Shift" or "x, righttrigger": the names one after the other into 'names', at most BINDINGS_MAX */
+static int split_names(char *value, char *names[BINDINGS_MAX])
+{
+	int count = 0;
+
+	if (!*value || !SDL_strcasecmp(value, "none"))
+		return 0;
+	for (char *name = value; name && count < BINDINGS_MAX;)
+	{
+		char *const comma = strchr(name, ',');
+
+		if (comma)
+			*comma = '\0';
+		names[count++] = trim(name);
+		name = comma ? comma + 1 : NULL;
+	}
+	return count;
+}
+
+static bool parse_keys(char *value, SDL_Scancode out[BINDINGS_MAX])
+{
+	char *names[BINDINGS_MAX];
+	SDL_Scancode keys[BINDINGS_MAX] = { SDL_SCANCODE_UNKNOWN };
+	const int count = split_names(value, names);
+
+	for (int index = 0; index < count; index++)
+		if ((keys[index] = SDL_GetScancodeFromName(names[index])) == SDL_SCANCODE_UNKNOWN)
+			return false;
+	memcpy(out, keys, sizeof(keys));
+	return true;
+}
+
+static bool parse_buttons(char *value, pad_input out[BINDINGS_MAX])
+{
+	char *names[BINDINGS_MAX];
+	pad_input inputs[BINDINGS_MAX] = { { PAD_NONE, 0 } };
+	const int count = split_names(value, names);
+
+	for (int index = 0; index < count; index++)
+	{
+		const SDL_GameControllerButton button = SDL_GameControllerGetButtonFromString(names[index]);
+		const SDL_GameControllerAxis axis = SDL_GameControllerGetAxisFromString(names[index]);
+
+		if (button != SDL_CONTROLLER_BUTTON_INVALID)
+			inputs[index] = (pad_input){ PAD_BUTTON, button };
+		else if (axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
+			inputs[index] = (pad_input){ PAD_TRIGGER, axis };
+		else
+			return false;
+	}
+	memcpy(out, inputs, sizeof(inputs));
+	return true;
+}
+
+static int action_of(const char *name)
+{
+	for (int action = 0; action < ACTIONS; action++)
+		if (!SDL_strcasecmp(name, action_names[action]))
+			return action;
+	return -1;
+}
+
+/* one "name = value" of section 'section': true when it is a setting and its value is right */
+static bool take(settings *s, const char *section, const char *name, char *value)
+{
+	int player, number;
+
+	if (!SDL_strcasecmp(section, "game"))
+	{
+		if (!SDL_strcasecmp(name, "free_play"))
+			return parse_bool(value, &s->free_play);
+		if (!SDL_strcasecmp(name, "arcade_timing"))
+			return parse_bool(value, &s->arcade_timing);
+		return false;
+	}
+	if (!SDL_strcasecmp(section, "window"))
+	{
+		if (!SDL_strcasecmp(name, "scale"))
+			return parse_int(value, 1, 16, &s->scale);
+		if (!SDL_strcasecmp(name, "fullscreen"))
+			return parse_bool(value, &s->fullscreen);
+		return false;
+	}
+	if (!SDL_strcasecmp(section, "sound"))
+	{
+		if (!SDL_strcasecmp(name, "enabled"))
+			return parse_bool(value, &s->sound);
+		if (!SDL_strcasecmp(name, "volume"))
+			return parse_int(value, 0, 100, &s->volume);
+		return false;
+	}
+	if (!SDL_strcasecmp(section, "files"))
+	{
+		char *const target = !SDL_strcasecmp(name, "rom") ? s->rom : !SDL_strcasecmp(name, "eeprom") ? s->eeprom
+			: !SDL_strcasecmp(name, "cheats") ? s->cheats : NULL;
+
+		if (!target || strlen(value) >= sizeof(s->rom))
+			return false;
+		strcpy(target, value);
+		return true;
+	}
+	if (!SDL_strncasecmp(section, "player", 6) && (section[6] == '1' || section[6] == '2') && section[7] == '.')
+	{
+		const int action = action_of(name);
+
+		player = section[6] - '1';
+		if (!SDL_strcasecmp(section + 8, "keyboard"))
+			return action >= 0 && parse_keys(value, s->keys[player][action]);
+		if (!SDL_strcasecmp(section + 8, "gamepad"))
+		{
+			if (!SDL_strcasecmp(name, "left_stick"))
+				return parse_bool(value, &s->left_stick[player]);
+			if (!SDL_strcasecmp(name, "stick_deadzone"))
+			{
+				if (!parse_int(value, 5, 95, &number))
+					return false;
+				s->stick_dead[player] = number;
+				return true;
+			}
+			return action >= 0 && parse_buttons(value, s->buttons[player][action]);
+		}
+	}
+	return false;
+}
+
+const char *settings_load(settings *s, const char *path, bool *written)
+{
+	static char problems[1024];
+	char line[1024], section[64] = "";
+	int number = 0;
+	FILE *file = fopen(path, "r");
+
+	*written = false;
+	problems[0] = '\0';
+	if (!file)
+	{
+		const char *const problem = settings_save(s, path);
+
+		*written = problem == NULL;
+		return problem;
+	}
+	while (fgets(line, sizeof(line), file))
+	{
+		char *text = trim(line), *equals;
+
+		number++;
+		if (!*text || *text == ';' || *text == '#')
+			continue;
+		if (*text == '[')
+		{
+			char *const close = strchr(text, ']');
+
+			if (close && close - text - 1 < (int)sizeof(section))
+			{
+				*close = '\0';
+				snprintf(section, sizeof(section), "%s", trim(text + 1));
+				continue;
+			}
+		}
+		else if ((equals = strchr(text, '=')) != NULL)
+		{
+			*equals = '\0';
+			if (take(s, section, trim(text), trim(equals + 1)))
+				continue;
+		}
+		if (strlen(problems) < sizeof(problems) - 80)
+			snprintf(problems + strlen(problems), sizeof(problems) - strlen(problems),
+				"%sline %d is not a setting this version knows, or its value is wrong", problems[0] ? "; " : "", number);
+	}
+	fclose(file);
+	return problems[0] ? problems : NULL;
+}
+
+/* ---- writing ---- */
+
+static const char *bool_text(bool value)
+{
+	return value ? "true" : "false";
+}
+
+static void write_keys(FILE *file, const SDL_Scancode keys[BINDINGS_MAX])
+{
+	int written = 0;
+
+	for (int index = 0; index < BINDINGS_MAX; index++)
+		if (keys[index] != SDL_SCANCODE_UNKNOWN)
+			fprintf(file, "%s%s", written++ ? ", " : "", SDL_GetScancodeName(keys[index]));
+	if (!written)
+		fputs("none", file);
+}
+
+static void write_buttons(FILE *file, const pad_input inputs[BINDINGS_MAX])
+{
+	int written = 0;
+
+	for (int index = 0; index < BINDINGS_MAX; index++)
+	{
+		const char *name = NULL;
+
+		if (inputs[index].kind == PAD_BUTTON)
+			name = SDL_GameControllerGetStringForButton((SDL_GameControllerButton)inputs[index].index);
+		else if (inputs[index].kind == PAD_TRIGGER)
+			name = SDL_GameControllerGetStringForAxis((SDL_GameControllerAxis)inputs[index].index);
+		if (name)
+			fprintf(file, "%s%s", written++ ? ", " : "", name);
+	}
+	if (!written)
+		fputs("none", file);
+}
+
+const char *settings_save(const settings *s, const char *path)
+{
+	FILE *file = fopen(path, "w");
+
+	if (!file)
+		return "cannot write the settings file";
+	fputs("; DonPachi's settings. Edit with any text editor while the game is closed; a line taken out goes back to\n"
+		"; its default, and deleting the file writes it again with all the defaults. The command line's options\n"
+		"; (--rom, --scale, --no-sound, --no-free-play, --arcade-timing, --eeprom, --cheats) go over these.\n\n", file);
+
+	fputs("[game]\n", file);
+	fputs("; Start drops in a coin first when there is no credit (DonPachi has no free play setting of its own)\n", file);
+	fprintf(file, "free_play = %s\n", bool_text(s->free_play));
+	fputs("; false: each picture shown as soon as the game's frame is done (the fastest response: movement and shots\n"
+		"; on the 2nd picture). true: when the board shows it (as MAME: the 3rd). The game runs the same either way\n", file);
+	fprintf(file, "arcade_timing = %s\n\n", bool_text(s->arcade_timing));
+
+	fputs("[window]\n", file);
+	fputs("; the window's size, in times the game's 240 x 320\n", file);
+	fprintf(file, "scale = %d\n", s->scale);
+	fputs("; start in full screen (F11 or Alt+Enter switches while playing)\n", file);
+	fprintf(file, "fullscreen = %s\n\n", bool_text(s->fullscreen));
+
+	fputs("[sound]\n", file);
+	fprintf(file, "enabled = %s\n", bool_text(s->sound));
+	fputs("; 0 to 100\n", file);
+	fprintf(file, "volume = %d\n\n", s->volume);
+
+	fputs("[files]\n", file);
+	fputs("; the ROM set: MAME's donpachi.zip, or the folder that holds it (from the folder the game is started in)\n", file);
+	fprintf(file, "rom = %s\n", s->rom);
+	fputs("; the test mode's settings (empty: donpachi.eeprom beside the program)\n", file);
+	fprintf(file, "eeprom = %s\n", s->eeprom);
+	fputs("; MAME's cheat file, for --cheat\n", file);
+	fprintf(file, "cheats = %s\n", s->cheats);
+
+	for (int player = 0; player < 2; player++)
+	{
+		fprintf(file, "\n[player%d.keyboard]\n", player + 1);
+		if (player == 0)
+			fputs("; SDL's key names: Up, Down, Left, Right, A-Z, 0-9, F1-F12, Space, Return, Left Shift, Right Ctrl,\n"
+				"; Keypad 8 ... Up to 4 keys an action, with commas; none for no key\n", file);
+		for (int action = 0; action < ACTIONS; action++)
+		{
+			if (player == 0 && action_notes[action])
+				fprintf(file, "; %s\n", action_notes[action]);
+			fprintf(file, "%s = ", action_names[action]);
+			write_keys(file, s->keys[player][action]);
+			fputc('\n', file);
+		}
+		fprintf(file, "\n[player%d.gamepad]\n", player + 1);
+		if (player == 0)
+			fputs("; The first gamepad plugged in is player 1's, the second player 2's. Buttons as on an Xbox pad:\n"
+				"; a, b, x, y, back (View), start, guide, leftshoulder, rightshoulder, lefttrigger, righttrigger,\n"
+				"; leftstick, rightstick, dpup, dpdown, dpleft, dpright. Up to 4 an action, with commas; none for none.\n"
+				"; (back is kept free for the options menu, still to come)\n", file);
+		for (int action = 0; action < ACTIONS; action++)
+		{
+			fprintf(file, "%s = ", action_names[action]);
+			write_buttons(file, s->buttons[player][action]);
+			fputc('\n', file);
+		}
+		if (player == 0)
+			fputs("; the left stick moves as well as the d-pad, past stick_deadzone % of its travel\n", file);
+		fprintf(file, "left_stick = %s\n", bool_text(s->left_stick[player]));
+		fprintf(file, "stick_deadzone = %d\n", s->stick_dead[player]);
+	}
+	if (fclose(file) != 0)
+		return "cannot write the settings file";
+	return NULL;
+}
+
+bool settings_pad_pressed(SDL_GameController *pad, pad_input input)
+{
+	if (input.kind == PAD_BUTTON)
+		return SDL_GameControllerGetButton(pad, (SDL_GameControllerButton)input.index) != 0;
+	if (input.kind == PAD_TRIGGER)
+		return SDL_GameControllerGetAxis(pad, (SDL_GameControllerAxis)input.index) > 16384;
+	return false;
+}

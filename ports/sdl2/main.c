@@ -5,8 +5,11 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH] [--arcade-timing]
- *                    [--cheat NAME ...]
+ *    Usage: donpachi [--settings PATH] [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH]
+ *                    [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats]
+ *      --settings PATH the settings file (default: donpachi.ini beside the program; settings.h): the options below
+ *                      and the keys and gamepad buttons of both players. Written with the defaults when it is not
+ *                      there; the options below go over it for the run
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
  *      --no-sound      plays no sound
@@ -25,13 +28,12 @@
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
  *      --list-cheats   lists the cheat file's cheats
  *
- *    Keys: arrows move, Z shot, X bomb, C button 3, 1 start, 5 coin; player 2: R F D G, A S Q, 2, 6;
- *          F2 the test mode (held while the game starts, as on the board), F11 or Alt+Enter full screen, Escape
- *          quits.
- *    Gamepads (SDL's game controllers; the first plugged in is player 1, the second player 2; the Xbox layout's
- *          names): d-pad or left stick move, X shot (held: the laser), A bomb, B button 3 (the board's rapid fire,
- *          with "C BUTTON FULL-AUTO", the home default), Start start, View (Back) coin. They and the keys work
- *          together.
+ *    Controls (the defaults: donpachi.ini changes them): keys arrows, Z shot, X bomb, C button C, 1 start, 5 coin,
+ *          F2 the test mode (held while the game starts, as on the board); player 2 R F D G, A S Q, 2, 6. Gamepads
+ *          (the first plugged in is player 1's, the second player 2's; the Xbox layout's names): d-pad or left stick
+ *          move, X shot (held: the laser), A bomb, B button C (the board's rapid fire, with "C BUTTON FULL-AUTO",
+ *          the home default), Start start; View is kept for the options menu. Keys and gamepads work together.
+ *          F11 or Alt+Enter full screen, Escape quits.
  *    Debug keys (DONPACHI_DEBUG_KEYS, below): V autofire for player 1 (W for player 2), Tab turns
  *          fast forward on and off.
  */
@@ -42,50 +44,18 @@
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
+#include "settings.h"
+
 #include <SDL.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct
-{
-	SDL_Scancode key;
-	int player;
-	uint16_t bit;
-} key_binding;
-
-static const key_binding bindings[] = {
-	{ SDL_SCANCODE_UP, 0, CAVE_UP }, { SDL_SCANCODE_DOWN, 0, CAVE_DOWN },
-	{ SDL_SCANCODE_LEFT, 0, CAVE_LEFT }, { SDL_SCANCODE_RIGHT, 0, CAVE_RIGHT },
-	{ SDL_SCANCODE_Z, 0, CAVE_BUTTON1 }, { SDL_SCANCODE_X, 0, CAVE_BUTTON2 }, { SDL_SCANCODE_C, 0, CAVE_BUTTON3 },
-	{ SDL_SCANCODE_1, 0, CAVE_START }, { SDL_SCANCODE_5, 0, CAVE_COIN }, { SDL_SCANCODE_F2, 0, CAVE_SERVICE },
-	{ SDL_SCANCODE_R, 1, CAVE_UP }, { SDL_SCANCODE_F, 1, CAVE_DOWN },
-	{ SDL_SCANCODE_D, 1, CAVE_LEFT }, { SDL_SCANCODE_G, 1, CAVE_RIGHT },
-	{ SDL_SCANCODE_A, 1, CAVE_BUTTON1 }, { SDL_SCANCODE_S, 1, CAVE_BUTTON2 }, { SDL_SCANCODE_Q, 1, CAVE_BUTTON3 },
-	{ SDL_SCANCODE_2, 1, CAVE_START }, { SDL_SCANCODE_6, 1, CAVE_COIN },
-};
+/* the settings: donpachi.ini, then the command line (settings.h) */
+static settings options;
 
 /* ---- the gamepads ---- */
-
-typedef struct
-{
-	SDL_GameControllerButton button;
-	uint16_t bit;
-} pad_binding;
-
-/* (SDL names the buttons by where they are: the Xbox pad's own names) */
-static const pad_binding pad_bindings[] = {
-	{ SDL_CONTROLLER_BUTTON_DPAD_UP, CAVE_UP }, { SDL_CONTROLLER_BUTTON_DPAD_DOWN, CAVE_DOWN },
-	{ SDL_CONTROLLER_BUTTON_DPAD_LEFT, CAVE_LEFT }, { SDL_CONTROLLER_BUTTON_DPAD_RIGHT, CAVE_RIGHT },
-	{ SDL_CONTROLLER_BUTTON_X, CAVE_BUTTON1 },       /* shot; held, the laser */
-	{ SDL_CONTROLLER_BUTTON_A, CAVE_BUTTON2 },       /* bomb */
-	{ SDL_CONTROLLER_BUTTON_B, CAVE_BUTTON3 },       /* button C: the board's rapid fire ("C BUTTON FULL-AUTO") */
-	{ SDL_CONTROLLER_BUTTON_START, CAVE_START },
-	{ SDL_CONTROLLER_BUTTON_BACK, CAVE_COIN },       /* (View) */
-};
-
-#define PAD_STICK_DEAD 13000    /* how far the left stick goes before it counts as a direction (of 32767): ~40% */
 
 static SDL_GameController *pads[2];    /* player 1's, player 2's: the first two plugged in */
 
@@ -118,25 +88,30 @@ static void pad_removed(SDL_JoystickID instance)
 		}
 }
 
-static uint16_t pad_inputs(SDL_GameController *pad)
+static uint16_t pad_inputs(int player)
 {
+	SDL_GameController *const pad = pads[player];
+	const int dead = options.stick_dead[player] * 32767 / 100;
 	uint16_t pressed = 0;
 	int x, y;
 
 	if (!pad)
 		return 0;
-	for (size_t index = 0; index < sizeof(pad_bindings) / sizeof(pad_bindings[0]); index++)
-		if (SDL_GameControllerGetButton(pad, pad_bindings[index].button))
-			pressed |= pad_bindings[index].bit;
+	for (int action = 0; action < ACTIONS; action++)
+		for (int binding = 0; binding < BINDINGS_MAX; binding++)
+			if (settings_pad_pressed(pad, options.buttons[player][action][binding]))
+				pressed |= settings_action_bits[action];
+	if (!options.left_stick[player])
+		return pressed;
 	x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
 	y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-	if (x < -PAD_STICK_DEAD)
+	if (x < -dead)
 		pressed |= CAVE_LEFT;
-	else if (x > PAD_STICK_DEAD)
+	else if (x > dead)
 		pressed |= CAVE_RIGHT;
-	if (y < -PAD_STICK_DEAD)
+	if (y < -dead)
 		pressed |= CAVE_UP;
-	else if (y > PAD_STICK_DEAD)
+	else if (y > dead)
 		pressed |= CAVE_DOWN;
 	return pressed;
 }
@@ -147,12 +122,15 @@ static void read_keys(void)
 	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
 	uint16_t pressed[2];
 
-	pressed[0] = pad_inputs(pads[0]);
-	pressed[1] = pad_inputs(pads[1]);
-
-	for (size_t index = 0; index < sizeof(bindings) / sizeof(bindings[0]); index++)
-		if (keys[bindings[index].key])
-			pressed[bindings[index].player] |= bindings[index].bit;
+	for (int player = 0; player < 2; player++)
+	{
+		pressed[player] = pad_inputs(player);
+		for (int action = 0; action < ACTIONS; action++)
+			for (int binding = 0; binding < BINDINGS_MAX; binding++)
+				if (options.keys[player][action][binding] != SDL_SCANCODE_UNKNOWN
+						&& keys[options.keys[player][action][binding]])
+					pressed[player] |= settings_action_bits[action];
+	}
 	cave_board.in0 = (uint16_t)~pressed[0];
 	cave_board.in1 = (uint16_t)~pressed[1];
 }
@@ -222,7 +200,12 @@ static void audio_queue(void)
 	if (SDL_GetQueuedAudioSize(audio) > audio_bytes(AUDIO_MOST_MS))
 		audio_restart();
 	while ((count = cave_sound_take(samples, 2048u)) > 0)
+	{
+		if (options.volume < 100)
+			for (unsigned index = 0; index < count; index++)
+				samples[index] = (int16_t)(samples[index] * options.volume / 100);
 		SDL_QueueAudio(audio, samples, (Uint32)(count * sizeof(int16_t)));
+	}
 }
 
 /* ==== DEBUG KEYS: begin ===============================================================================================
@@ -360,11 +343,10 @@ static void show_picture(void)
 
 int main(int argc, char **argv)
 {
-	const char *rom = "rom";
-	const char *cheat_file = "cheats/donpachi.xml", *cheat_names[CHEATS_MAX];
-	const char *eeprom = NULL;
-	int cheat_count = 0, list_cheats = 0, sound = 1, arcade_timing = 0, free_play = 1;
-	int scale = 3;
+	const char *cheat_names[CHEATS_MAX];
+	char settings_path[1024];
+	int cheat_count = 0, list_cheats = 0;
+	bool settings_written;
 	const char *problem;
 	SDL_Window *window;
 	Uint64 next, period;
@@ -373,35 +355,60 @@ int main(int argc, char **argv)
 	unsigned debug_fast_frames = 0;
 #endif                     /* ---- DEBUG KEYS: end ---- */
 
+	/* the settings file, then the command line over it */
+	settings_defaults(&options);
+	settings_path[0] = '\0';
+	for (int index = 1; index + 1 < argc; index++)
+		if (!strcmp(argv[index], "--settings"))
+			snprintf(settings_path, sizeof(settings_path), "%s", argv[index + 1]);
+	if (!settings_path[0])
+	{
+		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
+
+		snprintf(settings_path, sizeof(settings_path), "%sdonpachi.ini", base ? base : "");
+		SDL_free(base);
+	}
+	if ((problem = settings_load(&options, settings_path, &settings_written)) != NULL)
+	{
+		char message[1400];
+
+		snprintf(message, sizeof(message), "%s: %s.\nThose settings keep their defaults.", settings_path, problem);
+		fprintf(stderr, "%s\n", message);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "DonPachi settings", message, NULL);
+	}
 	for (int index = 1; index < argc; index++)
 	{
-		if (!strcmp(argv[index], "--rom") && index + 1 < argc)
-			rom = argv[++index];
-		else if (!strcmp(argv[index], "--cheat") && index + 1 < argc && cheat_count < CHEATS_MAX)
+		const char *const value = index + 1 < argc ? argv[index + 1] : NULL;
+
+		if (!strcmp(argv[index], "--settings") && value)
+			index++;
+		else if (!strcmp(argv[index], "--rom") && value)
+			snprintf(options.rom, sizeof(options.rom), "%s", argv[++index]);
+		else if (!strcmp(argv[index], "--cheat") && value && cheat_count < CHEATS_MAX)
 			cheat_names[cheat_count++] = argv[++index];
-		else if (!strcmp(argv[index], "--cheats") && index + 1 < argc)
-			cheat_file = argv[++index];
+		else if (!strcmp(argv[index], "--cheats") && value)
+			snprintf(options.cheats, sizeof(options.cheats), "%s", argv[++index]);
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
 		else if (!strcmp(argv[index], "--no-sound"))
-			sound = 0;
+			options.sound = false;
 		else if (!strcmp(argv[index], "--no-free-play"))
-			free_play = 0;
+			options.free_play = false;
 		else if (!strcmp(argv[index], "--arcade-timing"))
-			arcade_timing = 1;
-		else if (!strcmp(argv[index], "--eeprom") && index + 1 < argc)
-			eeprom = argv[++index];
-		else if (!strcmp(argv[index], "--scale") && index + 1 < argc)
-			scale = atoi(argv[++index]);
+			options.arcade_timing = true;
+		else if (!strcmp(argv[index], "--eeprom") && value)
+			snprintf(options.eeprom, sizeof(options.eeprom), "%s", argv[++index]);
+		else if (!strcmp(argv[index], "--scale") && value)
+			options.scale = atoi(argv[++index]);
 	}
-	if (scale < 1)
-		scale = 1;
+	if (options.scale < 1)
+		options.scale = 1;
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
 		return 1;
 	}
-	if ((problem = rom_set_load(rom)) != NULL || (problem = program_start()) != NULL)
+	if ((problem = rom_set_load(options.rom)) != NULL || (problem = program_start()) != NULL)
 	{
 		show_problem(problem);
 		SDL_Quit();
@@ -409,21 +416,22 @@ int main(int argc, char **argv)
 	}
 	if (list_cheats)
 	{
-		printf("the cheats of %s:\n", cheat_file);
-		cheats_list(cheat_file);
+		printf("the cheats of %s:\n", options.cheats);
+		cheats_list(options.cheats);
 		SDL_Quit();
 		return 0;
 	}
-	eeprom_open(eeprom);
+	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
 	for (int cheat = 0; cheat < cheat_count; cheat++)
-		if ((problem = cheats_enable(cheat_file, cheat_names[cheat])) != NULL)
+		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
 		{
 			show_problem(problem);
 			SDL_Quit();
 			return 1;
 		}
 	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		VIDEO_HEIGHT * scale, VIDEO_WIDTH * scale, SDL_WINDOW_RESIZABLE);
+		VIDEO_HEIGHT * options.scale, VIDEO_WIDTH * options.scale,
+		SDL_WINDOW_RESIZABLE | (options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
 	if (!renderer)
 		renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE) : NULL;
@@ -436,9 +444,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	SDL_RenderSetLogicalSize(renderer, VIDEO_HEIGHT, VIDEO_WIDTH);
-	if (arcade_timing)
+	if (options.arcade_timing)
 		program_after_vblank = draw_picture;
-	if (sound)
+	if (options.sound)
 		audio_open();
 	if (audio)
 		audio_restart();
@@ -478,7 +486,7 @@ int main(int argc, char **argv)
 			}
 		}
 		read_keys();
-		if (free_play)
+		if (options.free_play)
 			free_play_inputs();
 #if DONPACHI_DEBUG_KEYS    /* ---- DEBUG KEYS: begin ---- */
 		debug_autofire();
@@ -490,7 +498,7 @@ int main(int argc, char **argv)
 			video_latch_sprites();
 			if (++debug_fast_frames % DEBUG_FAST_DRAW == 0)
 			{
-				if (!arcade_timing)
+				if (!options.arcade_timing)
 					draw_picture();
 				show_picture();
 			}
@@ -502,7 +510,7 @@ int main(int argc, char **argv)
 		cheats_apply();
 		audio_queue();
 		video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
-		if (!arcade_timing)
+		if (!options.arcade_timing)
 			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
 		show_picture();
 

@@ -80,3 +80,644 @@
 0364E2  func  exception_address_error
 0364FC  func  exception_illegal_instruction
 036516  func  exception_divide_by_zero
+
+0016A2  func  script_command_none
+0016A4  func  script_command_1
+0016AE  func  script_command_2
+001756  func  script_command_3
+00175C  func  script_command_4
+001762  func  script_command_5
+001768  func  script_command_6
+00176E  func  script_command_7
+00177E  func  script_command_8
+00179C  func  script_command_9
+00162C  func  run_script
+
+0294C4  func  state_1
+02959A  func  state_2
+02956C  func  state_3
+0295B8  func  state_4
+0295DE  func  state_5
+0291EA  func  state_6
+029450  func  state_7
+029366  func  state_8
+029472  func  state_9
+029194  func  run_state
+# ======== the object types, the script commands and the states (read from the listing) ========
+# 168 object types, 8 bytes each, from the second record (type 0 is left alone by the code: 012CFA "beq $12cf0", and
+# record 0 points back into the table). Each: +0 a data pointer read a word at a time (012D06 "move.w (A1)+, D0"), +4
+# the routine 012D86 jumps to ("movea.l ($4,A0,D0.w), A1", "jmp (A1)"). The index is the byte at +0C of the object
+# times 8 (012CF6, 012CFC). The table ends where the code at 012C9E begins
+01275E  data  object_types  record=8 count=168 code=4
+
+# the script interpreter: reads a word through the pointer at +10 of the object (00163A "movea.l ($10,A6), A5"), its low
+# 4 bits pick one of 16 commands (00164E "jsr (A0,D0.w)"); commands 0 and 10-15 all go to 0016A2
+00162C  func  run_script
+0016A2  func  script_command_none
+0016A4  func  script_command_1
+0016AE  func  script_command_2
+001756  func  script_command_3
+00175C  func  script_command_4
+001762  func  script_command_5
+001768  func  script_command_6
+00176E  func  script_command_7
+00177E  func  script_command_8
+00179C  func  script_command_9
+
+# the state machine at 029194: the state in 101698 (masked to 0-15, times 4) picks a routine; only 1-9 exist
+029194  func  run_state
+0294C4  func  state_1
+02959A  func  state_2
+02956C  func  state_3
+0295B8  func  state_4
+0295DE  func  state_5
+0291EA  func  state_6
+029450  func  state_7
+029366  func  state_8
+029472  func  state_9
+
+01275E  data  object_types  record=8 count=168 code=4
+# Jump tables found by tools/find_tables.py from the listing (a jmp or jsr (d,PC,Xn) reads a table of jump stubs).
+# Names are placeholders: case_<table>_<entry>. A table read by a jsr gives functions (the routines it calls);
+# one read only by a jmp gives code labels (its cases lie inside the routine that jumps). Review each table.
+
+# the table at 007438 (read at 007420, 00748E): 8 records of 2 bytes, codes
+007428  code  case_007438_00
+007426  code  case_007438_01
+00742A  code  case_007438_02
+00742C  code  case_007438_03
+007432  code  case_007438_04
+007430  code  case_007438_05
+007424  code  case_007438_06
+007434  code  case_007438_07
+
+# the table at 00752C (read at 007518): 8 records of 2 bytes, codes
+007524  code  case_00752C_00
+00751C  code  case_00752C_01
+
+# the table at 0076E8 (read at 0076A0): 7 records of 4 bytes, codes
+007704  code  case_0076E8_00
+007710  code  case_0076E8_01
+007718  code  case_0076E8_02
+00772E  code  case_0076E8_03
+007732  code  case_0076E8_04
+00773A  code  case_0076E8_05
+007758  code  case_0076E8_06
+
+# the table at 008146 (read at 008138): 8 records of 4 bytes, funcs
+008166  func  case_008146_00
+00891A  func  case_008146_01
+0089BC  func  case_008146_05
+0089BE  func  case_008146_06
+0089C0  func  case_008146_07
+
+# the table at 008AF2 (read at 008AE4): 8 records of 4 bytes, funcs
+008B12  func  case_008AF2_00
+008B46  func  case_008AF2_01
+008B80  func  case_008AF2_02
+008B8C  func  case_008AF2_03
+008BBE  func  case_008AF2_04
+008BC6  func  case_008AF2_05
+
+# the table at 008D5A (read at 008D56): 3 records of 4 bytes, codes
+008D66  code  case_008D5A_00
+008F06  code  case_008D5A_01
+009542  code  case_008D5A_02
+
+# the table at 0097AC (read at 0097A8): 3 records of 4 bytes, codes
+0097B8  code  case_0097AC_00
+009EB6  code  case_0097AC_01
+00A8A4  code  case_0097AC_02
+
+# the table at 00BB8C (read at 00BB88): 3 records of 4 bytes, codes
+00BB9C  code  case_00BB8C_00
+00BBCA  code  case_00BB8C_01
+00BC20  code  case_00BB8C_02
+
+# the table at 00C03C (read at 00C02C): 27 records of 4 bytes, funcs
+00C128  func  case_00C03C_00
+00C144  func  case_00C03C_01
+00C12E  func  case_00C03C_03
+00C130  func  case_00C03C_04
+00C132  func  case_00C03C_05
+00C134  func  case_00C03C_06
+00C136  func  case_00C03C_07
+00C138  func  case_00C03C_08
+00C13A  func  case_00C03C_09
+00C142  func  case_00C03C_10
+00C12A  func  case_00C03C_11
+00C146  func  case_00C03C_12
+00C172  func  case_00C03C_13
+00C1A6  func  case_00C03C_15
+00C1A8  func  case_00C03C_16
+00C1AA  func  case_00C03C_17
+00C1B2  func  case_00C03C_18
+00C1BA  func  case_00C03C_20
+00C1C2  func  case_00C03C_21
+00C1D2  func  case_00C03C_23
+00C1E6  func  case_00C03C_24
+00C20E  func  case_00C03C_25
+00C21E  func  case_00C03C_26
+
+# the table at 00C49C (read at 00C48E): 55 records of 4 bytes, funcs
+00C574  func  case_00C49C_00
+00C578  func  case_00C49C_01
+00C596  func  case_00C49C_02
+00C59A  func  case_00C49C_03
+00C5EA  func  case_00C49C_06
+00C5F2  func  case_00C49C_07
+00C61C  func  case_00C49C_08
+00C636  func  case_00C49C_10
+00C650  func  case_00C49C_12
+00C66A  func  case_00C49C_14
+00C684  func  case_00C49C_16
+00C69E  func  case_00C49C_18
+00C6AE  func  case_00C49C_19
+00C746  func  case_00C49C_20
+00C74A  func  case_00C49C_21
+00C770  func  case_00C49C_22
+00C774  func  case_00C49C_23
+00C788  func  case_00C49C_24
+00C78C  func  case_00C49C_25
+00C7A2  func  case_00C49C_26
+00C7A6  func  case_00C49C_27
+00C7F4  func  case_00C49C_30
+00C7F8  func  case_00C49C_31
+00C80C  func  case_00C49C_32
+00C82A  func  case_00C49C_33
+00C8C4  func  case_00C49C_34
+00C90C  func  case_00C49C_35
+00C98A  func  case_00C49C_36
+00C996  func  case_00C49C_37
+00C9CC  func  case_00C49C_38
+00C9EE  func  case_00C49C_39
+00CA0C  func  case_00C49C_40
+00CA14  func  case_00C49C_41
+00CA4C  func  case_00C49C_42
+00CA6C  func  case_00C49C_43
+00CA86  func  case_00C49C_44
+00CAA8  func  case_00C49C_45
+00CAC6  func  case_00C49C_46
+00CACA  func  case_00C49C_47
+00CB4C  func  case_00C49C_48
+00CB50  func  case_00C49C_49
+00CBC6  func  case_00C49C_53
+00C238  func  case_00C49C_54
+
+# the table at 0291BE (read at 0291B0): 10 records of 4 bytes, funcs
+
+# the table at 029B38 (read at 029B2A): 8 records of 4 bytes, funcs
+029B58  func  case_029B38_00
+02A270  func  case_029B38_01
+02A51C  func  case_029B38_02
+02A6E4  func  case_029B38_03
+02A768  func  case_029B38_04
+02A76A  func  case_029B38_05
+02A76C  func  case_029B38_06
+02A76E  func  case_029B38_07
+
+# the table at 02B1FA (read at 02B1EC): 6 records of 4 bytes, funcs
+02B212  func  case_02B1FA_00
+02B3BA  func  case_02B1FA_01
+02B51E  func  case_02B1FA_02
+02B6A8  func  case_02B1FA_03
+02B764  func  case_02B1FA_04
+02B7DA  func  case_02B1FA_05
+
+# the table at 02C072 (read at 02C06E): 3 records of 4 bytes, codes
+02C0BA  code  case_02C072_00
+02C16A  code  case_02C072_01
+02C218  code  case_02C072_02
+
+# the table at 02DA4C (read at 02DA48): 19 records of 4 bytes, codes
+02DC80  code  case_02DA4C_00
+02DDD6  code  case_02DA4C_01
+02DDEE  code  case_02DA4C_02
+02DCB2  code  case_02DA4C_03
+02DCC8  code  case_02DA4C_04
+02DD16  code  case_02DA4C_05
+02DD3E  code  case_02DA4C_06
+02DD6E  code  case_02DA4C_07
+02DDA4  code  case_02DA4C_08
+02DDCA  code  case_02DA4C_09
+02DDE2  code  case_02DA4C_10
+02DE16  code  case_02DA4C_11
+02DE22  code  case_02DA4C_12
+02DE2E  code  case_02DA4C_13
+02DE3A  code  case_02DA4C_14
+02DE46  code  case_02DA4C_15
+02DE58  code  case_02DA4C_16
+02DE5C  code  case_02DA4C_17
+02DE7A  code  case_02DA4C_18
+
+# the table at 02E3F6 (read at 02E3AC): 16 records of 4 bytes, funcs
+02E436  func  case_02E3F6_00
+02E46C  func  case_02E3F6_01
+02E4A2  func  case_02E3F6_02
+02E4D2  func  case_02E3F6_03
+02E51C  func  case_02E3F6_04
+02E51E  func  case_02E3F6_05
+02E520  func  case_02E3F6_06
+02E522  func  case_02E3F6_07
+
+# the table at 02ECE0 (read at 02ECD2, 02ED0A): 6 records of 4 bytes, funcs
+02ED9E  func  case_02ECE0_00
+02EEBA  func  case_02ECE0_01
+02EFD8  func  case_02ECE0_02
+02F0FC  func  case_02ECE0_03
+02F13C  func  case_02ECE0_04
+02F1E8  func  case_02ECE0_05
+
+# the table at 030610 (read at 0305B4): 3 records of 4 bytes, funcs
+030680  func  case_030610_00
+03073C  func  case_030610_01
+030778  func  case_030610_02
+
+# the table at 032C9C (read at 032C98): 17 records of 4 bytes, codes
+032CE0  code  case_032C9C_00
+032D30  code  case_032C9C_01
+032DF6  code  case_032C9C_02
+032E9E  code  case_032C9C_03
+032EBA  code  case_032C9C_04
+0330F6  code  case_032C9C_05
+033306  code  case_032C9C_06
+03353E  code  case_032C9C_07
+0339A8  code  case_032C9C_08
+033A2A  code  case_032C9C_09
+033B7E  code  case_032C9C_10
+033CE6  code  case_032C9C_11
+033F5C  code  case_032C9C_12
+033FD2  code  case_032C9C_13
+0340AC  code  case_032C9C_14
+0340FA  code  case_032C9C_15
+034168  code  case_032C9C_16
+
+# the table at 0367C8 (read at 0367BA): 11 records of 4 bytes, funcs
+0367F4  func  case_0367C8_00
+03688E  func  case_0367C8_01
+036928  func  case_0367C8_02
+0369C6  func  case_0367C8_03
+036A5C  func  case_0367C8_04
+036AE8  func  case_0367C8_05
+036B58  func  case_0367C8_06
+036BB4  func  case_0367C8_07
+036C4E  func  case_0367C8_08
+036CE8  func  case_0367C8_09
+036D58  func  case_0367C8_10
+
+# the table at 036EAA (read at 036E9C): 9 records of 4 bytes, funcs
+036ECA  func  case_036EAA_00
+036ECE  func  case_036EAA_01
+036F26  func  case_036EAA_02
+036FB2  func  case_036EAA_03
+037066  func  case_036EAA_04
+0370CE  func  case_036EAA_05
+037120  func  case_036EAA_06
+037122  func  case_036EAA_07
+037124  func  case_036EAA_08
+
+# the table at 037754 (read at 037750): 3 records of 4 bytes, codes
+037A18  code  case_037754_00
+037760  code  case_037754_01
+037C22  code  case_037754_02
+
+# the table at 03D8B0 (read at 03D8AA): 9 records of 6 bytes, codes
+03D8E6  code  case_03D8B0_00
+03D988  code  case_03D8B0_01
+03D8F4  code  case_03D8B0_02
+03D904  code  case_03D8B0_03
+03D912  code  case_03D8B0_04
+03D91C  code  case_03D8B0_05
+03D942  code  case_03D8B0_06
+03D952  code  case_03D8B0_07
+03D978  code  case_03D8B0_08
+
+# the table at 03DAC4 (read at 03DABE): 8 records of 6 bytes, codes
+03DAF4  code  case_03DAC4_00
+03DB0C  code  case_03DAC4_01
+03DB1C  code  case_03DAC4_02
+03DB2A  code  case_03DAC4_03
+03DB3A  code  case_03DAC4_04
+03DB48  code  case_03DAC4_05
+03DB52  code  case_03DAC4_06
+03DB80  code  case_03DAC4_07
+
+# the table at 03DDEC (read at 03DDE6): 4 records of 6 bytes, codes
+03DE04  code  case_03DDEC_00
+03DE8A  code  case_03DDEC_02
+03DE9A  code  case_03DDEC_03
+
+# the table at 03EC18 (read at 03EC14): 6 records of 4 bytes, codes
+03EC30  code  case_03EC18_00
+03ED76  code  case_03EC18_01
+03EF3A  code  case_03EC18_02
+03EFF0  code  case_03EC18_03
+03F172  code  case_03EC18_04
+03F28E  code  case_03EC18_05
+
+# the table at 040266 (read at 04025A): 3 records of 4 bytes, funcs
+0403B0  func  case_040266_00
+04032C  func  case_040266_01
+040272  func  case_040266_02
+
+# the table at 0405F6 (read at 0405F2): 3 records of 4 bytes, codes
+040602  code  case_0405F6_00
+040656  code  case_0405F6_01
+0406E2  code  case_0405F6_02
+
+# the table at 0429D0 (read at 0429C8): 4 records of 4 bytes, funcs
+0429E0  func  case_0429D0_00
+042A00  func  case_0429D0_01
+042A34  func  case_0429D0_02
+042AB2  func  case_0429D0_03
+
+# the table at 042F18 (read at 042F10): 2 records of 4 bytes, funcs  <- only a few: check by hand
+042F20  func  case_042F18_00
+042F54  func  case_042F18_01
+
+# the table at 043324 (read at 04331C): 4 records of 4 bytes, funcs
+043334  func  case_043324_00
+04335C  func  case_043324_01
+043394  func  case_043324_02
+0433F2  func  case_043324_03
+# from the table at 01275E: the field at +0 of each record, plus 2 (tools/table_funcs.py)
+0139A2  func  object_init_001
+013DBE  func  object_init_002
+0139DE  func  object_init_003
+013FD2  func  object_init_004
+00D24E  func  object_init_005
+00D504  func  object_init_006
+00D53C  func  object_init_007
+00D57C  func  object_init_008
+00D5BC  func  object_init_009
+00D7FE  func  object_init_010
+00D85C  func  object_init_011
+00DCB4  func  object_init_012
+03FF44  func  object_init_013
+00DF0C  func  object_init_014
+00E27C  func  object_init_015
+00E5D6  func  object_init_016
+00EC0A  func  object_init_017
+00EFAE  func  object_init_018
+00F47A  func  object_init_019
+00FA72  func  object_init_020
+0101C8  func  object_init_021
+010526  func  object_init_022
+01068E  func  object_init_023
+00D128  func  object_init_024
+014246  func  object_init_025
+014524  func  object_init_026
+0146FE  func  object_init_027
+014A94  func  object_init_028
+015272  func  object_init_029
+0159CA  func  object_init_030
+011AB8  func  object_init_031
+01CD44  func  object_init_032
+016AAE  func  object_init_033
+01702C  func  object_init_034
+016728  func  object_init_035
+0168F2  func  object_init_036
+016A0A  func  object_init_037
+0206D2  func  object_init_038
+020E5C  func  object_init_039
+020E52  func  object_init_040
+020EB8  func  object_init_041
+020F12  func  object_init_042
+017366  func  object_init_043
+017418  func  object_init_044
+01742C  func  object_init_045
+01744C  func  object_init_046
+0174E6  func  object_init_047
+0372C0  func  object_init_048
+0211FA  func  object_init_049
+017516  func  object_init_050
+0113D4  func  object_init_051
+017AC6  func  object_init_052
+017B10  func  object_init_053
+017C50  func  object_init_054
+0181B0  func  object_init_055
+0184A4  func  object_init_056
+018878  func  object_init_057
+018B8C  func  object_init_058
+02440E  func  object_init_059
+025862  func  object_init_060
+0190D8  func  object_init_061
+019434  func  object_init_062
+0384DC  func  object_init_063
+0267CA  func  object_init_064
+0269DE  func  object_init_065
+019988  func  object_init_066
+022C86  func  object_init_067
+01A1B8  func  object_init_068
+01C5AE  func  object_init_069
+01B10A  func  object_init_070
+01B1BE  func  object_init_071
+01B258  func  object_init_072
+039652  func  object_init_075
+00DB34  func  object_init_076
+038B3C  func  object_init_078
+03BEDC  func  object_init_079
+022ED2  func  object_init_080
+01BA8E  func  object_init_082
+01BBB6  func  object_init_083
+01BE96  func  object_init_084
+01C268  func  object_init_085
+011682  func  object_init_086
+01C88C  func  object_init_087
+026E98  func  object_init_088
+03A2F4  func  object_init_089
+03A744  func  object_init_090
+0230DE  func  object_init_091
+028420  func  object_init_092
+011748  func  object_init_093
+0117B0  func  object_init_094
+011920  func  object_init_095
+011A8A  func  object_init_096
+011D54  func  object_init_097
+026A52  func  object_init_098
+01CB14  func  object_init_099
+01CCDE  func  object_init_100
+02341E  func  object_init_101
+0237E0  func  object_init_102
+023AD0  func  object_init_103
+028664  func  object_init_104
+023D2A  func  object_init_106
+03AEA8  func  object_init_107
+011E74  func  object_init_108
+01C860  func  object_init_109
+01C876  func  object_init_110
+0435BE  func  object_init_111
+0426AA  func  object_init_112
+042BAA  func  object_init_113
+0431C8  func  object_init_114
+023358  func  object_init_115
+04254A  func  object_init_116
+043170  func  object_init_117
+042B24  func  object_init_118
+03C268  func  object_init_119
+03C7B0  func  object_init_120
+03CA02  func  object_init_121
+03CC0A  func  object_init_122
+03CE40  func  object_init_123
+03E358  func  object_init_124
+012000  func  object_init_126
+01219C  func  object_init_127
+01CF3E  func  object_init_128
+01D1F0  func  object_init_129
+01D774  func  object_init_130
+01DA94  func  object_init_131
+01DCAC  func  object_init_132
+01DD94  func  object_init_133
+01DE82  func  object_init_134
+01E038  func  object_init_135
+01E1BE  func  object_init_136
+01FF60  func  object_init_137
+043446  func  object_init_138
+01E584  func  object_init_139
+03F812  func  object_init_140
+012308  func  object_init_141
+01ED50  func  object_init_142
+01F4B8  func  object_init_143
+03F906  func  object_init_144
+03FD72  func  object_init_145
+00D246  func  object_init_146
+01FDCE  func  object_init_147
+01FDBE  func  object_init_148
+03FC26  func  object_init_149
+03C63E  func  object_init_150
+01237E  func  object_init_152
+04041C  func  object_init_153
+0404F8  func  object_init_154
+0407D6  func  object_init_155
+03DEE2  func  object_init_156
+0201CA  func  object_init_157
+02030A  func  object_init_158
+020514  func  object_init_159
+01FE6E  func  object_init_160
+
+016346  func  object_spawn_a
+0162E2  func  object_spawn_b
+00BD36  func  draw_routine_a
+00BD56  func  draw_routine_b
+# Tables of code addresses found by tools/find_pointer_tables.py: a movea.l (d,PC,Dn), An read one, a jmp or
+# jsr (An) went through it. Names are placeholders. Review each table before keeping it.
+
+# read at 007830: 6 entries
+007850  data  jump_table_007850  record=4 count=6 code=0
+
+# read at 007934: 6 entries
+007962  data  jump_table_007962  record=4 count=6 code=0
+
+# read at 0140B2: 4 entries
+0140B8  data  jump_table_0140B8  record=4 count=4 code=0
+
+# read at 0185AA: 4 entries
+0185B0  data  jump_table_0185B0  record=4 count=4 code=0
+
+# read at 01B5BE: 4 entries
+01B5C4  data  jump_table_01B5C4  record=4 count=4 code=0
+
+# read at 01F0C0: 4 entries
+01F0C6  data  jump_table_01F0C6  record=4 count=4 code=0
+
+# read at 027E26: 9 entries
+027E2C  data  jump_table_027E2C  record=4 count=9 code=0
+
+# ======== the second script interpreter (animation commands), read from the listing ========
+# 013596-0135C6: a timer at +10 of the object counts down; at zero the next word is read through the pointer at +14. A
+# positive word is a new timer (and a value stored at +4); a negative one is a command, number = bits 1-4 of the word
+# (0135B6 "lea $136de.l, A3", "andi.w #$1e, D1", "jsr (A3,D1.w)"). Commands 10-15 all go to 013790
+01371E  func  anim_command_00
+013724  func  anim_command_01
+01372C  func  anim_command_02
+013742  func  anim_command_03
+013756  func  anim_command_04
+01375C  func  anim_command_05
+013762  func  anim_command_06
+013774  func  anim_command_07
+01377C  func  anim_command_08
+013786  func  anim_command_09
+013790  func  anim_command_none
+
+# 013674-01368C: two bits of the word at +2 of the object (bits 4-5) pick one of four jmp stubs of 6 bytes
+# ("lea $13692.l, A3", "jmp (A3,D1.w)"). Two of them go to the same place
+013692  data  branch_table  record=6 count=4 code=2
+
+0413E4  code  switch_0413C4_00
+041414  code  switch_0413C4_01
+0416D6  code  switch_0413C4_02
+041722  code  switch_0413C4_03
+04186C  code  switch_0413C4_04
+04194A  code  switch_0413C4_05
+041980  code  switch_0413C4_06
+0419A8  code  switch_0413C4_07
+
+03D252  data  switch_03D252_table  record=6 count=16 code=2
+
+
+
+# ======== names from the first full decompile (08-11-2026), the most used routines and variables ========
+# the task system: task_table (00043A) holds, for each kind of task, a jump to its code and at +6 how many slots it
+# has; the slots are 64 bytes from 100002, word 0 = 8000 + the task's number while it runs, bit 6 = paused
+# start a task of kind D0 in its group's first free slot, with D1-D3 at +4 (004134); carry set when the group is full
+004102  func  start_task
+# start_task, then the 24 bytes of task_params copied after them (00414E)
+004144  func  start_task_with_params
+# set / clear bit 6 of every slot of the group of D0 (004178 "bset #$6, (A0)", 0041A2 "bclr")
+00415C  func  pause_task_group
+004186  func  resume_task_group
+# the 24 bytes the callers fill before start_task_with_params (0168B8 "lea $108820.l, A0")
+108820  var  task_params    u8
+
+# the sprites: an entry of 16 bytes each in the list swap_sprite_buffers starts (101202, 500000 or 504000)
+# the object at A6: its long at +2, x = (+6 + +C) >> 6, y = (+8 + +E) >> 6, its word at +A (00520C-005228)
+005202  func  draw_object_sprite
+# the same from D1-D5 (005266-005272)
+00525C  func  draw_sprite
+# the entries left at the end of the list get an off-screen place (0052B8 "move.l #$2a002a0, D0")
+0052A8  func  hide_unused_sprites
+# two more lists, in the spare sprite RAM at 50C000 and 50E000, emptied each frame by the main loop (00083C) and drawn
+# after the rest (02B154, 02B166), so their sprites are written last
+005362  func  clear_late_sprite_lists
+005384  func  queue_late_sprite_a
+0053A8  func  queue_late_sprite_a_at
+0053C6  func  draw_late_sprites_a
+0053DC  func  queue_late_sprite_b
+005400  func  queue_late_sprite_b_at
+00541E  func  draw_late_sprites_b
+101202  var  sprite_list_start   u32
+101206  var  sprite_list_end     u32
+101212  var  late_sprites_a_end  u32
+101216  var  late_sprites_b_end  u32
+
+# a sound: D0 the sound's code (006690 "move.w #$225d, D0"); saves every register (0037C0), the work is at 0037CE
+0037C0  func  play_sound
+
+# a byte from a table of random numbers: the low byte of random_index goes up by one at each call (003C86)
+003C86  func  random_byte
+003D98  func  random_byte_2
+101262  var  random_index   u16
+
+# adds the BCD number in D0 to the 4-byte BCD number that ends at A0 ("abcd -(A1), -(A0)" four times, 006944)
+00693A  func  add_bcd
+
+# clears the parts of the object at A5 (the +4 byte, the count less one, of 32-byte records from the pointer at +6)
+# and the object itself (012D92-012D9C)
+012D88  func  remove_object
+
+# the inputs, as the interrupt reads them (00071E "move.w $c00000.l, D0", "not.w D0"): 1 = pressed
+10127E  var  input_1        u16
+101280  var  input_2        u16
+# the stage, 0-4: the stage scripts (02D33E) and the tables 007850 and 007962 are read by it
+101A40  var  stage          u16
+# how far the stage has scrolled: the scripts' records run when it reaches their position (02DA28, 02DA98)
+101A56  var  scroll_position u16
+# the routine script command 15 sets (02DE46) and 02D996 jumps to; no stage's script sets it
+10885C  var  script_callback u32
+# what the game is doing (the interrupt compares it with 1 and 5, 0007BC-0007D0)
+1018EC  var  game_mode      u16
+# the main loop adds one each time round (00096C); its bit 0 picks which player's code runs (000938)
+10125E  var  loop_counter   u16
+# the two players' records of 64 bytes (000942, 000958: the main loop's player code takes A5 at each)
+102158  var  player_1       u16
+102198  var  player_2       u16

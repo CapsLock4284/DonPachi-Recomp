@@ -66,3 +66,9 @@ REGIONS = [(0xA08000, 0xA09000, "PALETTE_RAM"), (0x500000, 0x510000, "SPRITE_RAM
 # the structures that lie one after another in work RAM (STRUCT_ARRAYS), the frame's wait loop (FRAME_WAIT), the
 # routines that work on memory by its address (MEMORY_ROUTINES), supervisor code, the interrupt handlers, and the
 # decompiler's feature settings.
+
+# the 68000 decompiler driver of the core
+DECOMPILER = "m68000.decompile"
+
+# the whole program runs in supervisor mode, so a privileged instruction needs no check of the mode
+SUPERVISOR_CODE = [(0x000000, 0x080000)]

@@ -11,7 +11,7 @@
  *    held), not firing, to its boss's end, where the stage and loop are set ($101A40, $101A42) so that the game's next
  *    area is the place's. A boss: on, shielded, until its WARNING starts (object $3F in $100102's list; the true boss:
  *    its own object, $7C, area 10's first boss shot down on the way). There the player's run is made a fresh one:
- *    score 0, the chain gone, 3 lives and 3 bombs, the power chosen, the shield taken off.
+ *    score 0, the chain gone, 3 lives, 3 bombs (or 7 in 7 slots), the power chosen, the shield taken off.
  */
 #ifndef DONPACHI_TRAINING_H
 #define DONPACHI_TRAINING_H
@@ -26,6 +26,7 @@ typedef struct
 	int point;                  /* TRAINING_START ... (TRAINING_TRUE_BOSS: area 10 only) */
 	int ship;                   /* 0-2: types A, B, C */
 	bool max_power;
+	bool max_bombs;             /* 7 slots, all full (the game's most: 3 to start, one more each 3 bombs used) */
 } training_setup;
 
 /* The game run to the place: NULL (the game is there, between frames: the port saves its state), or what went

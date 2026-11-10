@@ -59,6 +59,7 @@ enum
 	ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS,    /* the main menu's (the title screen) */
 	ITEM_MAIN_MENU,               /* back to the main menu from the game */
 	ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY, ITEM_T_START,    /* the training page */
+	ITEM_T_BOMBS, ITEM_TRAINING_MENU,   /* (and the options' way back to it, in a training game) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -121,12 +122,17 @@ static void build_items(void)
 				items[item_count++] = settings_items[index];
 		else
 			for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
+			{
+				/* (a training game: back to its page, before MAIN MENU) */
+				if (main_items[index] == ITEM_MAIN_MENU && host.in_training && host.in_training())
+					items[item_count++] = ITEM_TRAINING_MENU;
 				items[item_count++] = main_items[index];
+			}
 	}
 	else if (page == PAGE_TRAINING)
 	{
-		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY,
-			ITEM_T_START, ITEM_BACK };
+		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_BOMBS,
+			ITEM_T_RETRY, ITEM_T_START, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(training_items) / sizeof(training_items[0]); index++)
 			items[item_count++] = training_items[index];
@@ -270,6 +276,9 @@ static void change(int item, int step, bool wrap)
 	case ITEM_T_POWER:
 		in_use->training_max_power = file->training_max_power = !in_use->training_max_power;
 		break;
+	case ITEM_T_BOMBS:
+		in_use->training_max_bombs = file->training_max_bombs = !in_use->training_max_bombs;
+		break;
 	case ITEM_T_RETRY:
 		in_use->training_retry = file->training_retry = !in_use->training_retry;
 		break;
@@ -378,6 +387,10 @@ static void choose(int item)
 	case ITEM_MAIN_MENU:
 		host.main_menu();
 		menu_open_front();
+		break;
+	case ITEM_TRAINING_MENU:
+		host.main_menu();
+		menu_open_training();
 		break;
 	case ITEM_RESET:
 	case ITEM_SERVICE:
@@ -580,6 +593,15 @@ void menu_open_front(void)
 	front_message = 0;
 	page = PAGE_FRONT;
 	build_items();
+}
+
+void menu_open_training(void)
+{
+	menu_open_front();
+	page = PAGE_TRAINING;
+	build_items();
+	for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_T_START; selected++)
+		;    /* (on START TRAINING: again at once) */
 }
 
 bool menu_in_front(void)
@@ -810,7 +832,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU"
 	};
 
 	if (is_hotkey_item(item))
@@ -883,6 +905,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_POWER:
 		snprintf(out, size, "%s", s->training_max_power ? "MAX" : "NORMAL");
+		break;
+	case ITEM_T_BOMBS:
+		snprintf(out, size, "%s", s->training_max_bombs ? "MAX (7)" : "NORMAL (3)");
 		break;
 	case ITEM_T_RETRY:
 		snprintf(out, size, "%s", s->training_retry ? "ON" : "OFF");
@@ -1012,7 +1037,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	}
 	{
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
-		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? 15 : 16;
+		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15) : 16;
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8;
 
@@ -1022,7 +1047,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			char value[48];
 
 			if ((items[index] == ITEM_QUIT && !(index > 0 && items[index - 1] == ITEM_MAIN_MENU))
-					|| items[index] == ITEM_MAIN_MENU || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
+					|| (items[index] == ITEM_MAIN_MENU && !(index > 0 && items[index - 1] == ITEM_TRAINING_MENU))
+					|| items[index] == ITEM_TRAINING_MENU || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
 					|| (items[index] == ITEM_BACK && page != PAGE_CONTROLS) || items[index] == ITEM_SCALE
 					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME || items[index] == ITEM_T_START)
 				y += gap;    /* (a gap before them) */

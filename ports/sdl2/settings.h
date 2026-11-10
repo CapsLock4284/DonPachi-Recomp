@@ -70,6 +70,7 @@ typedef struct
 	int training_point;         /* TRAINING_START, TRAINING_BOSS, TRAINING_TRUE_BOSS */
 	int training_ship;          /* 0-2: types A, B, C */
 	bool training_max_power;
+	bool training_max_bombs;
 	bool training_retry;        /* a miss goes back to the place at once */
 	/* [window] */
 	int scale;

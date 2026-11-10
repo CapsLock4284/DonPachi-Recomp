@@ -35,6 +35,7 @@ typedef struct
 	void (*state)(bool save);   /* the save state: kept, or gone back to */
 	void (*main_menu)(void);    /* the game reset, for the main menu (then it shows) */
 	bool (*training)(void);     /* the game to training's place (options->training_...): false if it could not */
+	bool (*in_training)(void);  /* a training game is on (the options then have TRAINING MENU) */
 } menu_host;
 
 void menu_init(const menu_host *host);
@@ -46,6 +47,9 @@ void menu_open(void);
    the options' MAIN MENU: the game is not run while it is up (menu_is_open); START GAME closes it */
 void menu_open_front(void);
 bool menu_in_front(void);
+
+/* The training page (the game reset first by the port: its training game over, or TRAINING MENU) */
+void menu_open_training(void);
 
 /* An event while it is open: true when the menu took it (all are taken while it is open) */
 bool menu_event(const SDL_Event *event);

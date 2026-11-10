@@ -80,6 +80,7 @@ void settings_defaults(settings *s)
 	s->training_point = 0;
 	s->training_ship = 0;
 	s->training_max_power = false;
+	s->training_max_bombs = false;
 	s->training_retry = true;
 	s->scale = 3;
 	s->fullscreen = false;
@@ -333,6 +334,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 		}
 		if (!SDL_strcasecmp(name, "max_power"))
 			return parse_bool(value, &s->training_max_power);
+		if (!SDL_strcasecmp(name, "max_bombs"))
+			return parse_bool(value, &s->training_max_bombs);
 		if (!SDL_strcasecmp(name, "retry_on_miss"))
 			return parse_bool(value, &s->training_retry);
 		return false;
@@ -543,11 +546,14 @@ const char *settings_save(const settings *s, const char *path)
 
 		fputs("[training]\n", file);
 		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, boss, true_boss: area 10's last), the\n"
-			"; ship (a, b, c), full power from the start, and a miss going straight back to the place\n", file);
+			"; ship (a, b, c), full power from the start, and a miss going straight back to the place. A training game\n"
+			"; ends at the area's BONUS screen (or a game over), back to the training page\n", file);
 		fprintf(file, "area = %d\n", s->training_area + 1);
 		fprintf(file, "place = %s\n", points[s->training_point < 0 || s->training_point > 2 ? 0 : s->training_point]);
 		fprintf(file, "ship = %c\n", 'a' + (s->training_ship < 0 || s->training_ship > 2 ? 0 : s->training_ship));
 		fprintf(file, "max_power = %s\n", bool_text(s->training_max_power));
+		fprintf(file, "; 7 bombs in 7 slots (the game's most) instead of 3\n");
+		fprintf(file, "max_bombs = %s\n", bool_text(s->training_max_bombs));
 		fprintf(file, "retry_on_miss = %s\n\n", bool_text(s->training_retry));
 	}
 

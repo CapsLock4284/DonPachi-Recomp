@@ -24,6 +24,10 @@
 #define BOMBS         0x10217Bu   /* (byte) */
 #define LIVES         0x101A2Fu   /* (byte) */
 #define SCORE         0x10177Au   /* (BCD long) */
+#define BOMB_SLOTS    0x101A8Au   /* (byte) player 1's bomb slots, 3-7; the next byte the bombs used toward one more */
+
+/* the game's own: the HUD's lives and bombs drawn from the ship's record (its slots +$24, its bombs +$22) */
+void func_005020(uint32_t a5, uint32_t a6);
 #define OBJECTS       0x100102u   /* 64 of $40 bytes: +0 bit 15 in use, +C (high byte) the type */
 #define MAX_FRAMES    80000L      /* (the longest way there, area 10's true boss, is about 30000) */
 
@@ -233,7 +237,15 @@ const char *training_prepare(const training_setup *setup)
 		set_word(at, 0);    /* (the chain: the last kill's values, its timer, display, sum, points, hits) */
 	set_word(0x101754u, 0);    /* (the best chain) */
 	set_byte(LIVES, 3u);
-	set_byte(BOMBS, 3u);
+	{
+		const unsigned bombs = setup->max_bombs ? 7u : 3u;
+
+		set_byte(BOMB_SLOTS, bombs);
+		set_byte(BOMB_SLOTS + 1u, 0u);
+		set_word(SHIP + 0x24u, bombs);
+		set_word(SHIP + 0x22u, bombs);
+		func_005020(0x100082u, SHIP);    /* (as the game draws them when they change) */
+	}
 	set_byte(POWER, setup->max_power ? 4u : 0u);
 	set_byte(SHIELD, 0u);    /* (the shield the way here was held at: the game counts it down only from a respawn) */
 	set_byte(0x10139Bu, 0u);    /* (the credits the way here put in beyond the game's) */

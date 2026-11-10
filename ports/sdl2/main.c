@@ -618,11 +618,18 @@ static void menu_main_menu(void)
 
 static bool ship_was_alive;
 static int retry_in;               /* frames to the retry, after a miss */
+static unsigned training_stage;    /* the stage the training game is in: when it changes (past the area's BONUS
+                                      screen), the training game is over */
+
+static bool in_training(void)
+{
+	return training_active;
+}
 
 static bool menu_training(void)
 {
 	const training_setup setup = { options.training_area, options.training_point, options.training_ship,
-		options.training_max_power };
+		options.training_max_power, options.training_max_bombs };
 	const char *problem;
 
 	hiscore_reset();
@@ -646,6 +653,7 @@ static bool menu_training(void)
 	training_active = true;
 	ship_was_alive = true;
 	retry_in = 0;
+	training_stage = *(const uint16_t *)cave_work_ram_at(0x101A40u, 2);
 	video_latch_sprites();
 	draw_picture();
 	if (audio)
@@ -659,13 +667,23 @@ static bool menu_training(void)
 	return true;
 }
 
-/* After each frame of a training game: a miss (the ship down) goes back to the place a moment later */
-static void training_frame(void)
+/* After each frame of a training game: a miss (the ship down) goes back to the place a moment later; the area
+   cleared (its BONUS screen over: the game moves on to the next stage) or the game over, back to the training page */
+static bool training_frame(void)
 {
 	const bool alive = (*(const uint16_t *)cave_work_ram_at(0x102158u, 2) & 0x8000u) != 0;
+	const unsigned mode = *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2);
 
-	if (!training_active || !options.training_retry)
-		return;
+	if (!training_active)
+		return false;
+	if (retry_in == 0 && (*(const uint16_t *)cave_work_ram_at(0x101A40u, 2) != training_stage || mode != 7u))
+	{
+		menu_main_menu();    /* (the game reset: the training page next) */
+		menu_open_training();
+		return true;
+	}
+	if (!options.training_retry)
+		return false;
 	if (retry_in > 0)
 	{
 		if (--retry_in == 0)
@@ -674,11 +692,12 @@ static void training_frame(void)
 			menu_notice("RETRY");
 			ship_was_alive = true;
 		}
-		return;
+		return false;
 	}
-	if (ship_was_alive && !alive && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 7u)
+	if (ship_was_alive && !alive && mode == 7u)
 		retry_in = 45;    /* (the ship's explosion seen first) */
 	ship_was_alive = alive;
+	return false;
 }
 
 static void menu_quit(void)
@@ -811,6 +830,7 @@ int main(int argc, char **argv)
 		menu.state = state_action;
 		menu.main_menu = menu_main_menu;
 		menu.training = menu_training;
+		menu.in_training = in_training;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -912,8 +932,9 @@ int main(int argc, char **argv)
 				widgets_frame();
 				if (cheats_any_on())
 					state_loaded = true;
-				hiscore_frame(options.save_high_scores, !state_loaded);
-				training_frame();
+				hiscore_frame(options.save_high_scores, !state_loaded && !training_active);
+				if (training_frame())
+					break;    /* (the training page is up: the game paused) */
 				/* (a new game: its scores are kept again) */
 				if (state_loaded && !cheats_any_on() && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
 				{

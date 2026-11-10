@@ -2,7 +2,7 @@
  *    Name:        widgets.h
  *    Description: the side panels: what the game is doing, from its memory, beside the picture on a wide screen:
  *                 the Get Point System's chain, the rank and the run's statistics (left); the score against the #1
- *                 high score, and the area, loop and how far through the stage (right)
+ *                 high score, and the area, loop and how far through the stage, then the boss's health (right)
  *    Version:     0.1.0 (draft)
  *    Created:     09-11-2026
  *
@@ -15,8 +15,10 @@
  *                         that builds them)          $10177A / $10177E  the score (BCD)
  *      $101846            the high score table's #1 (BCD; then #2-#5)
  *      $101A40            the stage of the loop, 0-4 (5: between the loops, the ending)   $101A42  the loop, 0/1
- *      $101A56            the stage's scroll position (signed: from -1; the bosses at 630 (area 1: from 256, after
- *                         the fly-in), 566, 647, 920, 548 / 1011 in area 10)
+ *      $101A56            the stage's scroll position (signed: from -1; each boss appears at 555 (area 1: counted
+ *                         from 256, after the fly-in), 576, 629, 888, 539)
+ *      $100102            the objects (64 of $40 bytes; +C the type, +6 the hit records): the boss's health, read
+ *                         its own way for each boss (widgets.c)
  *      $101A32 (low byte) the rank, 0-63      $101A2E / $101A30  the lives      $10217A / $1021BA  the bombs
  *      $106E14 bit 15     a bomb going off
  *    The game is not touched: the panels only read.

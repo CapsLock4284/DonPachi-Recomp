@@ -166,6 +166,10 @@ static uint32_t bcd_long(uint32_t address)
 	return value;
 }
 
+/* the boss bar's (with the stage, below) */
+static void boss_forget(void);
+static void boss_frame(void);
+
 static const uint32_t records[2] = { 0x102158u, 0x102198u };
 static const uint32_t timers[2] = { 0x101742u, 0x101760u }, hits[2] = { 0x10174Eu, 0x10176Cu };
 static const uint32_t bests[2] = { 0x101754u, 0x101772u }, chain_points[2] = { 0x10174Au, 0x101768u };
@@ -287,6 +291,7 @@ void widgets_reset(void)
 {
 	memset(&graph, 0, sizeof(graph));
 	memset(&run, 0, sizeof(run));
+	boss_forget();
 	own_game = false;
 }
 
@@ -335,6 +340,7 @@ void widgets_frame(void)
 	if (!own_game)
 		return;    /* (the last game's graph and run stay, through the attract mode) */
 	run_frame();
+	boss_frame();
 	for (int player = 0; player < 2; player++)
 		graph.last_score[player] = bcd_long(scores[player]);
 	if (word(0x101A40u) != graph.stage && graph.mark_count < MARKS)
@@ -469,12 +475,140 @@ static void draw_graph(panel *p)
 #define SCROLL      0x101A56u   /* the stage's scroll position: from -1 up to its boss, where it stops (stage 2's
                                    boss is a chase: its scroll goes on, faster, from 566) */
 
-/* the scroll position where each stage's boss is reached, measured: the loops' are the same but area 10's. Area 1's
-   boss comes as the scroll slows to half speed (630), and it goes on slowly to 792 through the fight; the others stop
-   at their boss (area 2's speeds up for its chase) */
-static const int boss_at[2][5] = { { 630, 566, 647, 920, 548 }, { 630, 566, 647, 920, 1011 } };
+/* the scroll position where each stage's boss appears (its object is made), measured: the same in both loops. The
+   bar then shows the boss's health. Area 1's scroll goes on slowly through the fight, area 2's boss is a chase */
+static const int boss_at[5] = { 555, 576, 629, 888, 539 };
 /* where the stage's own scrolling starts: area 1 opens with the ship's fast fly-in, to 256 */
 static const int start_at[5] = { 256, 0, 0, 0, 0 };
+
+/* ---- the boss's health ----
+
+   The game's objects: 64 of $40 bytes from $100102; +0 bit 15 in use, +C (high byte) the type (object_types at
+   $12756), +6 a pointer to its hit records: $20 bytes each, +0 the flags (bit 13: it can be shot), +$18 the hit
+   points (func_0055DA takes the shots' damage off them). Each boss keeps its health its own way (read from its
+   routine): parts with their own hit points, or "sensor" records set back to $7FFF each frame, the damage taken off a
+   pool; and pools in reserve that refill the first as it runs out. The health is all of it together, against the
+   most it has been since the boss appeared */
+
+#define BOSS_TRUE   0x7Cu       /* area 10's last boss, after area 5's (the harder version) */
+
+/* the boss of each stage (both loops): area 10 has two */
+static const unsigned stage_boss[5] = { 0x31u, 0x58u, 0x4Bu, 0x3Bu, 0x6Bu };
+
+static uint32_t long_at(uint32_t address)
+{
+	return (uint32_t)word(address) << 16 | word(address + 2u);
+}
+
+static long positive16(uint32_t address)
+{
+	const int16_t value = (int16_t)word(address);
+
+	return value > 0 ? value : 0;
+}
+
+/* the health of the boss object at 'object': -1 if its type is not a boss */
+static long boss_health(unsigned type, uint32_t object)
+{
+	const uint32_t hits = long_at(object + 6u);
+	int32_t pool;
+
+	switch (type)
+	{
+	case 0x31u:
+		/* area 1 (func_0213B8): the core (record 1, $5FFF until the four parts are gone) with its reserve in record
+		   2, and the parts, records 3-6 */
+		return positive16(hits + 0x38u) + positive16(hits + 0x58u) + positive16(hits + 0x78u)
+			+ positive16(hits + 0x98u) + positive16(hits + 0xB8u) + positive16(hits + 0xD8u);
+	case 0x58u:
+		/* area 2 (func_026FA2): record 0, refilled from record 2's and then from +$2D6 */
+		return positive16(hits + 0x18u) + positive16(hits + 0x58u) + positive16(hits + 0x2D6u);
+	case 0x4Bu:
+		/* area 3 (func_03985C): a long at +$30 of the records */
+		pool = (int32_t)long_at(hits + 0x30u);
+		return pool > 0 ? pool : 0;
+	case 0x3Bu:
+		/* area 4 (func_024582): record 0, refilled from the object's +$32, then +$36, then the records' +$3A */
+		return positive16(hits + 0x18u) + word(object + 0x32u) + word(object + 0x36u) + word(hits + 0x3Au);
+	case 0x6Bu:
+	case BOSS_TRUE:
+		/* area 5 and 10 (func_03B0F4), the true last boss (func_03E5C8): a long at +$1C of the records */
+		pool = (int32_t)long_at(hits + 0x1Cu);
+		return pool > 0 ? pool : 0;
+	}
+	return -1;
+}
+
+enum { BOSS_NONE, BOSS_FIGHT, BOSS_DEFEATED, BOSS_TIME_UP };
+
+static struct
+{
+	int area;                   /* the area the state is for, 0-9 (-1: none) */
+	int state;
+	unsigned type;
+	long health, most;
+	unsigned done;              /* the bosses already met in the area: 1 its boss, 2 the true boss */
+	bool timed_out;             /* its health went to nothing at once: its time ran out (shots take it a little at a
+	                               time), and it flies off or blows itself up */
+} boss = { -1, BOSS_NONE, 0, 0, 0, 0, false };
+
+static void boss_forget(void)
+{
+	boss.area = -1;
+	boss.state = BOSS_NONE;
+	boss.done = 0;
+}
+
+static void boss_frame(void)
+{
+	const unsigned stage = word(STAGE), loop = word(LOOP);
+	const int area = stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
+	bool seen = false;
+
+	if (area != boss.area)
+	{
+		boss.area = area;
+		boss.state = BOSS_NONE;
+		boss.done = 0;
+	}
+	if (area < 0)
+		return;
+	for (unsigned slot = 0; slot < 64u && !seen; slot++)
+	{
+		const uint32_t object = 0x100102u + 0x40u * slot;
+		const unsigned type = word(object + 0xCu) >> 8;
+		const unsigned bit = type == BOSS_TRUE ? 2u : 1u;
+		long health;
+
+		if (!(word(object) & 0x8000u))
+			continue;
+		/* (only this stage's boss, once: its slot is soon used again, with the type left in it) */
+		if (!(type == stage_boss[stage] || (type == BOSS_TRUE && area == 9)) || (boss.done & bit))
+			continue;
+		if ((health = boss_health(type, object)) < 0)
+			continue;
+		seen = true;
+		if (boss.state != BOSS_FIGHT || boss.type != type)
+		{
+			boss.state = BOSS_FIGHT;
+			boss.type = type;
+			boss.most = 0;
+			boss.health = 0;
+			boss.timed_out = false;
+		}
+		if (boss.health - health > boss.most / 8)
+			boss.timed_out = true;
+		boss.health = health;
+		if (health > boss.most)
+			boss.most = health;
+	}
+	if (!seen && boss.state == BOSS_FIGHT)
+	{
+		/* gone: shot down, or flown off when its time ran out */
+		boss.done |= boss.type == BOSS_TRUE ? 2u : 1u;
+		boss.state = (boss.health > 0 && boss.most > 0) || boss.timed_out ? BOSS_TIME_UP : BOSS_DEFEATED;
+	}
+}
 
 static void draw_stage(panel *p, int top)
 {
@@ -489,11 +623,29 @@ static void draw_stage(panel *p, int top)
 	put_text(p, 8, top + 16, known ? text : "-", known ? GOLD : DIM, 2);
 	snprintf(text, sizeof(text), "%u", loop + 1u);
 	put_text(p, WIDGET_W - 8 - text_width(known ? text : "-", 2), top + 16, known ? text : "-", known ? WHITE : DIM, 2);
-	/* how far through it: the bar fills to the boss; then BOSS */
+	/* how far through it: the bar fills to the boss; then the boss's health, emptying as it is shot */
 	outline(p, 8, top + 40, WIDGET_W - 8, top + 52, known ? GREY : DIM);
+	if (known && boss.area == (int)(loop * 5u + stage) && boss.state != BOSS_NONE)
+	{
+		const bool fight = boss.state == BOSS_FIGHT;
+		/* (rounded up: 0% only when it is gone) */
+		const int left = !fight || boss.timed_out || boss.most <= 0 ? 0
+			: (int)((boss.health * 100 + boss.most - 1) / boss.most);
+		const int filled = (WIDGET_W - 18) * left / 100;
+
+		box(p, 9, top + 41, 9 + filled, top + 51, boss.type == BOSS_TRUE ? GOLD : RED);
+		if (fight && !boss.timed_out)
+			snprintf(text, sizeof(text), "%d%%", left);
+		else
+			snprintf(text, sizeof(text), "%s", boss.state == BOSS_DEFEATED ? "DEFEATED" : "TIME UP");    /* (or going) */
+		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
+		put_centre(p, top + 58, boss.type == BOSS_TRUE ? "TRUE BOSS" : "BOSS HEALTH", GREY, 1);
+		return;
+	}
 	if (known)
 	{
-		const int scroll = (int16_t)word(SCROLL) - start_at[stage], end = boss_at[loop][stage] - start_at[stage];
+		const int scroll = (int16_t)word(SCROLL) - start_at[stage], end = boss_at[stage] - start_at[stage];
 		const int done = scroll <= 0 ? 0 : scroll >= end ? 100 : scroll * 100 / end;
 		const int filled = (WIDGET_W - 18) * done / 100;
 

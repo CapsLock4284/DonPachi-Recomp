@@ -215,9 +215,78 @@ static struct
 	uint32_t last_score[2];         /* the scores, as the game last had them (kept through the attract mode) */
 } graph;
 
+/* ---- the run: the time played, the bombs, the misses in each area; and the session's best score ---- */
+
+#define LIVES       0x101A2Eu   /* player 1's lives, the one in play counted ($101A30 player 2's) */
+#define BOMBS       0x10217Au   /* player 1's bombs (the ship's record +$22; $1021BA player 2's) */
+#define BOMB_ON     0x106E14u   /* bit 15: a bomb going off (set as one is let go) */
+#define AREAS       10
+
+static const uint32_t lives_at[2] = { LIVES, LIVES + 2u }, bombs_at[2] = { BOMBS, BOMBS + 0x40u };
+
+static struct
+{
+	unsigned frames;                /* played (the game's mode 7) */
+	unsigned bombs[2];
+	unsigned misses[2][AREAS];
+	bool reached[AREAS];
+	unsigned last_lives[2], last_bombs[2];
+	bool last_bomb_on;
+} run;
+
+static uint32_t session_best;       /* the best score since the program started: a reset keeps it */
+
+static void run_reset(void)
+{
+	memset(&run, 0, sizeof(run));
+	for (int player = 0; player < 2; player++)
+	{
+		run.last_lives[player] = word(lives_at[player]);
+		run.last_bombs[player] = word(bombs_at[player]);
+	}
+	run.last_bomb_on = (word(BOMB_ON) & 0x8000u) != 0;
+}
+
+/* the area being played, 0-9, or -1 (between the loops, the ending) */
+static int area_now(void)
+{
+	const unsigned stage = word(0x101A40u), loop = word(0x101A42u);
+
+	return stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
+}
+
+static void run_frame(void)
+{
+	const bool bomb_on = (word(BOMB_ON) & 0x8000u) != 0;
+	const int area = area_now();
+
+	if (word(GAME_MODE) == 7u)
+		run.frames++;
+	if (area >= 0)
+		run.reached[area] = true;
+	for (int player = 0; player < 2; player++)
+	{
+		const unsigned lives = word(lives_at[player]), bombs = word(bombs_at[player]);
+
+		/* a bomb: one let go (the bomb starts as the player's stock goes down; the stage's end, which counts the
+		   bombs left down into the score, starts none) */
+		if (bomb_on && !run.last_bomb_on && bombs + 1u == run.last_bombs[player])
+			run.bombs[player]++;
+		/* a miss: a life gone while the ship is down (the final tally takes the lives left with the ship flying) */
+		if (lives < run.last_lives[player] && (word(records[player]) & 0x8000u) == 0 && area >= 0)
+			run.misses[player][area]++;
+		run.last_lives[player] = lives;
+		run.last_bombs[player] = bombs;
+		if (bcd_long(scores[player]) > session_best)
+			session_best = bcd_long(scores[player]);
+	}
+	run.last_bomb_on = bomb_on;
+}
+
 void widgets_reset(void)
 {
 	memset(&graph, 0, sizeof(graph));
+	memset(&run, 0, sizeof(run));
 	own_game = false;
 }
 
@@ -261,9 +330,11 @@ void widgets_frame(void)
 			graph.target = 1;
 		graph.interval = 8;
 		graph.stage = word(0x101A40u);
+		run_reset();
 	}
 	if (!own_game)
-		return;    /* (the last game's graph stays, through the attract mode) */
+		return;    /* (the last game's graph and run stay, through the attract mode) */
+	run_frame();
 	for (int player = 0; player < 2; player++)
 		graph.last_score[player] = bcd_long(scores[player]);
 	if (word(0x101A40u) != graph.stage && graph.mark_count < MARKS)
@@ -437,6 +508,119 @@ static void draw_stage(panel *p, int top)
 	put_centre(p, top + 58, "STAGE PROGRESS", known ? GREY : DIM, 1);
 }
 
+/* ---- the rank: the game's difficulty, 0-63 ---- */
+
+/* $101A33 (the low byte of $101A32), worked out again as the stage scrolls (func at $02D6xx): the area's base, the
+   stage and loop (16 a loop), the time since the last miss (1 each 2048 frames), the bees taken in the stage, the
+   lives, and each player's power (2 a level), bombs and best chain (1 each 8 hits over 20); 63 at most. The bullets'
+   speed is taken from it ($101A34, $101A36) */
+#define RANK        0x101A32u
+#define RANK_MAX    63
+
+static void draw_rank(panel *p, int top)
+{
+	const bool known = own_game && area_now() >= 0;
+	const unsigned rank = word(RANK) & 0xFFu;
+	char text[16];
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	put_text(p, 8, top + 6, "RANK", known ? GREY : DIM, 1);
+	snprintf(text, sizeof(text), "%u/%u", known ? rank : 0u, RANK_MAX);
+	put_right(p, WIDGET_W - 8, top + 6, known ? text : "-", known ? WHITE : DIM);
+	outline(p, 8, top + 18, WIDGET_W - 8, top + 26, known ? GREY : DIM);
+	if (known)
+	{
+		const int filled = (WIDGET_W - 18) * (int)(rank > RANK_MAX ? RANK_MAX : rank) / RANK_MAX;
+		/* green, to yellow at half, to red at the top */
+		const uint32_t colour = rank < 22u ? GREEN : rank < 43u ? YELLOW : RED;
+
+		box(p, 9, top + 19, 9 + filled, top + 25, colour);
+	}
+}
+
+#define RANK_HEIGHT 34
+
+/* ---- the run ---- */
+
+static void put_time(char *out, size_t size, unsigned frames)
+{
+	/* the game's frames are 17376 us (57.55 a second) */
+	const unsigned long seconds = (unsigned long)((unsigned long long)frames * 17376u / 1000000u);
+
+	if (seconds >= 3600u)
+		snprintf(out, size, "%lu:%02lu:%02lu", seconds / 3600u, seconds / 60u % 60u, seconds % 60u);
+	else
+		snprintf(out, size, "%lu:%02lu", seconds / 60u, seconds % 60u);
+}
+
+static void draw_run(panel *p, int top, bool two)
+{
+	const uint32_t label = own_game ? GREY : DIM;
+	char text[32];
+	int y = top + 6;
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	put_time(text, sizeof(text), run.frames);
+	put_text(p, 8, y, "TIME", label, 1);
+	put_right(p, WIDGET_W - 8, y, text, WHITE);
+	y += 12;
+	put_text(p, 8, y, "BOMBS", label, 1);
+	if (two)
+		snprintf(text, sizeof(text), "%u / %u", run.bombs[0], run.bombs[1]);
+	else
+		snprintf(text, sizeof(text), "%u", run.bombs[0]);
+	put_right(p, WIDGET_W - 8, y, text, WHITE);
+	y += 12;
+	{
+		unsigned total[2] = { 0, 0 };
+
+		for (int player = 0; player < 2; player++)
+			for (int area = 0; area < AREAS; area++)
+				total[player] += run.misses[player][area];
+		/* (two players' "1 / 0" leaves no room for the longer name) */
+		put_text(p, 8, y, two ? "DEATHS" : "LIVES LOST", label, 1);
+		if (two)
+			snprintf(text, sizeof(text), "%u / %u", total[0], total[1]);
+		else
+			snprintf(text, sizeof(text), "%u", total[0]);
+		put_right(p, WIDGET_W - 8, y, text, WHITE);
+		y += 12;
+	}
+	if (!two)
+	{
+		/* player 1's misses in each area: the loops one above the other */
+		const int now = own_game ? area_now() : -1;
+
+		for (int column = 0; column < 5; column++)
+		{
+			char digit[2] = { (char)('1' + column), 0 };
+
+			put_char(p, 8 + column * 21 + 6, y, digit[0], DIM, 1);
+		}
+		y += 10;
+		for (int loop = 0; loop < 2; loop++, y += 13)
+			for (int column = 0; column < 5; column++)
+			{
+				const int area = loop * 5 + column, x = 8 + column * 21;
+				const unsigned misses = run.misses[0][area];
+
+				outline(p, x, y, x + 19, y + 11, area == now ? GOLD : FRAME);
+				if (!run.reached[area])
+					put_char(p, x + 6, y + 2, '-', DIM, 1);
+				else
+				{
+					const char ch = misses > 9u ? '+' : (char)('0' + misses);
+
+					put_char(p, x + 6, y + 2, ch, misses == 0u ? GREEN : misses == 1u ? YELLOW : RED, 1);
+				}
+			}
+		y += 2;
+	}
+	number(text, sizeof(text), session_best);
+	put_text(p, 8, y, "BEST", label, 1);
+	put_right(p, WIDGET_W - 8, y, text, GOLD);
+}
+
 void widgets_draw(uint32_t *left, uint32_t *right)
 {
 	panel p;
@@ -453,7 +637,14 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 			top += CHAIN_HEIGHT;
 		}
 		if (in_play(1))
+		{
 			draw_chain(&p, 1, top);
+			top += CHAIN_HEIGHT;
+		}
+		/* the rank and the run under the chains (closer together with two players) */
+		top -= 2;
+		draw_rank(&p, top);
+		draw_run(&p, top + RANK_HEIGHT, in_play(0) && in_play(1));
 	}
 
 	p.pixels = right;

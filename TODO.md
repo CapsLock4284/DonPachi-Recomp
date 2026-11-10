@@ -49,8 +49,8 @@ The sections below: graphics options, the player features, accuracy checks, poli
   - [ ] **Lives and bombs** left
   - [x] **Stage and loop** (area 1-10), with the **stage's progress** as a bar to the boss (right panel, under the score graph): `stage` `101A40` (0-4; 5 between the loops and the ending), `loop` `101A42`, `scroll_position` `101A56` (from -1; the bosses at 630, 566, 647, 920, 548, and 1011 in area 10; area 1 counts from 256, after its fly-in)
   - [ ] **Input display**: the stick and the buttons held, as on a stream overlay
-  - [ ] **Rank**, if the game keeps one (to find in its memory)
-  - [ ] **Run statistics**: time played, lives lost per stage, bombs used, the session's best score
+  - [x] **Rank** (left panel, as a bar 0-63): the low byte of `$101A32`, worked out again as the stage scrolls from the area, the loop, the time since the last miss, the bees, the lives and each player's power, bombs and best chain
+  - [x] **Run statistics** (left panel): time played (the game's mode 7), bombs used (`$106E14` bit 15 rising as the stock goes down), lives lost in each area ("LIVES LOST"; "DEATHS" with two players) (a life lost while the ship is down: lives `$101A2E`/`$101A30`; with two players only the totals), the session's best score (kept through a reset)
   - [ ] **Settings in use**: input timing, free play, hitbox, cheats on (so a screenshot shows how the run was played)
   - read from the game's memory each frame (score, the high score table, the combo, `stage` `101A40`, `scroll_position` `101A56`); the window gets wider to make room; on or off in the options menu, and which panels on which side
 

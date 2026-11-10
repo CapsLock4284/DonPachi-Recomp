@@ -39,6 +39,8 @@
  *          there.
  *    Hitbox: the options menu's HITBOX (or [game] hitbox) shows each ship's hitbox as a white glowing dot (hitbox.h).
  *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
+ *    Save state: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
+ *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
  *          [game] save_high_scores); not saved while cheats are on.
  */
@@ -137,6 +139,8 @@ static uint16_t pad_inputs(int player)
 static unsigned service_held;      /* frames the service switch is still held for the player */
 static bool hotkey_was_down[HOTKEYS];
 
+static void state_action(bool save);
+
 static bool hotkey_down(int hotkey)
 {
 	const Uint8 *const keys = SDL_GetKeyboardState(NULL);
@@ -169,6 +173,14 @@ static void hotkeys(void)
 			hiscore_reset();
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
 		}
+		hotkey_was_down[hotkey] = down;
+	}
+	for (int hotkey = HOTKEY_SAVE_STATE; hotkey <= HOTKEY_LOAD_STATE; hotkey++)
+	{
+		const bool down = hotkey_down(hotkey);
+
+		if (down && !hotkey_was_down[hotkey])
+			state_action(hotkey == HOTKEY_SAVE_STATE);
 		hotkey_was_down[hotkey] = down;
 	}
 }
@@ -536,6 +548,50 @@ static void menu_apply_timing(void)
 		draw_picture();    /* (the picture until the next interrupt draws it) */
 }
 
+/* ---- the save state (cave/program.h): one, in memory, until the program closes ---- */
+
+static program_state *save_state;
+static void *save_state_panels;    /* (the side panels' run, as it was: widgets.h) */
+static bool state_loaded;          /* this game went back to a save state: its scores are not kept (hiscore.h) */
+
+static void state_action(bool save)
+{
+	if (save)
+	{
+		program_state *const state = program_state_save();
+		void *const panels = widgets_state_save();
+
+		if (!state || !panels)
+		{
+			program_state_free(state);
+			free(panels);
+			menu_notice("NO MEMORY FOR A SAVE STATE");
+			return;
+		}
+		program_state_free(save_state);
+		free(save_state_panels);
+		save_state = state;
+		save_state_panels = panels;
+		menu_notice("STATE SAVED");
+		return;
+	}
+	if (!save_state)
+	{
+		menu_notice("NO SAVE STATE YET");
+		return;
+	}
+	program_state_load(save_state);
+	widgets_state_load(save_state_panels);
+	free_play_reset();
+	hiscore_state_loaded();
+	video_latch_sprites();    /* (the sprites the state's picture had) */
+	draw_picture();
+	if (audio)
+		audio_restart();
+	state_loaded = true;
+	menu_notice("STATE LOADED");
+}
+
 static void menu_quit(void)
 {
 	running = 0;
@@ -662,6 +718,7 @@ int main(int argc, char **argv)
 		menu.apply_video = menu_apply_video;
 		menu.apply_timing = menu_apply_timing;
 		menu.quit = menu_quit;
+		menu.state = state_action;
 		menu_init(&menu);
 	}
 	if (options.sound)
@@ -759,12 +816,18 @@ int main(int argc, char **argv)
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
 				widgets_frame();
-				hiscore_frame(options.save_high_scores, cheat_count == 0);
+				hiscore_frame(options.save_high_scores, cheat_count == 0 && !state_loaded);
+				/* (a new game: its scores are kept again) */
+				if (state_loaded && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
+				{
+					state_loaded = false;
+					hiscore_state_loaded();    /* (the table as the file has it: none of that game's scores) */
+				}
 			}
 		}
 		if (!options.arcade_timing)
 			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
-		show_picture(with_hitboxes(picture));
+		show_picture(menu_with_notice(with_hitboxes(picture)));
 
 	pace:
 		/* (the board's 57.55 frames a second: SDL_Delay may sleep a whole tick of the system's timer longer than

@@ -18,9 +18,19 @@
 #include "host/tasks.h"
 
 #include <setjmp.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_MSC_VER)
+#include <malloc.h>
+#define stack_alloca _alloca
+#define NOINLINE __declspec(noinline)
+#else
+#include <alloca.h>
+#define stack_alloca alloca
+#define NOINLINE __attribute__((noinline))
+#endif
 
 #define SR_MASK      0xA700u    /* the system byte: trace, supervisor, the interrupt mask */
 #define SR_S         0x2000u
@@ -34,6 +44,29 @@ static uint32_t interrupts;
 static host_task *port_task, *game_task;
 static jmp_buf restart;            /* (run_program's start, on the game task's own stack: program_reset) */
 static bool reset_pending;
+
+/* The save states (program_state_save): where the program waits for its frame, on its stack. next_frame keeps the
+   registers there (frame_registers) before it hands the frame to the port, and the stack from there up to
+   run_program's frame is the rest of what the program is doing: the C's locals, which hold the 68000's registers,
+   and the calls it is in */
+static jmp_buf frame_registers;
+static uintptr_t stack_top;        /* (run_program's frame: the game task's stack is below it) */
+static uintptr_t stack_bottom;     /* (next_frame's, at the frame just handed over: a little below its locals) */
+static const program_state *state_pending;
+#define STACK_MARGIN 512u          /* below next_frame's locals: its own frame, wherever the compiler puts it */
+
+struct program_state
+{
+	cave_machine board;
+	uint32_t status;
+	uint32_t saved[MAX_DEPTH];
+	size_t depth;
+	uint32_t interrupts;
+	jmp_buf registers;
+	uintptr_t bottom, top;
+	size_t stack_size;
+	unsigned char stack[];         /* the game task's stack, bottom to top */
+};
 
 /* ---- stopping, with where ---- */
 
@@ -197,10 +230,21 @@ void take_interrupts(void)
 /* The program waits for its next frame: VBLANK starts, and the port has the frame. A reset asked for meanwhile
    (program_reset) starts the program again from its reset vector: back up the game task's own stack to
    run_program, past every call the program is in */
+static NOINLINE void restore_state(void);
+static void put_state_back(void);
+
 static void next_frame(void)
 {
+	volatile unsigned char here = 0;
+
 	cave_vblank_start();
-	host_task_switch(port_task);
+	stack_bottom = ((uintptr_t)&here - STACK_MARGIN) & ~(uintptr_t)15;
+	if (setjmp(frame_registers) == 0)
+	{
+		host_task_switch(port_task);
+		if (state_pending)
+			put_state_back();    /* (does not return: it goes on where the state was saved, in its next_frame) */
+	}
 	if (reset_pending)
 	{
 		reset_pending = false;
@@ -238,8 +282,38 @@ static void reset_board(void)
 	depth = 0;
 }
 
+/* A save state put back (program_state_load), on the game task: its stack below what the state's stack takes, so
+   that the copy does not write over the frames doing it, then the state's registers, as its next_frame kept them */
+static void put_state_back(void)
+{
+	volatile unsigned char here = 0;
+	const uintptr_t at = (uintptr_t)&here;
+	const size_t room = (at > state_pending->bottom ? at - state_pending->bottom : 0) + 4096u;
+	volatile unsigned char *below = stack_alloca(room);
+
+	below[0] = 0;
+	restore_state();
+}
+
+static NOINLINE void restore_state(void)
+{
+	const program_state *const state = state_pending;
+
+	state_pending = NULL;
+	memcpy((void *)state->bottom, state->stack, state->stack_size);
+	memcpy(frame_registers, state->registers, sizeof(jmp_buf));
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
+	/* (straight back to the registers, as the frames there are the state's, not those the C unwinds from here) */
+	((_JUMP_BUFFER *)&frame_registers)->Frame = 0;
+#endif
+	longjmp(frame_registers, 1);
+}
+
 static void run_program(void)
 {
+	volatile unsigned char here = 0;
+
+	stack_top = (uintptr_t)&here & ~(uintptr_t)15;
 	if (setjmp(restart))
 		reset_board();
 	game_entry();
@@ -271,6 +345,45 @@ void program_reset(void)
 void program_run_frame(void)
 {
 	host_task_switch(game_task);
+}
+
+program_state *program_state_save(void)
+{
+	const size_t size = stack_top > stack_bottom ? (size_t)(stack_top - stack_bottom) : 0;
+	program_state *state;
+
+	if (!size || !(state = malloc(sizeof(*state) + size)))
+		return NULL;
+	state->board = cave_board;
+	state->status = status;
+	memcpy(state->saved, saved, sizeof(saved));
+	state->depth = depth;
+	state->interrupts = interrupts;
+	memcpy(state->registers, frame_registers, sizeof(jmp_buf));
+	state->bottom = stack_bottom;
+	state->top = stack_top;
+	state->stack_size = size;
+	memcpy(state->stack, (const void *)stack_bottom, size);
+	return state;
+}
+
+void program_state_load(const program_state *state)
+{
+	if (!state)
+		return;
+	/* the board and the status now; the stack and the registers on the game task, as it next goes on */
+	cave_board = state->board;
+	status = state->status;
+	memcpy(saved, state->saved, sizeof(saved));
+	depth = state->depth;
+	interrupts = state->interrupts;
+	reset_pending = false;
+	state_pending = state;
+}
+
+void program_state_free(program_state *state)
+{
+	free(state);
 }
 
 uint64_t program_frames(void)

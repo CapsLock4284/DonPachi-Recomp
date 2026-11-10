@@ -38,7 +38,7 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -50,7 +50,10 @@ enum
 	ITEM_DEADZONE,                /* the player's left stick: how far before it counts */
 	ITEM_PANELS,                  /* the side panels */
 	ITEM_HISCORES,                /* the high score table kept in a file */
-	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
+	ITEM_SAVE_STATE, ITEM_LOAD_STATE,   /* the save state: kept now, or gone back to */
+	ITEM_GAME,                    /* the game options page */
+	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
+	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
 
@@ -59,6 +62,17 @@ static const char *const action_labels[ACTIONS] = {
 };
 
 static menu_host host;
+
+/* the hotkeys' entries on the controls page */
+static bool is_hotkey_item(int item)
+{
+	return item >= ITEM_FAST_FORWARD_KEY && item <= ITEM_LOAD_STATE_KEY;
+}
+
+static int item_hotkey(int item)
+{
+	return HOTKEY_FAST_FORWARD + (item - ITEM_FAST_FORWARD_KEY);
+}
 static bool open, just_closed;
 static int page, selected, player;
 static int items[16], item_count;
@@ -73,11 +87,18 @@ static void build_items(void)
 	item_count = 0;
 	if (page == PAGE_MAIN)
 	{
-		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
-			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_HISCORES, ITEM_VOLUME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
+		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_HITBOX,
+			ITEM_VOLUME, ITEM_SAVE_STATE, ITEM_LOAD_STATE, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 			items[item_count++] = main_items[index];
+	}
+	else if (page == PAGE_GAME)
+	{
+		static const int game_items[] = { ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_BACK };
+
+		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
+			items[item_count++] = game_items[index];
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
@@ -92,6 +113,8 @@ static void build_items(void)
 		for (int action = 0; action < ACTIONS; action++)
 			items[item_count++] = ITEM_ACTION + action;
 		items[item_count++] = ITEM_FAST_FORWARD_KEY;
+		items[item_count++] = ITEM_SAVE_STATE_KEY;
+		items[item_count++] = ITEM_LOAD_STATE_KEY;
 		items[item_count++] = ITEM_DEADZONE;
 		items[item_count++] = ITEM_DEFAULTS;
 		items[item_count++] = ITEM_BACK;
@@ -264,9 +287,19 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_GAME:
+		page = PAGE_GAME;
+		selected = 0;
+		build_items();
+		break;
 	case ITEM_QUIT:
 		host.quit();
 		close_menu();
+		break;
+	case ITEM_SAVE_STATE:
+	case ITEM_LOAD_STATE:
+		close_menu();
+		host.state(item == ITEM_SAVE_STATE);
 		break;
 	case ITEM_DEFAULTS:
 	{
@@ -281,17 +314,18 @@ static void choose(int item)
 		host.options->left_stick[player] = host.file->left_stick[player] = defaults.left_stick[player];
 		for (settings *s = host.options; s; s = s == host.options ? host.file : NULL)
 		{
-			memcpy(s->hot_keys[HOTKEY_FAST_FORWARD], defaults.hot_keys[HOTKEY_FAST_FORWARD],
-				sizeof(defaults.hot_keys[HOTKEY_FAST_FORWARD]));
-			memcpy(s->hot_buttons[HOTKEY_FAST_FORWARD], defaults.hot_buttons[HOTKEY_FAST_FORWARD],
-				sizeof(defaults.hot_buttons[HOTKEY_FAST_FORWARD]));
+			for (int hotkey = HOTKEY_FAST_FORWARD; hotkey <= HOTKEY_LOAD_STATE; hotkey++)
+			{
+				memcpy(s->hot_keys[hotkey], defaults.hot_keys[hotkey], sizeof(defaults.hot_keys[hotkey]));
+				memcpy(s->hot_buttons[hotkey], defaults.hot_buttons[hotkey], sizeof(defaults.hot_buttons[hotkey]));
+			}
 		}
 		save();
 		break;
 	}
 	case ITEM_BACK:
 	{
-		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : ITEM_CONTROLS;
+		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME : ITEM_CONTROLS;
 
 		page = PAGE_MAIN;
 		build_items();
@@ -300,7 +334,7 @@ static void choose(int item)
 		break;
 	}
 	default:
-		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
+		if (item >= ITEM_ACTION || is_hotkey_item(item))
 		{
 			capture = item;
 			capture_frames = CAPTURE_FRAMES;
@@ -350,12 +384,12 @@ static void navigate(int nav)
 /* the keys and buttons of the item being remapped, in 's' */
 static SDL_Scancode *captured_keys(settings *s)
 {
-	return capture == ITEM_FAST_FORWARD_KEY ? s->hot_keys[HOTKEY_FAST_FORWARD] : s->keys[player][capture - ITEM_ACTION];
+	return is_hotkey_item(capture) ? s->hot_keys[item_hotkey(capture)] : s->keys[player][capture - ITEM_ACTION];
 }
 
 static pad_input *captured_buttons(settings *s)
 {
-	return capture == ITEM_FAST_FORWARD_KEY ? s->hot_buttons[HOTKEY_FAST_FORWARD]
+	return is_hotkey_item(capture) ? s->hot_buttons[item_hotkey(capture)]
 		: s->buttons[player][capture - ITEM_ACTION];
 }
 
@@ -529,13 +563,14 @@ static uint32_t shade(uint32_t colour, int percent)
 }
 
 /* character 'ch' at character column 'column' and row 'row' of the picture */
-static void put_char(uint32_t *out, int column, int row, char ch, uint32_t colour)
+/* (at pixel line y) */
+static void put_char_y(uint32_t *out, int column, int y, char ch, uint32_t colour)
 {
 	static const int pens[16] = { 0, 100, 92, 84, 76, 68, 60, 60, 60, 60, 60, 60, 60, 60, 60, -1 };
 	const int code = toupper((unsigned char)ch) - 0x20;
 	const uint8_t *tile;
 
-	if (code <= 0 || code >= 0x60 || column < 0 || column >= COLUMNS || !rom_set.layer[2])
+	if (code <= 0 || code >= 0x60 || column < 0 || column >= COLUMNS || y < 0 || y + 8 > PICTURE_H || !rom_set.layer[2])
 		return;
 	tile = rom_set.layer[2] + code * 32;
 	for (int i = 0; i < 8; i++)          /* the picture's x within the character: the tile's row */
@@ -544,7 +579,7 @@ static void put_char(uint32_t *out, int column, int row, char ch, uint32_t colou
 			const int tx = 7 - j, ty = i;
 			const uint8_t byte = tile[ty * 4 + tx / 2];
 			const int pen = (tx & 1) ? (byte & 15) : (byte >> 4);
-			uint32_t *const pixel = &out[(row * 8 + j) * PICTURE_W + column * 8 + i];
+			uint32_t *const pixel = &out[(y + j) * PICTURE_W + column * 8 + i];
 
 			if (pen == 0)
 				continue;
@@ -552,15 +587,51 @@ static void put_char(uint32_t *out, int column, int row, char ch, uint32_t colou
 		}
 }
 
-static void put_text(uint32_t *out, int column, int row, const char *text, uint32_t colour)
+static void put_text_y(uint32_t *out, int column, int y, const char *text, uint32_t colour)
 {
 	for (; *text; text++, column++)
-		put_char(out, column, row, *text, colour);
+		put_char_y(out, column, y, *text, colour);
 }
 
-static void put_right(uint32_t *out, int right_column, int row, const char *text, uint32_t colour)
+static void put_text(uint32_t *out, int column, int row, const char *text, uint32_t colour)
 {
-	put_text(out, right_column - (int)strlen(text) + 1, row, text, colour);
+	put_text_y(out, column, row * 8, text, colour);
+}
+
+static void put_right_y(uint32_t *out, int right_column, int y, const char *text, uint32_t colour)
+{
+	put_text_y(out, right_column - (int)strlen(text) + 1, y, text, colour);
+}
+
+/* ---- the notice ---- */
+
+#define NOTICE_FRAMES 100
+
+static char notice[COLUMNS + 1];
+static int notice_frames;
+
+void menu_notice(const char *text)
+{
+	snprintf(notice, sizeof(notice), "%s", text);
+	notice_frames = NOTICE_FRAMES;
+}
+
+const uint32_t *menu_with_notice(const uint32_t *picture)
+{
+	static uint32_t out[PICTURE_W * PICTURE_H];
+	const int width = (int)strlen(notice), column = (COLUMNS - width) / 2, row = 5;
+
+	if (notice_frames <= 0)
+		return picture;
+	notice_frames--;
+	memcpy(out, picture, sizeof(out));
+	/* a dark band under it */
+	for (int y = row * 8 - 3; y < row * 8 + 11; y++)
+		for (int x = column * 8 - 6; x < (column + width) * 8 + 6; x++)
+			if (x >= 0 && x < PICTURE_W && y >= 0 && y < PICTURE_H)
+				out[y * PICTURE_W + x] = 0x000000u;
+	put_text(out, column, row, notice, GOLD);
+	return out;
 }
 
 static void put_centre(uint32_t *out, int row, const char *text, uint32_t colour)
@@ -582,11 +653,11 @@ static const char *item_label(int item)
 		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
-		"SAVE HIGH SCORES"
+		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS"
 	};
 
-	if (item == ITEM_FAST_FORWARD_KEY)
-		return "FAST FWD";
+	if (is_hotkey_item(item))
+		return item == ITEM_FAST_FORWARD_KEY ? "FAST FWD" : item == ITEM_SAVE_STATE_KEY ? "SAVE STATE" : "LOAD STATE";
 	return item >= ITEM_ACTION ? action_labels[item - ITEM_ACTION] : labels[item];
 }
 
@@ -623,6 +694,7 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:
+	case ITEM_GAME:
 		snprintf(out, size, ">");
 		break;
 	case ITEM_PANELS:
@@ -647,17 +719,17 @@ static void item_value(int item, char *out, size_t size)
 		snprintf(out, size, "%s", s->rotate == ROTATE_NONE ? "OFF" : settings_rotate_names[s->rotate]);
 		break;
 	default:
-		if (item >= ITEM_ACTION || item == ITEM_FAST_FORWARD_KEY)
+		if (item >= ITEM_ACTION || is_hotkey_item(item))
 		{
-			const bool hotkey = item == ITEM_FAST_FORWARD_KEY;
+			const bool hotkey = is_hotkey_item(item);
 			char key[32];
 
-			key_label(hotkey ? s->hot_keys[HOTKEY_FAST_FORWARD][0] : s->keys[player][item - ITEM_ACTION][0], key,
+			key_label(hotkey ? s->hot_keys[item_hotkey(item)][0] : s->keys[player][item - ITEM_ACTION][0], key,
 				sizeof(key));
 			if (strlen(key) > 10)
 				key[10] = '\0';
 			snprintf(out, size, "%s / %s", key,
-				pad_label(hotkey ? s->hot_buttons[HOTKEY_FAST_FORWARD][0] : s->buttons[player][item - ITEM_ACTION][0]));
+				pad_label(hotkey ? s->hot_buttons[item_hotkey(item)][0] : s->buttons[player][item - ITEM_ACTION][0]));
 		}
 		break;
 	}
@@ -667,7 +739,6 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 {
 	const int left = PANEL_LEFT * 8 - 4, right = (PANEL_RIGHT + 1) * 8 + 4;
 	const int top = PANEL_TOP * 8 - 4, bottom = (PANEL_TOP + PANEL_ROWS) * 8 + 4;
-	int row;
 
 	for (int index = 0; index < PICTURE_W * PICTURE_H; index++)
 		out[index] = shade(game[index], 30);
@@ -681,6 +752,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + 1, "OPTIONS", GOLD);
 	else if (page == PAGE_GRAPHICS)
 		put_centre(out, PANEL_TOP + 1, "GRAPHICS", GOLD);
+	else if (page == PAGE_GAME)
+		put_centre(out, PANEL_TOP + 1, "GAME OPTIONS", GOLD);
 	else
 	{
 		char title[48];
@@ -689,23 +762,29 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + 1, title, GOLD);
 		put_centre(out, PANEL_TOP + 2, "KEY / GAMEPAD", GREY);
 	}
-	row = PANEL_TOP + 4;
-	for (int index = 0; index < item_count; index++)
 	{
-		const bool chosen = index == selected;
-		char value[48];
+		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
+		const int step = page == PAGE_CONTROLS ? 12 : 16, gap = page == PAGE_CONTROLS ? 6 : 8;
+		int y = (PANEL_TOP + 4) * 8;
 
-		if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY
-				|| (items[index] == ITEM_BACK && page == PAGE_GRAPHICS) || items[index] == ITEM_SCALE)
-			row++;    /* (a gap before them) */
-		if (chosen)
-			put_char(out, PANEL_LEFT + 1, row, '>', GOLD);
-		put_text(out, PANEL_LEFT + 3, row, item_label(items[index]), chosen ? GOLD : WHITE);
-		item_value(items[index], value, sizeof(value));
-		if (chosen && capture >= 0)
-			snprintf(value, sizeof(value), "PRESS...");
-		put_right(out, PANEL_RIGHT - 1, row, value, chosen ? CYAN : GREY);
-		row += 2;
+		for (int index = 0; index < item_count; index++)
+		{
+			const bool chosen = index == selected;
+			char value[48];
+
+			if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
+					|| (items[index] == ITEM_BACK && page != PAGE_CONTROLS) || items[index] == ITEM_SCALE
+					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME)
+				y += gap;    /* (a gap before them) */
+			if (chosen)
+				put_char_y(out, PANEL_LEFT + 1, y, '>', GOLD);
+			put_text_y(out, PANEL_LEFT + 3, y, item_label(items[index]), chosen ? GOLD : WHITE);
+			item_value(items[index], value, sizeof(value));
+			if (chosen && capture >= 0)
+				snprintf(value, sizeof(value), "PRESS...");
+			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
+			y += step;
+		}
 	}
 
 	if (capture >= 0)
@@ -721,7 +800,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B / VIEW: CLOSE", GREY);
 	}
-	else if (page == PAGE_GRAPHICS)
+	else if (page == PAGE_GRAPHICS || page == PAGE_GAME)
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);

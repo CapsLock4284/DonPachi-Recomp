@@ -32,6 +32,7 @@ typedef struct
 	void (*apply_video)(void);  /* the filter and vsync from options */
 	void (*apply_timing)(void); /* options->arcade_timing */
 	void (*quit)(void);
+	void (*state)(bool save);   /* the save state: kept, or gone back to */
 } menu_host;
 
 void menu_init(const menu_host *host);
@@ -47,6 +48,12 @@ void menu_tick(void);
 
 /* The picture to show: the game's picture (240 x 320, as the cabinet shows it) dimmed, the menu over it */
 void menu_draw(const uint32_t *game, uint32_t *out);
+
+/* A line of text over the game for a moment ("STATE SAVED"), in the game's font */
+void menu_notice(const char *text);
+
+/* The picture with the notice over it while there is one (else the picture itself): once a frame shown */
+const uint32_t *menu_with_notice(const uint32_t *picture);
 
 /* Closed since the last call (then the port lets the game ignore what is still held, and starts the sound again) */
 bool menu_just_closed(void);

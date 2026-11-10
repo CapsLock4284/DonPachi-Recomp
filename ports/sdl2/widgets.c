@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define BACKGROUND  0x0A0A14u
@@ -877,4 +878,32 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 	draw_graph(&p);
 	draw_stage(&p, 200);
 	draw_status(&p, 268);
+}
+
+/* ---- save states (main.c): the run as the panels had it (the session's best score stays) ---- */
+
+void *widgets_state_save(void)
+{
+	unsigned char *const copy = malloc(sizeof(own_game) + sizeof(graph) + sizeof(run) + sizeof(boss));
+	unsigned char *at = copy;
+
+	if (!copy)
+		return NULL;
+	memcpy(at, &own_game, sizeof(own_game));
+	memcpy(at += sizeof(own_game), &graph, sizeof(graph));
+	memcpy(at += sizeof(graph), &run, sizeof(run));
+	memcpy(at += sizeof(run), &boss, sizeof(boss));
+	return copy;
+}
+
+void widgets_state_load(const void *state)
+{
+	const unsigned char *at = state;
+
+	if (!state)
+		return;
+	memcpy(&own_game, at, sizeof(own_game));
+	memcpy(&graph, at += sizeof(own_game), sizeof(graph));
+	memcpy(&run, at += sizeof(graph), sizeof(run));
+	memcpy(&boss, at += sizeof(run), sizeof(boss));
 }

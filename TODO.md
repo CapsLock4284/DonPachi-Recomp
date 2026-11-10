@@ -31,8 +31,9 @@ The sections below: graphics options, the player features, accuracy checks, poli
 - [ ] **Practice mode**: pick a part of a stage and warp straight to it (each boss and mid-boss) to practice
   - from the stage script's records and the stage variables (`stage` `101A40`, `scroll_position` `101A56`), or from save states made at those places
 - [x] **Fast forward** as a real feature: held, LB or Tab (`[hotkeys]`, remappable in the menu), `fast_forward_speed` 2-16 (4 by default; the menu offers 2x, 3x, 4x, 8x, 16x), no sound meanwhile
-- [ ] **Save states**: save and load the game at any point, like an emulator
-  - the board's memories plus the decompiled program's own stack (it runs as a coroutine in C): saving that stack works, but a state only loads in the same build of the program; to plan carefully
+- [x] **Save states** (in memory, for the session): F5 saves, F8 loads (`[hotkeys] save_state`, `load_state`, gamepad buttons bindable on the Controls page; SAVE STATE / LOAD STATE in the options menu), one slot, a notice on screen. `program_state_save`/`program_state_load` (`runtime/src/game_program.c`): the whole board (`cave_machine`), the 68000's status, the registers `next_frame` keeps with `setjmp` before it hands the frame over, and the game task's stack from there up to `run_program`'s frame; put back on the game task below the state's stack (`alloca`), then `longjmp` (MSVC: `Frame` 0, no unwinding). Checked frame by frame against the run it was saved in (the board's hash), loaded from later in the game and from just after a reset. The side panels' run goes back with it; a game that loaded a state keeps no high score (the file's table is put back when the next game starts)
+  - [ ] More than one slot (for practice mode's places)
+  - [ ] States in files, across runs: the stack holds the program's addresses, which change from run to run (Windows' ASLR); would need the stack rebuilt instead of copied
 - [ ] **Cheats in the menu**: turn MAME's cheats (`cheats/donpachi.xml`) on and off while playing
   - while cheats, practice mode or save states have been used, mark the run and keep it off any saved high scores (DonPachi's own high scores are not saved in its EEPROM; this matters once the port keeps scores)
 

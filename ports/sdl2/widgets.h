@@ -50,6 +50,10 @@ typedef struct
 
 void widgets_set_status(const widgets_status *status);
 
+/* For a save state: a copy of what the panels keep of the run (malloc'd: free it), and that copy put back */
+void *widgets_state_save(void);
+void widgets_state_load(const void *state);
+
 /* Both panels, WIDGET_W x WIDGET_H each, upright as the player sees them */
 void widgets_draw(uint32_t *left, uint32_t *right);
 

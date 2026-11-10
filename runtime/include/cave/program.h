@@ -39,6 +39,18 @@ void program_reset(void);
    palette, which the next interrupt sets) */
 extern void (*program_after_vblank)(void);
 
+/* Save states, kept in memory (not in files: what they hold is only good while the program runs): the whole board
+   (cave_machine: its RAMs, the video, the sound chips, the EEPROM), the 68000's status, and the program's own stack
+   where it waits for its frame. program_state_save takes one between frames (program_run_frame has returned): NULL
+   if there is no memory. program_state_load puts one back; the next program_run_frame goes on from it, as the
+   frame after the one it was saved at. The port draws the picture again (video_latch_sprites, video_draw) and drops
+   the sound it had queued */
+typedef struct program_state program_state;
+
+program_state *program_state_save(void);
+void program_state_load(const program_state *state);
+void program_state_free(program_state *state);
+
 /* The frames so far, and the interrupts the program took */
 uint64_t program_frames(void);
 uint32_t program_interrupts(void);

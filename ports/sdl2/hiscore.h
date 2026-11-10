@@ -27,6 +27,10 @@ const char *hiscore_open(const char *path);
 /* The board was reset: its table is set up again (to put the file's back over) */
 void hiscore_reset(void);
 
+/* A save state was gone back to (cave/program.h), or a game that went back to one is over: the file's table put
+   back over the game's (its scores stay the file's), and kept as it is */
+void hiscore_state_loaded(void);
+
 /* After each of the game's frames. 'enabled': the table is put back and saved ([game] save_high_scores); 'saving':
    changes may go into the file (not while cheats are on) */
 void hiscore_frame(bool enabled, bool saving);

@@ -104,6 +104,23 @@ static void save(const uint8_t *table)
 	memcpy(saved, table, TABLE_SIZE);
 }
 
+void hiscore_state_loaded(void)
+{
+	uint32_t high = 0;
+
+	if (!restored || !have_file)
+		return;
+	for (uint32_t at = 0; at < TABLE_SIZE; at++)
+		*cave_work_ram_byte(TABLE + at) = file_table[at];
+	/* the HUD's HIGH: the file's #1, or the player's score already over it */
+	for (uint32_t at = 0; at < 4u; at++)
+		high = high << 8 | file_table[at];
+	if (long_at(HUD_HIGH) < high)
+		for (uint32_t at = 0; at < 4u; at++)
+			*cave_work_ram_byte(HUD_HIGH + at) = file_table[at];
+	read_table(saved);
+}
+
 void hiscore_frame(bool enabled, bool saving)
 {
 	uint8_t table[TABLE_SIZE];

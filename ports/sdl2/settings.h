@@ -34,6 +34,8 @@ enum
 	HOTKEY_RESET,               /* the board's reset */
 	HOTKEY_SERVICE_MENU,        /* the reset, with the service switch held for the player: the test mode */
 	HOTKEY_FAST_FORWARD,        /* held: the game runs fast_forward_speed frames a frame */
+	HOTKEY_SAVE_STATE,          /* the game as it is now, kept in memory (one save state, until the program closes) */
+	HOTKEY_LOAD_STATE,          /* back to it */
 	HOTKEYS
 };
 

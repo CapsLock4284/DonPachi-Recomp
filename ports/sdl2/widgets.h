@@ -26,6 +26,7 @@
 #ifndef DONPACHI_WIDGETS_H
 #define DONPACHI_WIDGETS_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define WIDGET_W    120     /* a panel, in the game's pixels: drawn at the picture's scale */
@@ -37,6 +38,17 @@ void widgets_frame(void);
 
 /* Forgets the run (the game reset) */
 void widgets_reset(void);
+
+/* What the port is doing, for the settings in use (right panel) */
+typedef struct
+{
+	bool arcade_timing;
+	bool free_play;
+	bool cheats;                /* any turned on */
+	int fast_forward;           /* 0, or the frames a frame while it is held */
+} widgets_status;
+
+void widgets_set_status(const widgets_status *status);
 
 /* Both panels, WIDGET_W x WIDGET_H each, upright as the player sees them */
 void widgets_draw(uint32_t *left, uint32_t *right);

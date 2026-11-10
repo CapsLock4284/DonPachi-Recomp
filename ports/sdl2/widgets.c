@@ -203,7 +203,7 @@ static bool in_play(int player)
 #define GRAPH_X     8
 #define GRAPH_Y     44
 #define GRAPH_W     104     /* points: one a column */
-#define GRAPH_H     104
+#define GRAPH_H     88
 #define MARKS       24
 
 static struct
@@ -773,6 +773,75 @@ static void draw_run(panel *p, int top, bool two)
 	put_right(p, WIDGET_W - 8, y, text, GOLD);
 }
 
+/* ---- the controls: what the board is given (the stick and the three buttons) ---- */
+
+static void draw_input(panel *p, int top, int player)
+{
+	const uint16_t held = (uint16_t)~(player ? cave_board.in1 : cave_board.in0);
+	const uint32_t frame = own_game ? GREY : DIM;
+	/* the stick: a 3 x 3 of cells, the one it points to lit */
+	const int dx = held & CAVE_LEFT ? -1 : held & CAVE_RIGHT ? 1 : 0, dy = held & CAVE_UP ? -1 : held & CAVE_DOWN ? 1 : 0;
+	static const struct { uint16_t bit; char name; } buttons[3] = {
+		{ CAVE_BUTTON1, 'S' }, { CAVE_BUTTON2, 'B' }, { CAVE_BUTTON3, 'C' }
+	};
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	for (int row = -1; row <= 1; row++)
+		for (int column = -1; column <= 1; column++)
+		{
+			const int x = 8 + (column + 1) * 9, y = top + 6 + (row + 1) * 9;
+
+			if (own_game && row == dy && column == dx)
+				box(p, x, y, x + 8, y + 8, row == 0 && column == 0 ? GREY : GOLD);
+			else
+				outline(p, x, y, x + 8, y + 8, row == 0 && column == 0 ? DIM : frame);
+		}
+	for (int button = 0; button < 3; button++)
+	{
+		const int x = 44 + button * 24, y = top + 9;
+		const bool on = own_game && (held & buttons[button].bit);
+
+		if (on)
+			box(p, x, y, x + 20, y + 14, GOLD);
+		else
+			outline(p, x, y, x + 20, y + 14, frame);
+		put_char(p, x + 6, y + 3, buttons[button].name, on ? 0x10101Cu : frame, 1);
+	}
+}
+
+/* ---- the settings in use (right panel, at the bottom) ---- */
+
+static widgets_status status;
+
+void widgets_set_status(const widgets_status *now)
+{
+	status = *now;
+}
+
+static void draw_setting(panel *p, int y, const char *name, const char *value, uint32_t colour)
+{
+	put_text(p, 8, y, name, GREY, 1);
+	put_right(p, WIDGET_W - 8, y, value, colour);
+}
+
+static void draw_status(panel *p, int top)
+{
+	char text[16];
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	if (status.fast_forward > 0)
+	{
+		snprintf(text, sizeof(text), ">>%dX", status.fast_forward);
+		draw_setting(p, top + 5, "SPEED", text, YELLOW);
+	}
+	else
+		draw_setting(p, top + 5, "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
+	/* the board's own rapid fire: the EEPROM's "C BUTTON FULL-AUTO" (word 4, bit 2) */
+	draw_setting(p, top + 15, "C AUTO", cave_board.eeprom.words[4] & 0x0004u ? "ON" : "OFF", WHITE);
+	draw_setting(p, top + 25, "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
+	draw_setting(p, top + 35, "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
+}
+
 void widgets_draw(uint32_t *left, uint32_t *right)
 {
 	panel p;
@@ -797,11 +866,15 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 		top -= 2;
 		draw_rank(&p, top);
 		draw_run(&p, top + RANK_HEIGHT, in_play(0) && in_play(1));
+		/* the controls, with one player (two leave no room) */
+		if (!(in_play(0) && in_play(1)))
+			draw_input(&p, 248, in_play(1) && !in_play(0) ? 1 : 0);
 	}
 
 	p.pixels = right;
 	frame_panel(&p, "SCORE GRAPH");
 	put_centre(&p, 22, "VS #1 SCORE", GREY, 1);
 	draw_graph(&p);
-	draw_stage(&p, 236);
+	draw_stage(&p, 200);
+	draw_status(&p, 268);
 }

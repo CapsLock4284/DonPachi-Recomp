@@ -739,6 +739,12 @@ int main(int argc, char **argv)
 				if (!fast && audio)
 					audio_restart();
 			}
+			{
+				const widgets_status status = { options.arcade_timing, options.free_play, cheat_count > 0,
+					fast ? frames : 0 };
+
+				widgets_set_status(&status);
+			}
 			for (int frame = 0; frame < frames; frame++)
 			{
 				read_keys();

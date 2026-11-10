@@ -33,6 +33,7 @@
 #define GOLD        0xFFC83Cu
 #define GREY        0x8C8C9Cu
 #define CYAN        0x6CD8FFu
+#define RED         0xFF4848u
 
 #define REPEAT_FIRST 18                 /* frames a direction is held before it repeats, then every REPEAT_NEXT */
 #define REPEAT_NEXT  5
@@ -805,7 +806,6 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_CHEATS)
 	{
 		put_centre(out, PANEL_TOP + 1, "CHEATS", GOLD);
-		put_centre(out, PANEL_TOP + 2, "NO HIGH SCORES WHILE ON", GREY);
 	}
 	else
 	{
@@ -837,6 +837,13 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 				snprintf(value, sizeof(value), "PRESS...");
 			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
 			y += step;
+		}
+		if (page == PAGE_CHEATS)
+		{
+			static const char *const warning[2] = { "HIGH SCORES SAVING DISABLED", "WHILE CHEATS ARE ACTIVE" };
+
+			for (int line = 0; line < 2; line++)
+				put_text_y(out, (COLUMNS - (int)strlen(warning[line])) / 2, y + 2 + line * 10, warning[line], RED);
 		}
 	}
 

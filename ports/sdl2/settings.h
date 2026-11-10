@@ -61,6 +61,7 @@ typedef struct
 	bool arcade_timing;
 	int fast_forward_speed;     /* 2-16 */
 	bool hitbox;                /* the ships' hitboxes shown */
+	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
 	/* [window] */
 	int scale;
 	bool fullscreen;

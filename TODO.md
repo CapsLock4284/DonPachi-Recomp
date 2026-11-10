@@ -19,6 +19,7 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 - [x] Settings file `donpachi.ini` beside the program (free play, timing, window, volume, files) and remapping of every key and gamepad button for both players (`ports/sdl2/settings.c`)
 - [x] Game reset (`program_reset`: the board's reset, the EEPROM kept; identical to a fresh start, checked frame by frame): F3, and F4 "service menu" (the reset with the service switch held for you); both bindable to gamepad buttons in `[hotkeys]`
 - [x] Options menu (`ports/sdl2/menu.c`): View or Escape opens it over the paused game, in the game's own font; resume, reset, service menu, free play, input timing, volume, window size, full screen, controls (remap by pressing the new key or button, per player), quit; changes saved to `donpachi.ini` at once; buttons held as it closes are ignored until let go
+- [x] High scores kept in `donpachi.hiscore` beside the program (`ports/sdl2/hiscore.c`; the board keeps only its settings and starts from the default table each time): the table `$101846`-`$10189F` (scores, names, a word each for the entries) and the HUD's HIGH `$101782` put back over the defaults just after the game sets them up, then saved when it changes; not saved while cheats are on; SAVE HIGH SCORES in the options menu, `[game] save_high_scores`
 
 ## Next
 

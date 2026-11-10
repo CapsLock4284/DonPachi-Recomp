@@ -39,6 +39,8 @@
  *          there.
  *    Hitbox: the options menu's HITBOX (or [game] hitbox) shows each ship's hitbox as a white glowing dot (hitbox.h).
  *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
+ *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
+ *          [game] save_high_scores); not saved while cheats are on.
  */
 #include "cave/cheats.h"
 #include "cave/free_play.h"
@@ -47,6 +49,7 @@
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
+#include "hiscore.h"
 #include "hitbox.h"
 #include "menu.h"
 #include "widgets.h"
@@ -163,6 +166,7 @@ static void hotkeys(void)
 		{
 			program_reset();
 			free_play_reset();
+			hiscore_reset();
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
 		}
 		hotkey_was_down[hotkey] = down;
@@ -502,6 +506,7 @@ static void menu_reset(bool service_menu)
 {
 	program_reset();
 	free_play_reset();
+	hiscore_reset();
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
 }
 
@@ -615,6 +620,8 @@ int main(int argc, char **argv)
 		return 0;
 	}
 	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
+	if ((problem = hiscore_open(NULL)) != NULL)
+		fprintf(stderr, "donpachi.hiscore: %s\n", problem);
 	for (int cheat = 0; cheat < cheat_count; cheat++)
 		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
 		{
@@ -746,6 +753,7 @@ int main(int argc, char **argv)
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
 				widgets_frame();
+				hiscore_frame(options.save_high_scores, cheat_count == 0);
 			}
 		}
 		if (!options.arcade_timing)

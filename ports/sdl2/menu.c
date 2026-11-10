@@ -49,6 +49,7 @@ enum
 	ITEM_GRAPHICS, ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
 	ITEM_DEADZONE,                /* the player's left stick: how far before it counts */
 	ITEM_PANELS,                  /* the side panels */
+	ITEM_HISCORES,                /* the high score table kept in a file */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the fast forward hotkey (both players': [hotkeys]) */
 	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
 };
@@ -73,7 +74,7 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_TIMING,
-			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
+			ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_HISCORES, ITEM_VOLUME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 			items[item_count++] = main_items[index];
@@ -172,6 +173,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_HITBOX:
 		in_use->hitbox = file->hitbox = !in_use->hitbox;
+		break;
+	case ITEM_HISCORES:
+		in_use->save_high_scores = file->save_high_scores = !in_use->save_high_scores;
 		break;
 	case ITEM_TIMING:
 		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
@@ -577,7 +581,8 @@ static const char *item_label(int item)
 		"RESUME", "RESET", "SERVICE MENU", "FREE PLAY", "INPUT TIMING", "FAST FWD SPEED", "HITBOX", "VOLUME",
 		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
-		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS"
+		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
+		"SAVE HIGH SCORES"
 	};
 
 	if (item == ITEM_FAST_FORWARD_KEY)
@@ -597,6 +602,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_HITBOX:
 		snprintf(out, size, "%s", s->hitbox ? "ON" : "OFF");
+		break;
+	case ITEM_HISCORES:
+		snprintf(out, size, "%s", s->save_high_scores ? "ON" : "OFF");
 		break;
 	case ITEM_TIMING:
 		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");

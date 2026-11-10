@@ -73,6 +73,7 @@ void settings_defaults(settings *s)
 	s->arcade_timing = false;
 	s->fast_forward_speed = 4;
 	s->hitbox = false;
+	s->save_high_scores = true;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->scaling = VIDEO_FIT;
@@ -233,6 +234,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_int(value, 2, 16, &s->fast_forward_speed);
 		if (!SDL_strcasecmp(name, "hitbox"))
 			return parse_bool(value, &s->hitbox);
+		if (!SDL_strcasecmp(name, "save_high_scores"))
+			return parse_bool(value, &s->save_high_scores);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "window"))
@@ -421,7 +424,10 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; while the fast forward key or button is held ([hotkeys]): the game's frames a frame, 2 to 16\n", file);
 	fprintf(file, "fast_forward_speed = %d\n", s->fast_forward_speed);
 	fputs("; a white dot over each ship: its hitbox, the box the game tests bullets and enemies against\n", file);
-	fprintf(file, "hitbox = %s\n\n", bool_text(s->hitbox));
+	fprintf(file, "hitbox = %s\n", bool_text(s->hitbox));
+	fputs("; the high score table kept in donpachi.hiscore beside the program (the arcade board forgets it when it is\n"
+		"; switched off). Not saved while cheats are on\n", file);
+	fprintf(file, "save_high_scores = %s\n\n", bool_text(s->save_high_scores));
 
 	fputs("[window]\n", file);
 	fputs("; the window's size, in times the game's 240 x 320\n", file);

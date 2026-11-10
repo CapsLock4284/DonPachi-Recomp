@@ -49,6 +49,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
     - `$1018EC`: the game's mode (0xB ship select, 7 play, 0/1/5 the attract mode and its demonstration)
   - [ ] **Lives and bombs** left
   - [x] **Stage and loop** (area 1-10), with the **stage's progress** as a bar to the boss (right panel, under the score graph): `stage` `101A40` (0-4; 5 between the loops and the ending), `loop` `101A42`, `scroll_position` `101A56` (from -1; the bosses at 630, 566, 647, 920, 548, and 1011 in area 10; area 1 counts from 256, after its fly-in)
+  - [ ] **Boss health bar**: when the boss appears, the progress bar becomes its health (from the boss object's hit points in memory), emptying as it is shot; switched on by the boss's object appearing rather than the scroll position. Area 10 has two bosses: the harder version of area 5's boss, then the true last boss (a golden mechanical bee with green wings): the bar goes on to the second. Decide for bosses with several parts or phases (the main body, or all parts added up); mid-bosses perhaps, as an option
   - [ ] **Input display**: the stick and the buttons held, as on a stream overlay
   - [x] **Rank** (left panel, as a bar 0-63): the low byte of `$101A32`, worked out again as the stage scrolls from the area, the loop, the time since the last miss, the bees, the lives and each player's power, bombs and best chain
   - [x] **Run statistics** (left panel): time played (the game's mode 7), bombs used (`$106E14` bit 15 rising as the stock goes down), lives lost in each area ("LIVES LOST"; "DEATHS" with two players) (a life lost while the ship is down: lives `$101A2E`/`$101A30`; with two players only the totals), the session's best score (kept through a reset)
@@ -96,3 +97,9 @@ The last step: once the US version plays and works the way it should.
 ## Future ideas
 
 - [ ] A shared runtime / launcher for other first-generation Cave 68000 games (DoDonPachi, ESP Ra.De., Guwange, ...)
+- [ ] **The developers' own debug tools, still in the ROM** (look into): switched off in the released game, but they come back with a few patches (sudden-desu.net, "DonPachi debug tools and more": https://sudden-desu.net/entry/donpachi-debug-tools-and-more/)
+  - a RAM viewer and editor (addresses and values at the bottom of the screen; flag byte `$1018E8`)
+  - a stage select (stages 2-5) and a pause with stage explore (P2 Start pauses; P1 button C with up and down scrolls the stage)
+  - a palette editor, an object spawner, the sound test's auto-play
+  - the US version's patch points: `0x35D98` (the second group of tools), `0x34334`/`0x34338`/`0x34420`/`0x34424` (skip the RAM/ROM check); the flags `$10F000` (pause and stage explore) and `$10F001` (palette editor, object spawner, stage select)
+  - would be an option (off by default) that patches the program or sets the flags, never touching the normal game; useful for finding things in memory and for practice mode

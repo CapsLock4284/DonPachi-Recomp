@@ -42,7 +42,8 @@
  *    Save state: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
  *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
- *          [game] save_high_scores); not saved while cheats are on.
+ *          [game] save_high_scores); not saved in a game that had a cheat on or went back to a save state.
+ *    Cheats: the options menu's GAME OPTIONS > CHEATS turns the cheat file's on and off for the run (or --cheat).
  */
 #include "cave/cheats.h"
 #include "cave/free_play.h"
@@ -552,7 +553,8 @@ static void menu_apply_timing(void)
 
 static program_state *save_state;
 static void *save_state_panels;    /* (the side panels' run, as it was: widgets.h) */
-static bool state_loaded;          /* this game went back to a save state: its scores are not kept (hiscore.h) */
+static bool state_loaded;          /* this game went back to a save state, or had a cheat on: its scores are not kept
+                                      (hiscore.h) */
 
 static void state_action(bool save)
 {
@@ -678,6 +680,7 @@ int main(int argc, char **argv)
 	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
 	if ((problem = hiscore_open(NULL)) != NULL)
 		fprintf(stderr, "donpachi.hiscore: %s\n", problem);
+	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
 	for (int cheat = 0; cheat < cheat_count; cheat++)
 		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
 		{
@@ -797,7 +800,7 @@ int main(int argc, char **argv)
 					audio_restart();
 			}
 			{
-				const widgets_status status = { options.arcade_timing, options.free_play, cheat_count > 0,
+				const widgets_status status = { options.arcade_timing, options.free_play, cheats_any_on(),
 					fast ? frames : 0 };
 
 				widgets_set_status(&status);
@@ -816,9 +819,11 @@ int main(int argc, char **argv)
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
 				widgets_frame();
-				hiscore_frame(options.save_high_scores, cheat_count == 0 && !state_loaded);
+				if (cheats_any_on())
+					state_loaded = true;
+				hiscore_frame(options.save_high_scores, !state_loaded);
 				/* (a new game: its scores are kept again) */
-				if (state_loaded && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
+				if (state_loaded && !cheats_any_on() && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
 				{
 					state_loaded = false;
 					hiscore_state_loaded();    /* (the table as the file has it: none of that game's scores) */

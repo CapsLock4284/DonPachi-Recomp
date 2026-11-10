@@ -12,6 +12,7 @@
  */
 #include "menu.h"
 
+#include "cave/cheats.h"
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
@@ -38,7 +39,7 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -52,9 +53,11 @@ enum
 	ITEM_HISCORES,                /* the high score table kept in a file */
 	ITEM_SAVE_STATE, ITEM_LOAD_STATE,   /* the save state: kept now, or gone back to */
 	ITEM_GAME,                    /* the game options page */
+	ITEM_CHEATS,                  /* the cheats page (from the game options) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
-	ITEM_ACTION = 100             /* + an action: a player's key and button for it */
+	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
+	ITEM_CHEAT = 200              /* + a cheat of the cheat file (cave/cheats.h) */
 };
 
 static const char *const action_labels[ACTIONS] = {
@@ -62,6 +65,16 @@ static const char *const action_labels[ACTIONS] = {
 };
 
 static menu_host host;
+
+static bool is_action(int item)
+{
+	return item >= ITEM_ACTION && item < ITEM_ACTION + ACTIONS;
+}
+
+static bool is_cheat(int item)
+{
+	return item >= ITEM_CHEAT;
+}
 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
@@ -75,7 +88,7 @@ static int item_hotkey(int item)
 }
 static bool open, just_closed;
 static int page, selected, player;
-static int items[16], item_count;
+static int items[48], item_count;
 static int capture = -1;                /* the action waiting for its key or button, or -1 */
 static int capture_frames;
 static int held_direction, held_frames; /* the gamepads' d-pad and stick, for their repeats */
@@ -95,10 +108,18 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_BACK };
+		static const int game_items[] = { ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHEATS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
+	}
+	else if (page == PAGE_CHEATS)
+	{
+		/* the cheat file's that the game can have (they write its RAM) */
+		for (int cheat = 0; cheat < cheats_count() && item_count < 40; cheat++)
+			if (cheats_usable(cheat))
+				items[item_count++] = ITEM_CHEAT + cheat;
+		items[item_count++] = ITEM_BACK;
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
@@ -189,6 +210,11 @@ static void change(int item, int step, bool wrap)
 {
 	settings *const in_use = host.options, *const file = host.file;
 
+	if (is_cheat(item))
+	{
+		cheats_set(item - ITEM_CHEAT, !cheats_on(item - ITEM_CHEAT));    /* (for this run: not saved) */
+		return;
+	}
 	switch (item)
 	{
 	case ITEM_FREE_PLAY:
@@ -292,6 +318,11 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_CHEATS:
+		page = PAGE_CHEATS;
+		selected = 0;
+		build_items();
+		break;
 	case ITEM_QUIT:
 		host.quit();
 		close_menu();
@@ -325,16 +356,17 @@ static void choose(int item)
 	}
 	case ITEM_BACK:
 	{
-		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME : ITEM_CONTROLS;
+		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME
+			: page == PAGE_CHEATS ? ITEM_CHEATS : ITEM_CONTROLS;
 
-		page = PAGE_MAIN;
+		page = page == PAGE_CHEATS ? PAGE_GAME : PAGE_MAIN;
 		build_items();
 		for (selected = 0; selected < item_count - 1 && items[selected] != opened_by; selected++)
 			;    /* (back on the entry that opened the page) */
 		break;
 	}
 	default:
-		if (item >= ITEM_ACTION || is_hotkey_item(item))
+		if (is_action(item) || is_hotkey_item(item))
 		{
 			capture = item;
 			capture_frames = CAPTURE_FRAMES;
@@ -653,12 +685,25 @@ static const char *item_label(int item)
 		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
-		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS"
+		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS"
 	};
 
 	if (is_hotkey_item(item))
 		return item == ITEM_FAST_FORWARD_KEY ? "FAST FWD" : item == ITEM_SAVE_STATE_KEY ? "SAVE STATE" : "LOAD STATE";
-	return item >= ITEM_ACTION ? action_labels[item - ITEM_ACTION] : labels[item];
+	if (is_cheat(item))
+	{
+		/* the cheat file's name, made to fit beside its ON / OFF ("Maximum" as "Max") */
+		static char name[64];
+		const char *const full = cheats_name(item - ITEM_CHEAT), *const longer = strstr(full, "Maximum");
+
+		if (longer)
+			snprintf(name, sizeof(name), "%.*sMax%s", (int)(longer - full), full, longer + 7);
+		else
+			snprintf(name, sizeof(name), "%s", full);
+		name[19] = '\0';
+		return name;
+	}
+	return is_action(item) ? action_labels[item - ITEM_ACTION] : labels[item];
 }
 
 static void item_value(int item, char *out, size_t size)
@@ -695,6 +740,7 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:
 	case ITEM_GAME:
+	case ITEM_CHEATS:
 		snprintf(out, size, ">");
 		break;
 	case ITEM_PANELS:
@@ -719,7 +765,9 @@ static void item_value(int item, char *out, size_t size)
 		snprintf(out, size, "%s", s->rotate == ROTATE_NONE ? "OFF" : settings_rotate_names[s->rotate]);
 		break;
 	default:
-		if (item >= ITEM_ACTION || is_hotkey_item(item))
+		if (is_cheat(item))
+			snprintf(out, size, "%s", cheats_on(item - ITEM_CHEAT) ? "ON" : "OFF");
+		else if (is_action(item) || is_hotkey_item(item))
 		{
 			const bool hotkey = is_hotkey_item(item);
 			char key[32];
@@ -754,6 +802,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + 1, "GRAPHICS", GOLD);
 	else if (page == PAGE_GAME)
 		put_centre(out, PANEL_TOP + 1, "GAME OPTIONS", GOLD);
+	else if (page == PAGE_CHEATS)
+	{
+		put_centre(out, PANEL_TOP + 1, "CHEATS", GOLD);
+		put_centre(out, PANEL_TOP + 2, "NO HIGH SCORES WHILE ON", GREY);
+	}
 	else
 	{
 		char title[48];
@@ -800,7 +853,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B / VIEW: CLOSE", GREY);
 	}
-	else if (page == PAGE_GRAPHICS || page == PAGE_GAME)
+	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS)
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);

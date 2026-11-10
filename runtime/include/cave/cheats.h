@@ -15,9 +15,23 @@
 #ifndef CAVE_CHEATS_H
 #define CAVE_CHEATS_H
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* The cheat file's cheats, read (for the menu: all off): NULL, or what is wrong. cheats_enable reads it too */
+const char *cheats_load(const char *path);
+
+/* Its cheats: their names; usable (they only write the RAM, and need no value: the menu offers those); on */
+int cheats_count(void);
+const char *cheats_name(int index);
+bool cheats_usable(int index);
+bool cheats_on(int index);
+void cheats_set(int index, bool on);
+bool cheats_any_on(void);
+void cheats_off(void);
 
 /* Turns on the cheat whose name holds 'request' (any case; "NAME=VALUE" picks a parameter's value) from the cheat
    file 'path': NULL, or what is wrong */

@@ -15,7 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_WRITES 64
+#define MAX_WRITES 128
+#define MAX_CHEATS 64
 
 typedef struct
 {
@@ -23,11 +24,25 @@ typedef struct
 	uint32_t value;
 	int bytes;           /* 1, 2 or 4 */
 	int every_frame;     /* run: every frame; on: once */
+	int param;           /* the value is the cheat's parameter */
 	int done;
 } cheat_write;
 
+typedef struct
+{
+	char name[64];
+	int first, count;    /* its writes */
+	int usable;          /* only RAM writes (no program patches, no MAME expressions) */
+	int needs_value;     /* it has a <parameter> */
+	int on;
+	uint32_t value;
+} cheat;
+
 static cheat_write writes[MAX_WRITES];
 static int write_count;
+static cheat cheats[MAX_CHEATS];
+static int cheat_total;
+static char loaded_path[512];
 
 static char *read_text(const char *path)
 {
@@ -122,115 +137,201 @@ void cheats_list(const char *path)
 	free(text);
 }
 
-const char *cheats_enable(const char *path, const char *request)
+/* The file's cheats into the table (once a file: cheats_load again with another path reads that one) */
+static const char *load(const char *path)
 {
 	static char problem[256];
-	char wanted[128], *equals, name[128];
-	const char *at, *end, *found = NULL;
-	char *text = read_text(path);
-	const char *parameter = NULL;
+	char *text;
+	const char *at;
 
-	if (!text)
+	if (cheat_total && !strcmp(path, loaded_path))
+		return NULL;
+	if (!(text = read_text(path)))
 	{
 		snprintf(problem, sizeof(problem), "no cheat file %s", path);
 		return problem;
 	}
+	snprintf(loaded_path, sizeof(loaded_path), "%s", path);
+	cheat_total = 0;
+	write_count = 0;
+	for (at = text; (at = strstr(at, "<cheat ")) != NULL && cheat_total < MAX_CHEATS; at++)
+	{
+		cheat *const c = &cheats[cheat_total];
+		const char *end = cheat_end(at), *script;
+
+		if (!attribute(at, "desc", c->name, sizeof(c->name)) || strspn(c->name, " ") == strlen(c->name))
+			continue;    /* (the file's blank lines) */
+		c->first = write_count;
+		c->count = 0;
+		c->usable = 1;
+		c->on = 0;
+		c->value = 0;
+		c->needs_value = strstr(at, "<parameter") && strstr(at, "<parameter") < end;
+		for (script = at; (script = strstr(script, "<script")) != NULL && script < end; script++)
+		{
+			char state[16] = "run";
+			const char *script_end = strstr(script, "</script>");
+
+			attribute(script, "state", state, sizeof(state));
+			if (!strcmp(state, "off"))
+				continue;
+			for (const char *action = script; (action = strstr(action, "<action>")) != NULL
+					&& (!script_end || action < script_end); action++)
+			{
+				const char *body = action + 8;
+				char kind, *after;
+				unsigned long address;
+
+				while (*body == ' ')
+					body++;
+				if (strncmp(body, "maincpu.p", 9) != 0 || !strchr("bwd", body[9]) || body[10] != '@')
+				{
+					c->usable = 0;
+					continue;
+				}
+				kind = body[9];
+				address = strtoul(body + 11, &after, 16);
+				while (*after == ' ')
+					after++;
+				if (*after != '=')
+					continue;
+				after++;
+				while (*after == ' ')
+					after++;
+				if (write_count == MAX_WRITES)
+				{
+					c->usable = 0;
+					continue;
+				}
+				writes[write_count++] = (cheat_write){ (uint32_t)address & 0xFFFFFFu,
+					strncmp(after, "param", 5) ? (uint32_t)strtoul(after, NULL, 16) : 0u,
+					kind == 'b' ? 1 : kind == 'w' ? 2 : 4, strcmp(state, "on") != 0, !strncmp(after, "param", 5), 0 };
+				c->count++;
+			}
+		}
+		cheat_total++;
+	}
+	free(text);
+	return NULL;
+}
+
+const char *cheats_load(const char *path)
+{
+	return load(path);
+}
+
+int cheats_count(void)
+{
+	return cheat_total;
+}
+
+const char *cheats_name(int index)
+{
+	return index >= 0 && index < cheat_total ? cheats[index].name : "";
+}
+
+bool cheats_usable(int index)
+{
+	return index >= 0 && index < cheat_total && cheats[index].usable && !cheats[index].needs_value;
+}
+
+bool cheats_on(int index)
+{
+	return index >= 0 && index < cheat_total && cheats[index].on;
+}
+
+void cheats_set(int index, bool on)
+{
+	if (index < 0 || index >= cheat_total || !cheats[index].usable)
+		return;
+	if (on && !cheats[index].on)
+		for (int write = cheats[index].first; write < cheats[index].first + cheats[index].count; write++)
+			writes[write].done = 0;    /* (its "on" writes once more) */
+	cheats[index].on = on;
+}
+
+bool cheats_any_on(void)
+{
+	for (int index = 0; index < cheat_total; index++)
+		if (cheats[index].on)
+			return true;
+	return false;
+}
+
+void cheats_off(void)
+{
+	for (int index = 0; index < cheat_total; index++)
+		cheats[index].on = 0;
+}
+
+const char *cheats_enable(const char *path, const char *request)
+{
+	static char problem[256];
+	char wanted[128], *equals;
+	const char *parameter = NULL, *failed = load(path);
+	int found = -1;
+
+	if (failed)
+		return failed;
 	snprintf(wanted, sizeof(wanted), "%s", request);
 	if ((equals = strchr(wanted, '=')) != NULL)
 	{
 		*equals = '\0';
 		parameter = equals + 1;
 	}
-	for (at = text; (at = strstr(at, "<cheat ")) != NULL; at++)
-		if (attribute(at, "desc", name, sizeof(name)) && strspn(name, " ") != strlen(name)
-			&& contains_nocase(name, wanted))
-		{
-			found = at;
-			break;
-		}
-	if (!found)
+	for (int index = 0; index < cheat_total && found < 0; index++)
+		if (contains_nocase(cheats[index].name, wanted))
+			found = index;
+	if (found < 0)
 	{
 		snprintf(problem, sizeof(problem), "no cheat named like \"%s\" in %s", wanted, path);
-		free(text);
 		return problem;
 	}
-	end = cheat_end(found);
-	for (at = found; (at = strstr(at, "<script")) != NULL && at < end; at++)
+	if (!cheats[found].usable)
 	{
-		char state[16] = "run";
-		const char *script_end = strstr(at, "</script>");
-
-		attribute(at, "state", state, sizeof(state));
-		if (!strcmp(state, "off"))
-			continue;
-		for (const char *action = at; (action = strstr(action, "<action>")) != NULL
-				&& (!script_end || action < script_end); action++)
-		{
-			const char *body = action + 8;
-			char kind;
-			unsigned long address;
-			char *after;
-			uint32_t value;
-
-			while (*body == ' ')
-				body++;
-			if (strncmp(body, "maincpu.p", 9) != 0 || !strchr("bwd", body[9]) || body[10] != '@')
-			{
-				snprintf(problem, sizeof(problem), "the cheat \"%s\" patches the program or uses MAME's expressions, "
-					"which the decompiled game does not have", name);
-				write_count = 0;
-				free(text);
-				return problem;
-			}
-			kind = body[9];
-			address = strtoul(body + 11, &after, 16);
-			while (*after == ' ')
-				after++;
-			if (*after != '=')
-				continue;
-			after++;
-			while (*after == ' ')
-				after++;
-			if (!strncmp(after, "param", 5))
-			{
-				if (!parameter)
-				{
-					snprintf(problem, sizeof(problem), "the cheat \"%s\" needs a value: --cheat \"%s=VALUE\"", name, name);
-					free(text);
-					return problem;
-				}
-				value = (uint32_t)strtoul(parameter, NULL, 0);
-			}
-			else
-				value = (uint32_t)strtoul(after, NULL, 16);
-			if (write_count == MAX_WRITES)
-				break;
-			writes[write_count++] = (cheat_write){ (uint32_t)address & 0xFFFFFFu, value,
-				kind == 'b' ? 1 : kind == 'w' ? 2 : 4, strcmp(state, "on") != 0, 0 };
-		}
+		snprintf(problem, sizeof(problem), "the cheat \"%s\" patches the program or uses MAME's expressions, "
+			"which the decompiled game does not have", cheats[found].name);
+		return problem;
 	}
-	free(text);
+	if (cheats[found].needs_value)
+	{
+		if (!parameter)
+		{
+			snprintf(problem, sizeof(problem), "the cheat \"%s\" needs a value: --cheat \"%s=VALUE\"",
+				cheats[found].name, cheats[found].name);
+			return problem;
+		}
+		cheats[found].value = (uint32_t)strtoul(parameter, NULL, 0);
+		cheats[found].needs_value = 0;
+	}
+	cheats_set(found, true);
 	return NULL;
 }
 
 void cheats_apply(void)
 {
-	for (int index = 0; index < write_count; index++)
+	for (int index = 0; index < cheat_total; index++)
 	{
-		cheat_write *const write = &writes[index];
-
-		if (!write->every_frame && write->done)
+		if (!cheats[index].on)
 			continue;
-		write->done = 1;
-		if (write->bytes == 1)
-			cave_write16(write->address & ~1u, (uint16_t)((write->value & 0xFFu) * 0x101u),
-				(write->address & 1u) ? 0x00FFu : 0xFF00u);
-		else if (write->bytes == 2)
-			cave_write16(write->address, (uint16_t)write->value, 0xFFFFu);
-		else
+		for (int at = cheats[index].first; at < cheats[index].first + cheats[index].count; at++)
 		{
-			cave_write16(write->address, (uint16_t)(write->value >> 16), 0xFFFFu);
-			cave_write16(write->address + 2u, (uint16_t)write->value, 0xFFFFu);
+			cheat_write *const write = &writes[at];
+			const uint32_t value = write->param ? cheats[index].value : write->value;
+
+			if (!write->every_frame && write->done)
+				continue;
+			write->done = 1;
+			if (write->bytes == 1)
+				cave_write16(write->address & ~1u, (uint16_t)((value & 0xFFu) * 0x101u),
+					(write->address & 1u) ? 0x00FFu : 0xFF00u);
+			else if (write->bytes == 2)
+				cave_write16(write->address, (uint16_t)value, 0xFFFFu);
+			else
+			{
+				cave_write16(write->address, (uint16_t)(value >> 16), 0xFFFFu);
+				cave_write16(write->address + 2u, (uint16_t)value, 0xFFFFu);
+			}
 		}
 	}
 }

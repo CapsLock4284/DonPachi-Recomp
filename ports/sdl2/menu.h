@@ -33,12 +33,18 @@ typedef struct
 	void (*apply_timing)(void); /* options->arcade_timing */
 	void (*quit)(void);
 	void (*state)(bool save);   /* the save state: kept, or gone back to */
+	void (*main_menu)(void);    /* the game reset, for the main menu (then it shows) */
 } menu_host;
 
 void menu_init(const menu_host *host);
 
 bool menu_is_open(void);
 void menu_open(void);
+
+/* The main menu (the title screen: START GAME, TRAINING, SETTINGS, QUIT TO DESKTOP), as the program starts and from
+   the options' MAIN MENU: the game is not run while it is up (menu_is_open); START GAME closes it */
+void menu_open_front(void);
+bool menu_in_front(void);
 
 /* An event while it is open: true when the menu took it (all are taken while it is open) */
 bool menu_event(const SDL_Event *event);

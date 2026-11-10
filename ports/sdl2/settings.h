@@ -64,6 +64,7 @@ typedef struct
 	int fast_forward_speed;     /* 2-16 */
 	bool hitbox;                /* the ships' hitboxes shown */
 	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
+	bool main_menu;             /* the main menu (START GAME, TRAINING, SETTINGS) as the program starts */
 	/* [window] */
 	int scale;
 	bool fullscreen;

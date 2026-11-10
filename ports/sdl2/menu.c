@@ -40,7 +40,7 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -55,6 +55,8 @@ enum
 	ITEM_SAVE_STATE, ITEM_LOAD_STATE,   /* the save state: kept now, or gone back to */
 	ITEM_GAME,                    /* the game options page */
 	ITEM_CHEATS,                  /* the cheats page (from the game options) */
+	ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS,    /* the main menu's (the title screen) */
+	ITEM_MAIN_MENU,               /* back to the main menu from the game */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -88,6 +90,10 @@ static int item_hotkey(int item)
 	return HOTKEY_FAST_FORWARD + (item - ITEM_FAST_FORWARD_KEY);
 }
 static bool open, just_closed;
+static bool front;                      /* the main menu is up (the game not started): the options are its settings */
+static int front_message;               /* frames "coming soon" is still shown */
+
+void menu_open_front(void);
 static int page, selected, player;
 static int items[48], item_count;
 static int capture = -1;                /* the action waiting for its key or button, or -1 */
@@ -102,10 +108,25 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_TIMING, ITEM_FAST_SPEED, ITEM_HITBOX,
-			ITEM_VOLUME, ITEM_SAVE_STATE, ITEM_LOAD_STATE, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_QUIT };
+			ITEM_VOLUME, ITEM_SAVE_STATE, ITEM_LOAD_STATE, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_MAIN_MENU,
+			ITEM_QUIT };
+		/* (the main menu's SETTINGS: what can be set before a game) */
+		static const int settings_items[] = { ITEM_TIMING, ITEM_FAST_SPEED, ITEM_HITBOX, ITEM_VOLUME, ITEM_GAME,
+			ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_BACK };
 
-		for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
-			items[item_count++] = main_items[index];
+		if (front)
+			for (size_t index = 0; index < sizeof(settings_items) / sizeof(settings_items[0]); index++)
+				items[item_count++] = settings_items[index];
+		else
+			for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
+				items[item_count++] = main_items[index];
+	}
+	else if (page == PAGE_FRONT)
+	{
+		static const int front_items[] = { ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS, ITEM_QUIT };
+
+		for (size_t index = 0; index < sizeof(front_items) / sizeof(front_items[0]); index++)
+			items[item_count++] = front_items[index];
 	}
 	else if (page == PAGE_GAME)
 	{
@@ -156,6 +177,7 @@ static void save(void)
 static void close_menu(void)
 {
 	open = false;
+	front = false;    /* (a game goes on: START GAME, or the service menu's reset) */
 	just_closed = true;
 	capture = -1;
 }
@@ -299,6 +321,22 @@ static void choose(int item)
 	case ITEM_RESUME:
 		close_menu();
 		break;
+	case ITEM_START_GAME:
+		front = false;
+		close_menu();    /* (the game starts: it runs from its reset, as the board switched on) */
+		break;
+	case ITEM_TRAINING:
+		front_message = 180;
+		break;
+	case ITEM_SETTINGS:
+		page = PAGE_MAIN;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_MAIN_MENU:
+		host.main_menu();
+		menu_open_front();
+		break;
 	case ITEM_RESET:
 	case ITEM_SERVICE:
 		host.reset(item == ITEM_SERVICE);
@@ -356,7 +394,15 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
-	{
+		if (page == PAGE_MAIN && front)
+		{
+			page = PAGE_FRONT;
+			build_items();
+			for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_SETTINGS; selected++)
+				;
+			break;
+		}
+		{
 		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME
 			: page == PAGE_CHEATS ? ITEM_CHEATS : ITEM_CONTROLS;
 
@@ -401,12 +447,20 @@ static void navigate(int nav)
 		choose(item);
 		break;
 	case NAV_BACK:
-		if (page != PAGE_MAIN)
+		if (page == PAGE_FRONT)
+			break;    /* (the main menu stays until a game starts) */
+		if (page != PAGE_MAIN || front)
 			choose(ITEM_BACK);
 		else
 			close_menu();
 		break;
 	case NAV_CLOSE:
+		if (front)
+		{
+			if (page != PAGE_FRONT)
+				menu_open_front();
+			break;
+		}
 		close_menu();
 		break;
 	}
@@ -475,9 +529,24 @@ bool menu_is_open(void)
 	return open;
 }
 
+void menu_open_front(void)
+{
+	menu_open();
+	front = true;
+	front_message = 0;
+	page = PAGE_FRONT;
+	build_items();
+}
+
+bool menu_in_front(void)
+{
+	return open && front;
+}
+
 void menu_open(void)
 {
 	open = true;
+	front = false;
 	page = PAGE_MAIN;
 	selected = 0;
 	capture = -1;
@@ -597,13 +666,14 @@ static uint32_t shade(uint32_t colour, int percent)
 
 /* character 'ch' at character column 'column' and row 'row' of the picture */
 /* (at pixel line y) */
-static void put_char_y(uint32_t *out, int column, int y, char ch, uint32_t colour)
+static void put_glyph(uint32_t *out, int x, int y, char ch, uint32_t colour, int scale)
 {
 	static const int pens[16] = { 0, 100, 92, 84, 76, 68, 60, 60, 60, 60, 60, 60, 60, 60, 60, -1 };
 	const int code = toupper((unsigned char)ch) - 0x20;
 	const uint8_t *tile;
 
-	if (code <= 0 || code >= 0x60 || column < 0 || column >= COLUMNS || y < 0 || y + 8 > PICTURE_H || !rom_set.layer[2])
+	if (code <= 0 || code >= 0x60 || x < 0 || x + 8 * scale > PICTURE_W || y < 0 || y + 8 * scale > PICTURE_H
+			|| !rom_set.layer[2])
 		return;
 	tile = rom_set.layer[2] + code * 32;
 	for (int i = 0; i < 8; i++)          /* the picture's x within the character: the tile's row */
@@ -612,12 +682,20 @@ static void put_char_y(uint32_t *out, int column, int y, char ch, uint32_t colou
 			const int tx = 7 - j, ty = i;
 			const uint8_t byte = tile[ty * 4 + tx / 2];
 			const int pen = (tx & 1) ? (byte & 15) : (byte >> 4);
-			uint32_t *const pixel = &out[(y + j) * PICTURE_W + column * 8 + i];
+			const uint32_t value = pens[pen] < 0 ? 0x101018u : shade(colour, pens[pen]);
 
 			if (pen == 0)
 				continue;
-			*pixel = pens[pen] < 0 ? 0x101018u : shade(colour, pens[pen]);
+			for (int dy = 0; dy < scale; dy++)
+				for (int dx = 0; dx < scale; dx++)
+					out[(y + j * scale + dy) * PICTURE_W + x + i * scale + dx] = value;
 		}
+}
+
+static void put_char_y(uint32_t *out, int column, int y, char ch, uint32_t colour)
+{
+	if (column >= 0 && column < COLUMNS)
+		put_glyph(out, column * 8, y, ch, colour, 1);
 }
 
 static void put_text_y(uint32_t *out, int column, int y, const char *text, uint32_t colour)
@@ -686,7 +764,8 @@ static const char *item_label(int item)
 		"WINDOW SIZE", "FULL SCREEN",
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
-		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS"
+		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
+		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU"
 	};
 
 	if (is_hotkey_item(item))
@@ -784,8 +863,58 @@ static void item_value(int item, char *out, size_t size)
 	}
 }
 
+/* the main menu: the title over a night sky, its four entries */
+static void draw_front(uint32_t *out)
+{
+	static const char title[] = "DONPACHI";
+	const int scale = 3, title_x = (PICTURE_W - (int)strlen(title) * 8 * scale) / 2;
+
+	for (int y = 0; y < PICTURE_H; y++)
+	{
+		/* dark blue to black, with a few fixed stars */
+		const uint32_t blue = (uint32_t)(48 - y * 40 / PICTURE_H);
+
+		for (int x = 0; x < PICTURE_W; x++)
+		{
+			const unsigned hash = (unsigned)(x * 73856093u ^ y * 19349663u);
+
+			out[y * PICTURE_W + x] = hash % 997u == 0u ? 0x9090A8u : (blue / 3u) << 16 | (blue / 3u) << 8 | blue;
+		}
+	}
+	/* the title, its shadow under it */
+	for (int at = 0; title[at]; at++)
+		put_glyph(out, title_x + at * 8 * scale + 3, 63, title[at], 0x301000u, scale);
+	for (int at = 0; title[at]; at++)
+		put_glyph(out, title_x + at * 8 * scale, 60, title[at], GOLD, scale);
+	put_centre(out, 12, "ARCADE  US VERSION", GREY);
+	for (int index = 0; index < item_count; index++)
+	{
+		const bool chosen = index == selected;
+		const char *const label = item_label(items[index]);
+		const int column = (COLUMNS - (int)strlen(label)) / 2, y = 152 + index * 24;
+
+		if (chosen)
+		{
+			put_char_y(out, column - 2, y, '>', GOLD);
+			put_char_y(out, column + (int)strlen(label) + 1, y, '<', GOLD);
+		}
+		put_text_y(out, column, y, label, chosen ? GOLD : WHITE);
+	}
+	if (front_message > 0)
+	{
+		front_message--;
+		put_centre(out, 32, "TRAINING MODE: COMING SOON", CYAN);
+	}
+	put_centre(out, 37, "A: CHOOSE", GREY);
+}
+
 void menu_draw(const uint32_t *game, uint32_t *out)
 {
+	if (page == PAGE_FRONT)
+	{
+		draw_front(out);
+		return;
+	}
 	const int left = PANEL_LEFT * 8 - 4, right = (PANEL_RIGHT + 1) * 8 + 4;
 	const int top = PANEL_TOP * 8 - 4, bottom = (PANEL_TOP + PANEL_ROWS) * 8 + 4;
 
@@ -798,7 +927,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	fill(out, right - 2, top, right, bottom, GOLD);
 
 	if (page == PAGE_MAIN)
-		put_centre(out, PANEL_TOP + 1, "OPTIONS", GOLD);
+		put_centre(out, PANEL_TOP + 1, front ? "SETTINGS" : "OPTIONS", GOLD);
 	else if (page == PAGE_GRAPHICS)
 		put_centre(out, PANEL_TOP + 1, "GRAPHICS", GOLD);
 	else if (page == PAGE_GAME)
@@ -817,7 +946,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	}
 	{
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
-		const int step = page == PAGE_CONTROLS ? 12 : 16, gap = page == PAGE_CONTROLS ? 6 : 8;
+		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? 15 : 16;
+		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8;
 
 		for (int index = 0; index < item_count; index++)
@@ -825,7 +955,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			const bool chosen = index == selected;
 			char value[48];
 
-			if (items[index] == ITEM_QUIT || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
+			if ((items[index] == ITEM_QUIT && !(index > 0 && items[index - 1] == ITEM_MAIN_MENU))
+					|| items[index] == ITEM_MAIN_MENU || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
 					|| (items[index] == ITEM_BACK && page != PAGE_CONTROLS) || items[index] == ITEM_SCALE
 					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME)
 				y += gap;    /* (a gap before them) */
@@ -858,7 +989,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_MAIN)
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
-		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B / VIEW: CLOSE", GREY);
+		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, front ? "B: BACK" : "B / VIEW: CLOSE", GREY);
 	}
 	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS)
 	{

@@ -39,6 +39,8 @@
  *          there.
  *    Hitbox: the options menu's HITBOX (or [game] hitbox) shows each ship's hitbox as a white glowing dot (hitbox.h).
  *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
+ *    Main menu: as the program starts (START GAME, TRAINING, SETTINGS, QUIT TO DESKTOP; [game] main_menu), and from
+ *          the options' MAIN MENU. The game starts (from its reset) with START GAME.
  *    Save state: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
  *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
@@ -594,6 +596,17 @@ static void state_action(bool save)
 	menu_notice("STATE LOADED");
 }
 
+/* The options' MAIN MENU: the game reset and paused, the main menu up (menu.c), until START GAME */
+static void menu_main_menu(void)
+{
+	menu_reset(false);
+	widgets_reset();
+	state_loaded = false;
+	memset(picture, 0, sizeof(picture));
+	if (audio)
+		audio_restart();
+}
+
 static void menu_quit(void)
 {
 	running = 0;
@@ -722,7 +735,10 @@ int main(int argc, char **argv)
 		menu.apply_timing = menu_apply_timing;
 		menu.quit = menu_quit;
 		menu.state = state_action;
+		menu.main_menu = menu_main_menu;
 		menu_init(&menu);
+		if (options.main_menu)
+			menu_open_front();
 	}
 	if (options.sound)
 		audio_open();

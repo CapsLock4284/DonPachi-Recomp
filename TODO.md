@@ -47,7 +47,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
     - `$10177A` / `$10177E`: the score (BCD); `$101782`: the HUD's HIGH; `$101846`: the high score table's #1 (then #2-#5)
     - `$1018EC`: the game's mode (0xB ship select, 7 play, 0/1/5 the attract mode and its demonstration)
   - [ ] **Lives and bombs** left
-  - [ ] **Stage and loop** (area 1-10), with the **stage's progress** as a bar (its scroll position)
+  - [x] **Stage and loop** (area 1-10), with the **stage's progress** as a bar to the boss (right panel, under the score graph): `stage` `101A40` (0-4; 5 between the loops and the ending), `loop` `101A42`, `scroll_position` `101A56` (from -1; the bosses at 630, 566, 647, 920, 548, and 1011 in area 10; area 1 counts from 256, after its fly-in)
   - [ ] **Input display**: the stick and the buttons held, as on a stream overlay
   - [ ] **Rank**, if the game keeps one (to find in its memory)
   - [ ] **Run statistics**: time played, lives lost per stage, bombs used, the session's best score

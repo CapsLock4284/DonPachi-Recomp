@@ -199,7 +199,7 @@ static bool in_play(int player)
 #define GRAPH_X     8
 #define GRAPH_Y     44
 #define GRAPH_W     104     /* points: one a column */
-#define GRAPH_H     150
+#define GRAPH_H     104
 #define MARKS       24
 
 static struct
@@ -376,19 +376,65 @@ static void draw_graph(panel *p)
 		const float now = (float)graph.last_score[0] / (float)graph.target * 100.0f;
 
 		snprintf(text, sizeof(text), "%.1f%%", (double)now);
-		put_centre(p, bottom + 16, text, ORANGE, 2);
+		put_centre(p, bottom + 14, text, ORANGE, 2);
 		if (graph.last_score[1])
 		{
 			snprintf(text, sizeof(text), "2P %.1f%%", (double)((float)graph.last_score[1] / (float)graph.target * 100.0f));
-			put_centre(p, bottom + 36, text, CYAN, 1);
+			put_centre(p, bottom + 32, text, CYAN, 1);
 		}
 	}
-	put_text(p, 8, bottom + 50, "TOP", GREY, 1);
+	put_text(p, 8, bottom + 44, "TOP", GREY, 1);
 	number(text, sizeof(text), graph.running ? graph.target : bcd_long(TOP_SCORE));
-	put_right(p, WIDGET_W - 8, bottom + 50, text, WHITE);
-	put_text(p, 8, bottom + 62, "NOW", GREY, 1);
+	put_right(p, WIDGET_W - 8, bottom + 44, text, WHITE);
+	put_text(p, 8, bottom + 56, "NOW", GREY, 1);
 	number(text, sizeof(text), graph.last_score[0]);
-	put_right(p, WIDGET_W - 8, bottom + 62, text, WHITE);
+	put_right(p, WIDGET_W - 8, bottom + 56, text, WHITE);
+}
+
+/* ---- the stage: the area (1-10), the loop, and how far through the stage, to its boss ---- */
+
+#define STAGE       0x101A40u   /* 0-4 the stages of a loop (5: between the loops, and the ending) */
+#define LOOP        0x101A42u   /* 0 the first loop (areas 1-5), 1 the second (6-10) */
+#define SCROLL      0x101A56u   /* the stage's scroll position: from -1 up to its boss, where it stops (stage 2's
+                                   boss is a chase: its scroll goes on, faster, from 566) */
+
+/* the scroll position where each stage's boss is reached, measured: the loops' are the same but area 10's. Area 1's
+   boss comes as the scroll slows to half speed (630), and it goes on slowly to 792 through the fight; the others stop
+   at their boss (area 2's speeds up for its chase) */
+static const int boss_at[2][5] = { { 630, 566, 647, 920, 548 }, { 630, 566, 647, 920, 1011 } };
+/* where the stage's own scrolling starts: area 1 opens with the ship's fast fly-in, to 256 */
+static const int start_at[5] = { 256, 0, 0, 0, 0 };
+
+static void draw_stage(panel *p, int top)
+{
+	const unsigned stage = word(STAGE), loop = word(LOOP);
+	const bool known = own_game && stage < 5u && loop < 2u;
+	char text[32];
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	put_text(p, 8, top + 6, "AREA", known ? GREY : DIM, 1);
+	put_right(p, WIDGET_W - 8, top + 6, "LOOP", known ? GREY : DIM);
+	snprintf(text, sizeof(text), "%u", loop * 5u + stage + 1u);
+	put_text(p, 8, top + 16, known ? text : "-", known ? GOLD : DIM, 2);
+	snprintf(text, sizeof(text), "%u", loop + 1u);
+	put_text(p, WIDGET_W - 8 - text_width(known ? text : "-", 2), top + 16, known ? text : "-", known ? WHITE : DIM, 2);
+	/* how far through it: the bar fills to the boss; then BOSS */
+	outline(p, 8, top + 40, WIDGET_W - 8, top + 52, known ? GREY : DIM);
+	if (known)
+	{
+		const int scroll = (int16_t)word(SCROLL) - start_at[stage], end = boss_at[loop][stage] - start_at[stage];
+		const int done = scroll <= 0 ? 0 : scroll >= end ? 100 : scroll * 100 / end;
+		const int filled = (WIDGET_W - 18) * done / 100;
+
+		box(p, 9, top + 41, 9 + filled, top + 51, done >= 100 ? RED : CYAN);
+		if (done >= 100)
+			snprintf(text, sizeof(text), "BOSS");
+		else
+			snprintf(text, sizeof(text), "%d%%", done);
+		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
+	}
+	put_centre(p, top + 58, "STAGE PROGRESS", known ? GREY : DIM, 1);
 }
 
 void widgets_draw(uint32_t *left, uint32_t *right)
@@ -414,4 +460,5 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 	frame_panel(&p, "SCORE GRAPH");
 	put_centre(&p, 22, "VS #1 SCORE", GREY, 1);
 	draw_graph(&p);
+	draw_stage(&p, 236);
 }

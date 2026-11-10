@@ -11,6 +11,7 @@
  *    turned for the cabinet: a tile's row is the picture's column.
  */
 #include "menu.h"
+#include "training.h"
 
 #include "cave/cheats.h"
 #include "cave/rom_set.h"
@@ -40,7 +41,7 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -57,6 +58,7 @@ enum
 	ITEM_CHEATS,                  /* the cheats page (from the game options) */
 	ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS,    /* the main menu's (the title screen) */
 	ITEM_MAIN_MENU,               /* back to the main menu from the game */
+	ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY, ITEM_T_START,    /* the training page */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -120,6 +122,14 @@ static void build_items(void)
 		else
 			for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 				items[item_count++] = main_items[index];
+	}
+	else if (page == PAGE_TRAINING)
+	{
+		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY,
+			ITEM_T_START, ITEM_BACK };
+
+		for (size_t index = 0; index < sizeof(training_items) / sizeof(training_items[0]); index++)
+			items[item_count++] = training_items[index];
 	}
 	else if (page == PAGE_FRONT)
 	{
@@ -240,6 +250,29 @@ static void change(int item, int step, bool wrap)
 	}
 	switch (item)
 	{
+	case ITEM_T_AREA:
+		in_use->training_area = (in_use->training_area + step + 10) % 10;
+		if (in_use->training_area != 9 && in_use->training_point == TRAINING_TRUE_BOSS)
+			in_use->training_point = TRAINING_BOSS;    /* (area 10's alone) */
+		file->training_area = in_use->training_area;
+		file->training_point = in_use->training_point;
+		break;
+	case ITEM_T_POINT:
+	{
+		const int points = in_use->training_area == 9 ? 3 : 2;
+
+		in_use->training_point = file->training_point = (in_use->training_point + step + points) % points;
+		break;
+	}
+	case ITEM_T_SHIP:
+		in_use->training_ship = file->training_ship = (in_use->training_ship + step + 3) % 3;
+		break;
+	case ITEM_T_POWER:
+		in_use->training_max_power = file->training_max_power = !in_use->training_max_power;
+		break;
+	case ITEM_T_RETRY:
+		in_use->training_retry = file->training_retry = !in_use->training_retry;
+		break;
 	case ITEM_FREE_PLAY:
 		in_use->free_play = file->free_play = !in_use->free_play;
 		break;
@@ -326,7 +359,16 @@ static void choose(int item)
 		close_menu();    /* (the game starts: it runs from its reset, as the board switched on) */
 		break;
 	case ITEM_TRAINING:
-		front_message = 180;
+		page = PAGE_TRAINING;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_T_START:
+		front_message = 0;
+		if (host.training())
+			close_menu();    /* (the game is at the place: it goes on from there) */
+		else
+			front_message = 180;
 		break;
 	case ITEM_SETTINGS:
 		page = PAGE_MAIN;
@@ -394,11 +436,13 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
-		if (page == PAGE_MAIN && front)
+		if ((page == PAGE_MAIN || page == PAGE_TRAINING) && front)
 		{
+			const int opened_by = page == PAGE_TRAINING ? ITEM_TRAINING : ITEM_SETTINGS;
+
 			page = PAGE_FRONT;
 			build_items();
-			for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_SETTINGS; selected++)
+			for (selected = 0; selected < item_count - 1 && items[selected] != opened_by; selected++)
 				;
 			break;
 		}
@@ -765,7 +809,8 @@ static const char *item_label(int item)
 		"CONTROLS", "QUIT TO DESKTOP", "RESET TO DEFAULTS", "BACK",
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
-		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU"
+		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING"
 	};
 
 	if (is_hotkey_item(item))
@@ -822,6 +867,25 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_GAME:
 	case ITEM_CHEATS:
 		snprintf(out, size, ">");
+		break;
+	case ITEM_T_AREA:
+		snprintf(out, size, "< %d >", s->training_area + 1);
+		break;
+	case ITEM_T_POINT:
+	{
+		static const char *const points[3] = { "STAGE START", "BOSS", "TRUE BOSS" };
+
+		snprintf(out, size, "%s", points[s->training_point < 0 || s->training_point > 2 ? 0 : s->training_point]);
+		break;
+	}
+	case ITEM_T_SHIP:
+		snprintf(out, size, "TYPE %c", 'A' + s->training_ship);
+		break;
+	case ITEM_T_POWER:
+		snprintf(out, size, "%s", s->training_max_power ? "MAX" : "NORMAL");
+		break;
+	case ITEM_T_RETRY:
+		snprintf(out, size, "%s", s->training_retry ? "ON" : "OFF");
 		break;
 	case ITEM_PANELS:
 		snprintf(out, size, "%s", s->panels ? "ON" : "OFF");
@@ -932,6 +996,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + 1, "GRAPHICS", GOLD);
 	else if (page == PAGE_GAME)
 		put_centre(out, PANEL_TOP + 1, "GAME OPTIONS", GOLD);
+	else if (page == PAGE_TRAINING)
+		put_centre(out, PANEL_TOP + 1, "TRAINING", GOLD);
 	else if (page == PAGE_CHEATS)
 	{
 		put_centre(out, PANEL_TOP + 1, "CHEATS", GOLD);
@@ -958,7 +1024,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			if ((items[index] == ITEM_QUIT && !(index > 0 && items[index - 1] == ITEM_MAIN_MENU))
 					|| items[index] == ITEM_MAIN_MENU || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
 					|| (items[index] == ITEM_BACK && page != PAGE_CONTROLS) || items[index] == ITEM_SCALE
-					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME)
+					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME || items[index] == ITEM_T_START)
 				y += gap;    /* (a gap before them) */
 			if (chosen)
 				put_char_y(out, PANEL_LEFT + 1, y, '>', GOLD);
@@ -968,6 +1034,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 				snprintf(value, sizeof(value), "PRESS...");
 			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
 			y += step;
+		}
+		if (page == PAGE_TRAINING && front_message > 0)
+		{
+			front_message--;
+			put_text_y(out, (COLUMNS - 22) / 2, y + 2, "COULD NOT GET THERE...", RED);
 		}
 		if (page == PAGE_CHEATS)
 		{
@@ -991,7 +1062,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, front ? "B: BACK" : "B / VIEW: CLOSE", GREY);
 	}
-	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS)
+	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS || page == PAGE_TRAINING)
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 3, "A: CHOOSE   <>: CHANGE", GREY);
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 2, "B: BACK", GREY);

@@ -288,6 +288,20 @@ static void run_frame(void)
 	run.last_bomb_on = bomb_on;
 }
 
+void widgets_begin_game(void)
+{
+	/* a player's game begins (the ship select, or training's place): a new graph, against the #1 as it is now */
+	widgets_reset();
+	own_game = true;
+	graph.running = true;
+	graph.target = bcd_long(TOP_SCORE);
+	if (graph.target == 0)
+		graph.target = 1;
+	graph.interval = 8;
+	graph.stage = word(0x101A40u);
+	run_reset();
+}
+
 void widgets_reset(void)
 {
 	memset(&graph, 0, sizeof(graph));
@@ -326,18 +340,7 @@ void widgets_frame(void)
 
 	follow_game_mode();
 	if (own_game && !was_own)
-	{
-		/* a player's game begins (the ship select): a new graph, against the #1 as it is now */
-		widgets_reset();
-		own_game = true;
-		graph.running = true;
-		graph.target = bcd_long(TOP_SCORE);
-		if (graph.target == 0)
-			graph.target = 1;
-		graph.interval = 8;
-		graph.stage = word(0x101A40u);
-		run_reset();
-	}
+		widgets_begin_game();
 	if (!own_game)
 		return;    /* (the last game's graph and run stay, through the attract mode) */
 	run_frame();

@@ -76,6 +76,11 @@ void settings_defaults(settings *s)
 	s->hitbox = false;
 	s->save_high_scores = true;
 	s->main_menu = true;
+	s->training_area = 0;
+	s->training_point = 0;
+	s->training_ship = 0;
+	s->training_max_power = false;
+	s->training_retry = true;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->scaling = VIDEO_FIT;
@@ -292,6 +297,46 @@ static bool take(settings *s, const char *section, const char *name, char *value
 		}
 		return false;
 	}
+	if (!SDL_strcasecmp(section, "training"))
+	{
+		static const char *const points[3] = { "start", "boss", "true_boss" };
+		static const char *const ships[3] = { "a", "b", "c" };
+
+		if (!SDL_strcasecmp(name, "area"))
+		{
+			const int area = atoi(value);
+
+			if (area < 1 || area > 10)
+				return false;
+			s->training_area = area - 1;
+			return true;
+		}
+		if (!SDL_strcasecmp(name, "place"))
+		{
+			for (int point = 0; point < 3; point++)
+				if (!SDL_strcasecmp(value, points[point]))
+				{
+					s->training_point = point;
+					return true;
+				}
+			return false;
+		}
+		if (!SDL_strcasecmp(name, "ship"))
+		{
+			for (int ship = 0; ship < 3; ship++)
+				if (!SDL_strcasecmp(value, ships[ship]))
+				{
+					s->training_ship = ship;
+					return true;
+				}
+			return false;
+		}
+		if (!SDL_strcasecmp(name, "max_power"))
+			return parse_bool(value, &s->training_max_power);
+		if (!SDL_strcasecmp(name, "retry_on_miss"))
+			return parse_bool(value, &s->training_retry);
+		return false;
+	}
 	if (!SDL_strcasecmp(section, "files"))
 	{
 		char *const target = !SDL_strcasecmp(name, "rom") ? s->rom : !SDL_strcasecmp(name, "eeprom") ? s->eeprom
@@ -492,6 +537,19 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("\nload_state_gamepad = ", file);
 	write_buttons(file, s->hot_buttons[HOTKEY_LOAD_STATE]);
 	fputs("\n\n", file);
+
+	{
+		static const char *const points[3] = { "start", "boss", "true_boss" };
+
+		fputs("[training]\n", file);
+		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, boss, true_boss: area 10's last), the\n"
+			"; ship (a, b, c), full power from the start, and a miss going straight back to the place\n", file);
+		fprintf(file, "area = %d\n", s->training_area + 1);
+		fprintf(file, "place = %s\n", points[s->training_point < 0 || s->training_point > 2 ? 0 : s->training_point]);
+		fprintf(file, "ship = %c\n", 'a' + (s->training_ship < 0 || s->training_ship > 2 ? 0 : s->training_ship));
+		fprintf(file, "max_power = %s\n", bool_text(s->training_max_power));
+		fprintf(file, "retry_on_miss = %s\n\n", bool_text(s->training_retry));
+	}
 
 	fputs("[files]\n", file);
 	fputs("; the ROM set: MAME's donpachi.zip, or the folder that holds it (from the folder the game is started in)\n", file);

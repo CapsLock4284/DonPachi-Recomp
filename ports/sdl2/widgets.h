@@ -36,6 +36,9 @@
 /* After each of the game's frames: what the graph keeps (the score's history, the stages' marks) */
 void widgets_frame(void);
 
+/* A player's game begins where the game is now (training's place: the game came there unseen) */
+void widgets_begin_game(void);
+
 /* Forgets the run (the game reset) */
 void widgets_reset(void);
 

@@ -41,6 +41,9 @@
  *    Fast forward: held, LB on the gamepad or Tab ([hotkeys] fast_forward; [game] fast_forward_speed, 4 by default).
  *    Main menu: as the program starts (START GAME, TRAINING, SETTINGS, QUIT TO DESKTOP; [game] main_menu), and from
  *          the options' MAIN MENU. The game starts (from its reset) with START GAME.
+ *    Training: the main menu's TRAINING (training.h; [training]): an area, its start or its boss (area 10's true
+ *          boss too), the ship and power; the game goes straight there, a save state made there, and a miss goes
+ *          back to it (retry_on_miss); F5 keeps another place to go back to. No high scores.
  *    Save state: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
  *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
@@ -56,6 +59,7 @@
 
 #include "hiscore.h"
 #include "hitbox.h"
+#include "training.h"
 #include "menu.h"
 #include "widgets.h"
 #include "settings.h"
@@ -143,6 +147,7 @@ static unsigned service_held;      /* frames the service switch is still held fo
 static bool hotkey_was_down[HOTKEYS];
 
 static void state_action(bool save);
+static bool training_active;       /* this game is training's (training.h): a miss goes back to the place */
 
 static bool hotkey_down(int hotkey)
 {
@@ -174,6 +179,7 @@ static void hotkeys(void)
 			program_reset();
 			free_play_reset();
 			hiscore_reset();
+			training_active = false;
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
 		}
 		hotkey_was_down[hotkey] = down;
@@ -522,6 +528,7 @@ static void menu_reset(bool service_menu)
 	program_reset();
 	free_play_reset();
 	hiscore_reset();
+	training_active = false;
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
 }
 
@@ -605,6 +612,73 @@ static void menu_main_menu(void)
 	memset(picture, 0, sizeof(picture));
 	if (audio)
 		audio_restart();
+}
+
+/* ---- training (training.h): the game to a place of the player's choosing, a save state there ---- */
+
+static bool ship_was_alive;
+static int retry_in;               /* frames to the retry, after a miss */
+
+static bool menu_training(void)
+{
+	const training_setup setup = { options.training_area, options.training_point, options.training_ship,
+		options.training_max_power };
+	const char *problem;
+
+	hiscore_reset();
+	free_play_reset();
+	service_held = 0;
+	if ((problem = training_prepare(&setup)) != NULL)
+	{
+		fprintf(stderr, "training: %s\n", problem);
+		menu_reset(false);    /* (the main menu's START GAME: from the board's reset) */
+		return false;
+	}
+	hiscore_frame(options.save_high_scores, false);    /* (the saved table back, the HUD's HIGH with it) */
+	training_hud();
+	widgets_reset();
+	widgets_begin_game();
+	program_state_free(save_state);
+	free(save_state_panels);
+	save_state = program_state_save();
+	save_state_panels = widgets_state_save();
+	state_loaded = true;    /* (no high score from training) */
+	training_active = true;
+	ship_was_alive = true;
+	retry_in = 0;
+	video_latch_sprites();
+	draw_picture();
+	if (audio)
+		audio_restart();
+	{
+		char text[48];
+
+		snprintf(text, sizeof(text), "TRAINING: %s", training_name(&setup));
+		menu_notice(text);
+	}
+	return true;
+}
+
+/* After each frame of a training game: a miss (the ship down) goes back to the place a moment later */
+static void training_frame(void)
+{
+	const bool alive = (*(const uint16_t *)cave_work_ram_at(0x102158u, 2) & 0x8000u) != 0;
+
+	if (!training_active || !options.training_retry)
+		return;
+	if (retry_in > 0)
+	{
+		if (--retry_in == 0)
+		{
+			state_action(false);
+			menu_notice("RETRY");
+			ship_was_alive = true;
+		}
+		return;
+	}
+	if (ship_was_alive && !alive && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 7u)
+		retry_in = 45;    /* (the ship's explosion seen first) */
+	ship_was_alive = alive;
 }
 
 static void menu_quit(void)
@@ -736,6 +810,7 @@ int main(int argc, char **argv)
 		menu.quit = menu_quit;
 		menu.state = state_action;
 		menu.main_menu = menu_main_menu;
+		menu.training = menu_training;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -838,6 +913,7 @@ int main(int argc, char **argv)
 				if (cheats_any_on())
 					state_loaded = true;
 				hiscore_frame(options.save_high_scores, !state_loaded);
+				training_frame();
 				/* (a new game: its scores are kept again) */
 				if (state_loaded && !cheats_any_on() && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
 				{

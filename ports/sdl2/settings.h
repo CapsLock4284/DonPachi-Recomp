@@ -65,6 +65,12 @@ typedef struct
 	bool hitbox;                /* the ships' hitboxes shown */
 	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
 	bool main_menu;             /* the main menu (START GAME, TRAINING, SETTINGS) as the program starts */
+	/* [training] (training.h) */
+	int training_area;          /* 0-9 */
+	int training_point;         /* TRAINING_START, TRAINING_BOSS, TRAINING_TRUE_BOSS */
+	int training_ship;          /* 0-2: types A, B, C */
+	bool training_max_power;
+	bool training_retry;        /* a miss goes back to the place at once */
 	/* [window] */
 	int scale;
 	bool fullscreen;

@@ -55,7 +55,7 @@ enum
 };
 
 static const char *const action_labels[ACTIONS] = {
-	"UP", "DOWN", "LEFT", "RIGHT", "SHOT", "BOMB", "BUTTON C", "START", "COIN", "SERVICE"
+	"UP", "DOWN", "LEFT", "RIGHT", "SHOT", "BOMB", "AUTO FIRE", "START", "COIN", "SERVICE"
 };
 
 static menu_host host;

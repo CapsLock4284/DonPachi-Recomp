@@ -355,9 +355,79 @@ static void graph_point(void)
 	graph.count++;
 }
 
+/* ---- an achievement earned: a box over the right panel's top ---- */
+
+#define TOAST_FRAMES 230    /* 4 seconds */
+
+static char toast_name[32];
+static int toast_frames;
+
+void widgets_toast(const char *name)
+{
+	snprintf(toast_name, sizeof(toast_name), "%s", name);
+	toast_frames = TOAST_FRAMES;
+}
+
+bool widgets_toast_busy(void)
+{
+	return toast_frames > 0;
+}
+
+static void draw_toast(panel *p)
+{
+	const int top = 18, bottom = 92;
+	/* the frame flashes for its first half second */
+	const uint32_t rim = TOAST_FRAMES - toast_frames < 30 && (TOAST_FRAMES - toast_frames) / 5 % 2 ? WHITE : GOLD;
+	char first[32], second[32] = "";
+
+	box(p, 4, top, WIDGET_W - 4, bottom, 0x14142Au);
+	outline(p, 4, top, WIDGET_W - 4, bottom, rim);
+	outline(p, 6, top + 2, WIDGET_W - 6, bottom - 2, FRAME);
+	/* a little gold trophy: the cup, its handles, the stem and the base */
+	{
+		const int c = WIDGET_W / 2, y = top + 6;
+
+		box(p, c - 5, y, c + 6, y + 6, GOLD);           /* the cup */
+		box(p, c - 4, y + 6, c + 5, y + 7, GOLD);
+		box(p, c - 3, y + 7, c + 4, y + 8, GOLD);
+		box(p, c - 8, y + 1, c - 5, y + 2, GOLD);       /* the handles */
+		box(p, c - 8, y + 1, c - 7, y + 4, GOLD);
+		box(p, c - 8, y + 3, c - 5, y + 4, GOLD);
+		box(p, c + 6, y + 1, c + 9, y + 2, GOLD);
+		box(p, c + 8, y + 1, c + 9, y + 4, GOLD);
+		box(p, c + 6, y + 3, c + 9, y + 4, GOLD);
+		box(p, c - 3, y + 1, c - 1, y + 5, 0xFFF0A0u);  /* its shine */
+		box(p, c, y + 8, c + 1, y + 11, GOLD);          /* the stem */
+		box(p, c - 3, y + 11, c + 4, y + 13, GOLD);     /* the base */
+	}
+	put_centre(p, top + 25, "ACHIEVEMENT", GOLD, 1);
+	put_centre(p, top + 35, "UNLOCKED", GOLD, 1);
+	/* the name: on two lines when it is wider than the panel (at its last space that fits) */
+	snprintf(first, sizeof(first), "%s", toast_name);
+	if (text_width(first, 1) > WIDGET_W - 16)
+	{
+		char *space = NULL;
+
+		for (char *at = first; *at && text_width(first, 1) - text_width(at, 1) <= WIDGET_W - 16; at++)
+			if (*at == ' ')
+				space = at;
+		if (space)
+		{
+			snprintf(second, sizeof(second), "%s", space + 1);
+			*space = '\0';
+		}
+	}
+	put_centre(p, top + (second[0] ? 49 : 54), first, WHITE, 1);
+	if (second[0])
+		put_centre(p, top + 59, second, WHITE, 1);
+}
+
 void widgets_frame(void)
 {
 	const bool was_own = own_game;
+
+	if (toast_frames > 0)
+		toast_frames--;
 
 	follow_game_mode();
 	if (own_game && !was_own)
@@ -984,6 +1054,8 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 	draw_graph(&p);
 	draw_stage(&p, 200);
 	draw_status(&p, 268);
+	if (toast_frames > 0)
+		draw_toast(&p);
 }
 
 /* ---- save states (main.c): the run as the panels had it (the session's best score stays) ---- */

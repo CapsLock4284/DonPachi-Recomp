@@ -2,6 +2,9 @@
 
 # DonPachi Recomp
 
+*A huge thank you to [cheviman](https://github.com/cheviman), author of
+[arcade-decomp](https://github.com/cheviman/arcade-decomp): without it, this project would never have started.*
+
 A native Windows port of Cave's 1995 arcade shooter **DonPachi** (US version), made by decompiling the
 arcade board's 68000 program into C and running it on a model of the Cave hardware. No emulator: the game's own logic
 runs natively, frame for frame the same as the arcade original.

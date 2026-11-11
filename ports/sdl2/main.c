@@ -60,6 +60,7 @@
 #include "cave/video.h"
 
 #include "hiscore.h"
+#include "rom_drop.h"
 #include "hitbox.h"
 #include "training.h"
 #include "menu.h"
@@ -258,7 +259,6 @@ static bool data_extracted;
    (and extracted) whatever data there is */
 static const char *game_data_open(bool rom_given)
 {
-	static char problem[1600];
 	char path[1024];
 	char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
 	const char *data_problem = "--rom given", *rom_problem, *save_problem;
@@ -269,11 +269,14 @@ static const char *game_data_open(bool rom_given)
 		return NULL;
 	if ((rom_problem = rom_set_load(options.rom)) != NULL)
 	{
-		snprintf(problem, sizeof(problem), "%s.\n\nThe game's data is extracted from MAME's DonPachi ROM set "
-			"(donpachi.zip, the US version) on the first run; after that the .zip is no longer needed.\n"
-			"Put donpachi.zip in the 'rom' folder (or set 'rom' in donpachi.ini).\n\n(%s)",
-			rom_problem, data_problem);
-		return problem;
+		/* no data and no set: a window asks for the set to be dropped onto it */
+		bool saved;
+
+		fprintf(stderr, "%s (%s): the ROM set is asked for\n", rom_problem, data_problem);
+		if (!rom_drop_screen(path, "NO DONPACHI_USA.DAT, AND NO DONPACHI.ZIP IN THE 'ROM' FOLDER", &saved))
+			return "";    /* (the window closed: no game, no message) */
+		data_extracted = saved;
+		return NULL;
 	}
 	if ((save_problem = rom_set_save_data(path)) != NULL)
 		fprintf(stderr, "the game's data was not saved: %s (the ROM set is read again next time)\n", save_problem);
@@ -868,7 +871,8 @@ int main(int argc, char **argv)
 	}
 	if ((problem = game_data_open(rom_given)) != NULL || (problem = program_start()) != NULL)
 	{
-		show_problem(problem);
+		if (problem[0])
+			show_problem(problem);
 		SDL_Quit();
 		return 1;
 	}

@@ -15,6 +15,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Version number** on the title screen (bottom right).
 - **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
   hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
+- **Menu and achievement sounds**, borrowed from the game itself: a tick when moving through the menus or changing a
+  setting, a sound for choosing and for going back, and a chime with the achievement pop-up. They follow the VOLUME
+  setting.
 - **Training: POWER range.** Choose level 1, 2, 3, 4 or MAX, or **ON PACE**: the power you would have by that point
   if you had collected every power-up on the way (shown as e.g. "ON PACE (3)").
 

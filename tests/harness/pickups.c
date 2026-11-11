@@ -73,6 +73,21 @@ int main(int argc, char **argv)
 				if (ram_word(a) == 0x3A93u || ram_word(a) == 0x332Eu)
 					printf("   %06X: %04X (record? %04X %04X %04X %04X)\n", a, ram_word(a), ram_word(a - 4u), ram_word(a - 2u), ram_word(a + 2u), ram_word(a + 4u));
 		}
+		if (getenv("SFX"))
+		{
+			static bool was[4];
+			static uint32_t last_sample[4], last_base[4];
+
+			for (int v = 0; v < 4; v++)
+			{
+				const cave_oki_voice *const voice = &cave_board.sound.oki[1].voice[v];
+
+				if (voice->playing && (!was[v] || voice->sample < last_sample[v] || voice->base != last_base[v]))
+					printf("scroll %4d: sound voice %d bank %02X base %05X %u nibbles volume %d\n", scroll, v,
+						cave_board.sound.bank[4 + ((voice->base >> 16) & 3u)], voice->base, voice->count, voice->volume);
+				was[v] = voice->playing, last_sample[v] = voice->sample, last_base[v] = voice->base;
+			}
+		}
 		if (getenv("SPRITES"))
 		{
 			static uint16_t was[0x200];

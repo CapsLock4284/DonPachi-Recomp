@@ -12,6 +12,7 @@
  */
 #include "menu.h"
 #include "training.h"
+#include "ui_sound.h"
 
 #include "cave/cheats.h"
 #include "cave/machine.h"
@@ -580,9 +581,11 @@ static void navigate(int nav)
 	{
 	case NAV_UP:
 		selected = (selected + item_count - 1) % item_count;
+		ui_sound_play(UI_SOUND_MOVE);
 		break;
 	case NAV_DOWN:
 		selected = (selected + 1) % item_count;
+		ui_sound_play(UI_SOUND_MOVE);
 		break;
 	case NAV_LEFT:
 	case NAV_RIGHT:
@@ -590,13 +593,16 @@ static void navigate(int nav)
 			player ^= 1;
 		else
 			change(item, nav == NAV_RIGHT ? 1 : -1, false);
+		ui_sound_play(UI_SOUND_MOVE);
 		break;
 	case NAV_CHOOSE:
+		ui_sound_play(item == ITEM_BACK || item == ITEM_RESUME ? UI_SOUND_BACK : UI_SOUND_CHOOSE);
 		choose(item);
 		break;
 	case NAV_BACK:
 		if (page == PAGE_FRONT)
 			break;    /* (the main menu stays until a game starts) */
+		ui_sound_play(UI_SOUND_BACK);
 		if (page != PAGE_MAIN || front)
 			choose(ITEM_BACK);
 		else
@@ -606,9 +612,13 @@ static void navigate(int nav)
 		if (front)
 		{
 			if (page != PAGE_FRONT)
+			{
+				ui_sound_play(UI_SOUND_BACK);
 				menu_open_front();
+			}
 			break;
 		}
+		ui_sound_play(UI_SOUND_BACK);
 		close_menu();
 		break;
 	}

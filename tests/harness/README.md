@@ -27,6 +27,9 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `botcmp AREA SCROLL BOT` | Compares ways of aiming for the mid-boss run: fights from the area's start to the scroll and counts the enemies and bullets left (bot 0 strongest first, the one training uses; 1 nearest; 2 alternating; 3 sweep) |
 | `panels_shot AREA FRAMES [TOAST]` | A wide-screen picture as the port shows it, panels and game together (`panels.ppm`); with TOAST, an achievement pop-up on it. The README's pictures: `panels_shot 2 1800`, `panels_shot 3 2200` |
 | `hitbox_check` | Starts a game and prints each frame the hitbox appears or goes, with a picture as it first appears (`hitbox_N.ppm`): it should wait for the ship to fly in |
+| `sfx_log` | Logs each sound effect the game starts (where it is in the effects chip's ROM data, its length), through the attract mode, the ship select and some play: how the menu sounds were found. `CODES=1` also plays a list of the game's sound codes one by one |
+| `ui_sounds_wav` | The port's own sounds (menus, achievement) saved as `ui_sound_N_name.wav`, to listen to |
+| `ui_sound_compare` | The menu's cursor sound as the board makes it against the port's decoding of it (should match closely) |
 | `menu_shot` | Pictures of the main menu, Training, Achievements, Game Options and Graphics pages, and the options in a training game (`menu_*.ppm`) |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |
 | `drop_window_test` | The first run's drop window, with a wrong file then the ROM set dropped on it (run with a desktop, or `xvfb-run -a`) |

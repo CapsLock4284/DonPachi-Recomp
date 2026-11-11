@@ -1,11 +1,12 @@
 /* autoplay: plays the arcade game by itself from the attract mode (the first ship, sweeping and firing) and reports
    what happens: the stage and loop changes, deaths, bees taken, and the achievements earned (as the port would show
-   them, one after another), into a test achievements file.
+   them, one after another), into a test achievements file; and the lifetime statistics it made (autoplay.stats).
      autoplay FRAMES [SHIELD]     SHIELD 1: the ship can't be hit (default 0)
    e.g. autoplay 15500 1   (area 1 to its clear, about 14200 frames) */
 #include "common.h"
 #include "achievements.h"
 #include "widgets.h"
+#include "stats.h"
 
 int main(int argc, char **argv)
 {
@@ -16,6 +17,8 @@ int main(int argc, char **argv)
 	start_game();
 	remove("autoplay.achievements");
 	achievements_load("autoplay.achievements");
+	remove("autoplay.stats");
+	stats_load("autoplay.stats");
 	for (long frame = 0; frame < frames; frame++)
 	{
 		cave_board.in0 = (uint16_t)~autoplayer(frame, shield);
@@ -24,6 +27,14 @@ int main(int argc, char **argv)
 		cave_sound_drop();
 		widgets_frame();
 		achievements_frame(1);
+		{
+			const unsigned defeats = widgets_take_defeats();
+
+			if (defeats)
+				printf("frame %ld: shot down:%s%s%s\n", frame, defeats & 4u ? " MID-BOSS" : "", defeats & 1u ? " BOSS" : "",
+					defeats & 2u ? " TRUE BOSS" : "");
+			stats_frame(1, defeats);
+		}
 		if (!widgets_toast_busy())
 		{
 			const char *const earned = achievements_next_shown();
@@ -50,5 +61,9 @@ int main(int argc, char **argv)
 	}
 	printf("score %X%04X; achievements %d of %d\n", ram_word(0x10177Au), ram_word(0x10177Cu), achievements_done(),
 		achievements_count());
+	stats_save();
+	printf("statistics:\n");
+	for (int line = 0; line < stats_lines(); line++)
+		printf("  %-16s %s\n", stats_label(line), stats_value(line) ? stats_value(line) : "");
 	return 0;
 }

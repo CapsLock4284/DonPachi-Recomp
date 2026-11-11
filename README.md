@@ -45,9 +45,11 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
   of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
-  top score, stage progress and boss health
+  top score, stage progress and boss and mid-boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions
 - **23 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
+- **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and
+  per area (arcade games only)
 - **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
 - **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu, MAME cheats
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`

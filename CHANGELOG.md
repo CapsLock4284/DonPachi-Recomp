@@ -15,6 +15,13 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Version number** on the title screen (bottom right).
 - **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
   hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
+- **Mid-boss health bar:** the side panel's stage progress bar shows each area's mid-boss's health (orange) while it
+  is on screen, then DEFEATED or ESCAPED.
+- **Lifetime statistics:** a STATISTICS page on the main menu and in Game Options: games played, credits, play time,
+  areas cleared, one-credit loops and clears, mid-bosses, bosses and the true boss shot down, enemies destroyed,
+  deaths, extra lives, bombs used, bees, power-ups and bomb items collected; records (best chain, longest life,
+  highest rank, best score for each difficulty); and each ship's and each area's numbers. Arcade games only, as the
+  achievements. Kept in `donpachi.stats` beside the program.
 - **Menu and achievement sounds**, borrowed from the game itself: a tick when moving through the menus or changing a
   setting, a sound for choosing and for going back, and a chime with the achievement pop-up. They follow the VOLUME
   setting.
@@ -28,6 +35,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - The player README explains how to add MAME's cheat file for the Cheats page.
 
 ### Fixed
+- **Boss health bar:** an area 1 boss shot down while one of its side parts was left showed TIME UP; it now shows
+  DEFEATED (a boss counts as shot down when its core's points are scored).
 - **Hitbox:** it no longer appears on screen before your ship does at the start of a game.
 - Menu text with an odd number of letters (QUIT TO DESKTOP, VERSION: USA, the OPTIONS title) is now exactly centred.
 - Training at full power: the game now knows it is at MAX, so the next power-up gives the MAX bonus as it should.

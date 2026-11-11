@@ -36,6 +36,10 @@
 /* After each of the game's frames: what the graph keeps (the score's history, the stages' marks) */
 void widgets_frame(void);
 
+/* The bosses the panels saw shot down since the last call (1 a stage's boss, 2 the true boss, 4 a mid-boss: shot down,
+   not flown off), for the statistics */
+unsigned widgets_take_defeats(void);
+
 /* A player's game begins where the game is now (training's place: the game came there unseen) */
 void widgets_begin_game(void);
 

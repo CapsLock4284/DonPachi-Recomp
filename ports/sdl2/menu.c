@@ -12,6 +12,7 @@
  */
 #include "menu.h"
 #include "training.h"
+#include "stats.h"
 #include "ui_sound.h"
 
 #include "cave/cheats.h"
@@ -49,7 +50,8 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS,
+	PAGE_STATS };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -75,11 +77,13 @@ enum
 	ITEM_VERSION,                 /* the main menu's version of the game (the US one only, so far) */
 	ITEM_ACHIEVEMENTS,            /* the achievements page (the main menu's, the game options') */
 	ITEM_RETRY_TRAINING,          /* a training game: back to its place, as it began */
+	ITEM_STATISTICS,              /* the lifetime statistics page (the main menu's, the game options') */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
 	ITEM_CHEAT = 200,             /* + a cheat of the cheat file (cave/cheats.h) */
-	ITEM_ACHIEVEMENT = 400        /* + an achievement (achievements.h) */
+	ITEM_ACHIEVEMENT = 400,       /* + an achievement (achievements.h) */
+	ITEM_STAT = 500               /* + a line of the statistics page (stats.h) */
 };
 
 static const char *const action_labels[ACTIONS] = {
@@ -98,7 +102,13 @@ static bool is_cheat(int item)
 	return item >= ITEM_CHEAT && item < ITEM_ACHIEVEMENT;
 }
 
+static bool is_stat(int item)
+{
+	return item >= ITEM_STAT;
+}
+
 static int achievements_from = PAGE_FRONT;    /* the page the achievements page was opened from */
+static int stats_from = PAGE_FRONT;           /* the page the statistics page was opened from */
 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
@@ -121,7 +131,7 @@ static int training_pending;
 
 void menu_open_front(void);
 static int page, selected, player;
-static int items[48], item_count;
+static int items[128], item_count;
 static int capture = -1;                /* the action waiting for its key or button, or -1 */
 static int capture_frames;
 static int held_direction, held_frames; /* the gamepads' d-pad and stick, for their repeats */
@@ -165,8 +175,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_FRONT)
 	{
-		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_ACHIEVEMENTS, ITEM_SETTINGS,
-			ITEM_QUIT };
+		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_ACHIEVEMENTS,
+			ITEM_STATISTICS, ITEM_SETTINGS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(front_items) / sizeof(front_items[0]); index++)
 			items[item_count++] = front_items[index];
@@ -174,7 +184,7 @@ static void build_items(void)
 	else if (page == PAGE_GAME)
 	{
 		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
-			ITEM_HISCORES, ITEM_CHEATS, ITEM_ACHIEVEMENTS, ITEM_BACK };
+			ITEM_HISCORES, ITEM_CHEATS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -183,6 +193,12 @@ static void build_items(void)
 	{
 		for (int index = 0; index < achievements_count(); index++)
 			items[item_count++] = ITEM_ACHIEVEMENT + index;
+		items[item_count++] = ITEM_BACK;
+	}
+	else if (page == PAGE_STATS)
+	{
+		for (int line = 0; line < stats_lines() && item_count < 120; line++)
+			items[item_count++] = ITEM_STAT + line;
 		items[item_count++] = ITEM_BACK;
 	}
 	else if (page == PAGE_CHEATS)
@@ -501,6 +517,12 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_STATISTICS:
+		stats_from = page;
+		page = PAGE_STATS;
+		selected = 0;
+		build_items();
+		break;
 	case ITEM_QUIT:
 		host.quit();
 		close_menu();
@@ -533,6 +555,14 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
+		if (page == PAGE_STATS)
+		{
+			page = stats_from;
+			build_items();
+			for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_STATISTICS; selected++)
+				;
+			break;
+		}
 		if (page == PAGE_ACHIEVEMENTS)
 		{
 			page = achievements_from;
@@ -562,6 +592,8 @@ static void choose(int item)
 		break;
 	}
 	default:
+		if (is_stat(item))
+			break;    /* (a line to read) */
 		if (is_action(item) || is_hotkey_item(item))
 		{
 			capture = item;
@@ -943,7 +975,7 @@ static const char *item_label(int item)
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
-		"RETRY TRAINING"
+		"RETRY TRAINING", "STATISTICS"
 	};
 
 	if (is_hotkey_item(item))
@@ -961,6 +993,8 @@ static const char *item_label(int item)
 		name[19] = '\0';
 		return name;
 	}
+	if (is_stat(item))
+		return stats_label(item - ITEM_STAT);
 	if (item >= ITEM_ACHIEVEMENT)
 		return achievements_name(item - ITEM_ACHIEVEMENT);
 	return is_action(item) ? action_labels[item - ITEM_ACTION] : labels[item];
@@ -1005,6 +1039,7 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_GAME:
 	case ITEM_CHEATS:
 	case ITEM_ACHIEVEMENTS:
+	case ITEM_STATISTICS:
 		snprintf(out, size, ">");
 		break;
 	case ITEM_T_AREA:
@@ -1114,7 +1149,7 @@ static void draw_front(uint32_t *out)
 	{
 		const bool chosen = index == selected;
 		const char *const label = item_label(items[index]);
-		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 146 + index * 22;
+		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 140 + index * 20;
 
 		if (chosen)
 		{
@@ -1126,7 +1161,7 @@ static void draw_front(uint32_t *out)
 	if (front_message > 0)
 	{
 		front_message--;
-		put_centre(out, 32, "TRAINING MODE: COMING SOON", CYAN);
+		put_centre(out, 35, "TRAINING MODE: COMING SOON", CYAN);
 	}
 	if (notice_frames > 0)
 	{
@@ -1205,6 +1240,42 @@ static void draw_achievements(uint32_t *out)
 	put_hints(out, "UP / DOWN: SCROLL", "B: BACK");
 }
 
+/* The statistics page: its lines (16 at a time, scrolled with the choice): headings in gold, each total with its
+   value on the right */
+#define STAT_ROWS 17
+
+static void draw_stats(uint32_t *out)
+{
+	const int first = item_count <= STAT_ROWS || selected < STAT_ROWS / 2 ? 0
+		: selected > item_count - STAT_ROWS / 2 ? item_count - STAT_ROWS : selected - STAT_ROWS / 2;
+
+	put_centre(out, PANEL_TOP + 1, "STATISTICS", GOLD);
+	put_centre_y(out, (PANEL_TOP + 2) * 8 + 3, "ARCADE GAMES ONLY", GREY);
+	for (int row = 0; row < STAT_ROWS && first + row < item_count; row++)
+	{
+		const int index = first + row, item = items[index], y = (PANEL_TOP + 4) * 8 + row * 12;
+		const bool chosen = index == selected;
+		const char *value;
+
+		if (chosen)
+			put_char_y(out, PANEL_LEFT + 1, y, '>', GOLD);
+		if (item == ITEM_BACK)
+		{
+			put_text_y(out, PANEL_LEFT + 3, y, "BACK", chosen ? GOLD : WHITE);
+			continue;
+		}
+		value = stats_value(item - ITEM_STAT);
+		if (!value)
+		{
+			put_text_y(out, PANEL_LEFT + 3, y, stats_label(item - ITEM_STAT), GOLD);
+			continue;
+		}
+		put_text_y(out, PANEL_LEFT + 3, y, stats_label(item - ITEM_STAT), chosen ? GOLD : WHITE);
+		put_right_y(out, PANEL_RIGHT, y, value, chosen ? GOLD : CYAN);
+	}
+	put_hints(out, "UP / DOWN: SCROLL", "B: BACK");
+}
+
 void menu_draw(const uint32_t *game, uint32_t *out)
 {
 	if (training_pending > 0 && --training_pending == 0)
@@ -1245,6 +1316,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_ACHIEVEMENTS)
 	{
 		draw_achievements(out);
+		return;
+	}
+	else if (page == PAGE_STATS)
+	{
+		draw_stats(out);
 		return;
 	}
 	else if (page == PAGE_CHEATS)

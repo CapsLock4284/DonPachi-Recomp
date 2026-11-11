@@ -64,6 +64,7 @@
 #include "rom_drop.h"
 #include "hitbox.h"
 #include "training.h"
+#include "stats.h"
 #include "ui_sound.h"
 #include "menu.h"
 #include "widgets.h"
@@ -944,8 +945,10 @@ int main(int argc, char **argv)
 		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
 
 		snprintf(path, sizeof(path), "%sdonpachi.achievements", base ? base : "");
-		SDL_free(base);
 		achievements_load(path);
+		snprintf(path, sizeof(path), "%sdonpachi.stats", base ? base : "");
+		stats_load(path);
+		SDL_free(base);
 	}
 	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
 	for (int cheat = 0; cheat < cheat_count; cheat++)
@@ -1116,6 +1119,7 @@ int main(int argc, char **argv)
 				}
 				/* achievements: the arcade game only (not training, cheats or save states) */
 				achievements_frame(!state_loaded && !training_active && !cheats_any_on());
+				stats_frame(!state_loaded && !training_active && !cheats_any_on(), widgets_take_defeats());
 				/* (shown on the side panel, never over the game: without the panels, only on the achievements page) */
 				if (!widgets_toast_busy())
 				{
@@ -1149,6 +1153,7 @@ int main(int argc, char **argv)
 		}
 	}
 	eeprom_keep(true);
+	stats_save();
 	if (audio)
 		SDL_CloseAudioDevice(audio);
 	SDL_Quit();

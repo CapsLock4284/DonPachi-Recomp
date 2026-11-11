@@ -45,13 +45,17 @@ FEATURES
   - Main menu: START GAME, TRAINING (start at any area, mid-boss or boss, with
     your choice of ship, power, bombs and difficulty), SETTINGS
   - Side panels on wide screens: chain gauge, rank, run statistics, bees
-    collected, score graph against the top score, stage progress and boss health
+    collected, score graph against the top score, stage progress and boss and
+    mid-boss health
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)
   - 23 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
     clears, all 13 bees, long chains, scores and more. Earned in the arcade game
     only: not in training, or in a game with a cheat or a loaded save state
+  - Lifetime statistics (main menu > STATISTICS): games, play time, clears,
+    bosses, deaths, bombs, bees, best chain and scores, per ship and per area
+    (arcade games only, as the achievements)
 
 
 CHEATS (optional)
@@ -76,6 +80,7 @@ FILES THE GAME KEEPS BESIDE donpachi.exe
   donpachi.eeprom    the arcade board's own settings (the test menu's)
   donpachi.hiscore   the high score table
   donpachi.achievements   the achievements you've earned, and when
+  donpachi.stats     your lifetime statistics
 
 Keep these if you move the game to another folder or computer. Don't share
 donpachi_usa.dat: it is the contents of the ROM set.

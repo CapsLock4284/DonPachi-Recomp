@@ -1,11 +1,12 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm, menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
+   menu_graphics.ppm, menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
 #include "achievements.h"
 #include "training.h"
+#include "stats.h"
 
 static void quiet(bool flag) { (void)flag; }
 static void nothing(void) {}
@@ -43,6 +44,7 @@ int main(void)
 	options.training_power = file.training_power = TRAINING_POWER_ON_PACE;
 	start_game();
 	achievements_load("menu_shot.achievements");
+	stats_load(getenv("STATS") ? getenv("STATS") : "menu_shot.stats");
 	host.options = &options;
 	host.file = &file;
 	host.path = "menu_shot.ini";
@@ -63,6 +65,13 @@ int main(void)
 	key(SDL_SCANCODE_DOWN);    /* ACHIEVEMENTS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_achievements.ppm");
+	key(SDL_SCANCODE_BACKSPACE);
+	key(SDL_SCANCODE_DOWN);    /* STATISTICS */
+	key(SDL_SCANCODE_RETURN);
+	shot("menu_stats.ppm");
+	for (int i = 0; i < 40; i++)
+		key(SDL_SCANCODE_DOWN);    /* (scrolled to the areas) */
+	shot("menu_stats_2.ppm");
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* SETTINGS */
 	key(SDL_SCANCODE_RETURN);

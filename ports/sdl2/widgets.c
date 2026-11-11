@@ -170,6 +170,10 @@ static uint32_t bcd_long(uint32_t address)
 /* the boss bar's (with the stage, below) */
 static void boss_forget(void);
 static void boss_frame(void);
+static void midboss_frame(void);
+static void midboss_forget(void);
+static unsigned defeat_events;    /* the bosses shot down since widgets_take_defeats (1 a boss, 2 the true boss, 4 a
+                                     mid-boss) */
 
 static const uint32_t records[2] = { 0x102158u, 0x102198u };
 static const uint32_t timers[2] = { 0x101742u, 0x101760u }, hits[2] = { 0x10174Eu, 0x10176Cu };
@@ -328,6 +332,7 @@ void widgets_reset(void)
 	memset(&graph, 0, sizeof(graph));
 	memset(&run, 0, sizeof(run));
 	boss_forget();
+	midboss_forget();
 	own_game = false;
 }
 
@@ -444,6 +449,7 @@ void widgets_frame(void)
 		return;    /* (the last game's graph and run stay, through the attract mode) */
 	run_frame();
 	boss_frame();
+	midboss_frame();
 	for (int player = 0; player < 2; player++)
 		graph.last_score[player] = bcd_long(scores[player]);
 	if (word(0x101A40u) != graph.stage && graph.mark_count < MARKS)
@@ -662,11 +668,37 @@ static void boss_forget(void)
 	boss.done = 0;
 }
 
+/* the points for each stage's boss core (the shmups wiki's enemy list), and the true boss's: a score going up by
+   this much in a frame is the boss shot down (a part may be left, and the object stays through its explosion) */
+static const uint32_t boss_points[5] = { 100000u, 210000u, 300000u, 440000u, 500000u };
+#define TRUE_BOSS_POINTS 1000000u
+
+static uint32_t score_of(int player)
+{
+	const uint32_t bcd = long_at(0x10177Au + 4u * (unsigned)player);
+	uint32_t value = 0;
+
+	for (int digit = 7; digit >= 0; digit--)
+		value = value * 10u + (bcd >> (digit * 4) & 15u);
+	return value;
+}
+
 static void boss_frame(void)
 {
 	const unsigned stage = word(STAGE), loop = word(LOOP);
 	const int area = stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
+	static uint32_t last_score[2];
+	uint32_t gained = 0;
 	bool seen = false;
+
+	for (int player = 0; player < 2; player++)
+	{
+		const uint32_t score = score_of(player);
+
+		if (score > last_score[player] && score - last_score[player] > gained)
+			gained = score - last_score[player];
+		last_score[player] = score;
+	}
 
 	if (area != boss.area)
 	{
@@ -704,12 +736,121 @@ static void boss_frame(void)
 		boss.health = health;
 		if (health > boss.most)
 			boss.most = health;
+		if ((health == 0 && boss.most > 0 && !boss.timed_out)
+			|| gained >= (type == BOSS_TRUE ? TRUE_BOSS_POINTS : boss_points[stage]))
+		{
+			/* shot down: its object may stay through the explosion, to the area's end */
+			boss.done |= bit;
+			boss.state = BOSS_DEFEATED;
+			defeat_events |= bit;
+			return;
+		}
 	}
 	if (!seen && boss.state == BOSS_FIGHT)
 	{
 		/* gone: shot down, or flown off when its time ran out */
 		boss.done |= boss.type == BOSS_TRUE ? 2u : 1u;
 		boss.state = (boss.health > 0 && boss.most > 0) || boss.timed_out ? BOSS_TIME_UP : BOSS_DEFEATED;
+		if (boss.state == BOSS_DEFEATED)
+			defeat_events |= boss.type == BOSS_TRUE ? 2u : 1u;
+	}
+}
+
+/* ---- the mid-boss's health ----
+
+   Each area's mid-boss (both loops), found by its hit points (tests/harness/midboss_find, midboss_fight): area 1 a
+   heavy tank, 2 three heavy planes (three objects), 3 a heavy tank, 4 the big ship (its record 0 refilled once from
+   the record's +$1C as it runs out), 5 the big ship of two parts (records 0 and 5). The health is all of it together,
+   against the most it has been; the bar shows it from the mid-boss's appearing until a few seconds after it is gone
+   (shot down, or flown off) */
+
+static const unsigned stage_midboss[5] = { 0x42u, 0x13u, 0x21u, 0x1Eu, 0x8Bu };
+#define MIDBOSS_SHOWN_AFTER 180    /* frames the result stays (DEFEATED / ESCAPED) */
+
+static long midboss_health(unsigned type, uint32_t object)
+{
+	const uint32_t hits = long_at(object + 6u);
+	long health = positive16(hits + 0x18u);
+
+	if (type == 0x1Eu)
+		health += positive16(hits + 0x1Cu);    /* (the reserve) */
+	else if (type == 0x8Bu)
+		health += positive16(hits + 0xB8u);    /* (the second part, record 5) */
+	return health;
+}
+
+static struct
+{
+	int area;                   /* the area the state is for, 0-9 (-1: none) */
+	int state;                  /* BOSS_NONE, BOSS_FIGHT, BOSS_DEFEATED, BOSS_TIME_UP (escaped) */
+	long health, most;
+	bool done;                  /* met in the area already */
+	int after;                  /* frames left showing the result */
+} midboss = { -1, BOSS_NONE, 0, 0, false, 0 };
+
+static void midboss_forget(void)
+{
+	midboss.area = -1;
+	midboss.state = BOSS_NONE;
+}
+
+static void midboss_frame(void)
+{
+	const unsigned stage = word(STAGE), loop = word(LOOP);
+	const int area = stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
+	long health = 0;
+	bool seen = false;
+
+	if (area != midboss.area)
+	{
+		midboss.area = area;
+		midboss.state = BOSS_NONE;
+		midboss.done = false;
+		midboss.after = 0;
+	}
+	if (area < 0)
+		return;
+	if (midboss.after > 0 && --midboss.after == 0)
+		midboss.state = BOSS_NONE;
+	/* (before the area's boss only: its type is used again later in some areas) */
+	if (midboss.done || (int16_t)word(SCROLL) >= boss_at[stage])
+		return;
+	for (unsigned slot = 0; slot < 64u; slot++)
+	{
+		const uint32_t object = 0x100102u + 0x40u * slot;
+
+		if ((word(object) & 0x8000u) && word(object + 0xCu) >> 8 == stage_midboss[stage])
+		{
+			seen = true;
+			health += midboss_health(stage_midboss[stage], object);
+		}
+	}
+	if (seen)
+	{
+		if (midboss.state != BOSS_FIGHT)
+		{
+			midboss.state = BOSS_FIGHT;
+			midboss.most = 0;
+		}
+		midboss.health = health;
+		if (health > midboss.most)
+			midboss.most = health;
+		if (health == 0 && midboss.most > 0)
+		{
+			/* shot down (its object stays through the explosion) */
+			midboss.done = true;
+			midboss.state = BOSS_DEFEATED;
+			midboss.after = MIDBOSS_SHOWN_AFTER;
+			defeat_events |= 4u;
+		}
+	}
+	else if (midboss.state == BOSS_FIGHT)
+	{
+		midboss.done = true;
+		midboss.state = midboss.health > 0 ? BOSS_TIME_UP : BOSS_DEFEATED;
+		if (midboss.state == BOSS_DEFEATED)
+			defeat_events |= 4u;
+		midboss.after = MIDBOSS_SHOWN_AFTER;
 	}
 }
 
@@ -744,6 +885,22 @@ static void draw_stage(panel *p, int top)
 		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
 			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
 		put_centre(p, top + 58, boss.type == BOSS_TRUE ? "TRUE BOSS" : "BOSS HEALTH", GREY, 1);
+		return;
+	}
+	if (known && midboss.area == (int)(loop * 5u + stage) && midboss.state != BOSS_NONE)
+	{
+		const bool fight = midboss.state == BOSS_FIGHT;
+		const int left = !fight || midboss.most <= 0 ? 0 : (int)((midboss.health * 100 + midboss.most - 1) / midboss.most);
+		const int filled = (WIDGET_W - 18) * left / 100;
+
+		box(p, 9, top + 41, 9 + filled, top + 51, ORANGE);
+		if (fight)
+			snprintf(text, sizeof(text), "%d%%", left);
+		else
+			snprintf(text, sizeof(text), "%s", midboss.state == BOSS_DEFEATED ? "DEFEATED" : "ESCAPED");
+		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
+		put_centre(p, top + 58, "MID-BOSS", GREY, 1);
 		return;
 	}
 	if (known)
@@ -1066,11 +1223,19 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 		draw_toast(&p);
 }
 
+unsigned widgets_take_defeats(void)
+{
+	const unsigned events = defeat_events;
+
+	defeat_events = 0;
+	return events;
+}
+
 /* ---- save states (main.c): the run as the panels had it (the session's best score stays) ---- */
 
 void *widgets_state_save(void)
 {
-	unsigned char *const copy = malloc(sizeof(own_game) + sizeof(graph) + sizeof(run) + sizeof(boss));
+	unsigned char *const copy = malloc(sizeof(own_game) + sizeof(graph) + sizeof(run) + sizeof(boss) + sizeof(midboss));
 	unsigned char *at = copy;
 
 	if (!copy)
@@ -1079,6 +1244,7 @@ void *widgets_state_save(void)
 	memcpy(at += sizeof(own_game), &graph, sizeof(graph));
 	memcpy(at += sizeof(graph), &run, sizeof(run));
 	memcpy(at += sizeof(run), &boss, sizeof(boss));
+	memcpy(at += sizeof(boss), &midboss, sizeof(midboss));
 	return copy;
 }
 
@@ -1092,4 +1258,5 @@ void widgets_state_load(const void *state)
 	memcpy(&graph, at += sizeof(own_game), sizeof(graph));
 	memcpy(&run, at += sizeof(graph), sizeof(run));
 	memcpy(&boss, at += sizeof(run), sizeof(boss));
+	memcpy(&midboss, at += sizeof(boss), sizeof(midboss));
 }

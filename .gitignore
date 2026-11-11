@@ -13,3 +13,8 @@ symbols - Copy*.txt
 # the test tools, built (tests/harness/build.sh), and the pictures they write
 /tests/harness/bin/
 *.ppm
+# the files a game run keeps (beside the program, or where a test tool runs)
+*.achievements
+*.stats
+*.hiscore
+*.eeprom

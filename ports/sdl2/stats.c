@@ -11,11 +11,13 @@
  *      $102158 / $102198 the ships' records: +0 bit 15 flying, +$1C the ship (0-2: type A, B, C), +$22 the bombs
  *      $102178 / $1021B8 the power (0-4), $102194 / $1021D4 the power-ups toward the next level (each 2 a level)
  *      $106E14 bit 15 a bomb going off; $10379A / $10379E the bees taken in the area
- *      $101742 / $101760 the chain's timer (30 at each kill, then down a frame); $10174E / $10176C the chain's hits
+ *      $103814 the enemies' hit records (100 of $20 bytes, then $104494's 50, the bosses'): +0 the flags (bit 15 in
+ *      use, bit 13 can be shot, bit 8 destroyed), +$18 the hit points
+ *      $10174E / $10176C the chain's hits
  *      $10177A / $10177E the scores (BCD); $101A32 the rank (low byte); $101284 the difficulty (low 2 bits)
- *    An enemy destroyed: each kill sets the chain's timer to 30 (the game counts it down the same frame: it reads 29,
- *    so a kill is the timer not going down); the kills of one frame are the chain's hits gone up (a new chain: its
- *    hits, from 0, plus 1).
+ *    An enemy destroyed: a hit record that could be shot, then destroyed (its bit 13 off and bit 8 on, its hit points
+ *    0: the game's own mark as it scores it). Not the chain's hits: a laser adds hits without destroying anything.
+ *    A boss's parts each count, as they are each destroyed.
  */
 #include "stats.h"
 
@@ -166,7 +168,8 @@ static struct
 	unsigned long bees;         /* in this area */
 	unsigned long life_frames;  /* player 1's frames flying since the last miss */
 	unsigned frames_to_save;
-	unsigned last_mode, last_lives[2], last_bees[2], last_bombs[2], last_power[2], last_timer[2], last_hits[2];
+	unsigned last_mode, last_lives[2], last_bees[2], last_bombs[2], last_power[2];
+	uint16_t last_record[150];  /* the enemies' hit records' flags */
 	bool last_flying[2];
 	bool last_bomb_on;
 } game;
@@ -284,7 +287,6 @@ void stats_frame(bool counts, unsigned defeats)
 			const unsigned bees = word(0x10379Au + 4u * (unsigned)player);
 			const unsigned bombs = byte(records[player] + 0x22u);
 			const unsigned power = power_ups(player);
-			const unsigned timer = word(0x101742u + 0x1Eu * (unsigned)player);
 			const unsigned hits = word(0x10174Eu + 0x1Eu * (unsigned)player);
 			const uint32_t score = bcd_long(0x10177Au + 4u * (unsigned)player);
 			const bool now_flying = flying(player);
@@ -316,22 +318,27 @@ void stats_frame(bool counts, unsigned defeats)
 					if (power > game.last_power[player] && power <= game.last_power[player] + 2u)
 						kept.counter[T_POWER_UPS] += power - game.last_power[player];
 				}
-				/* kills: the chain's timer set again (it would have gone down) */
-				if (timer > 0u && timer >= game.last_timer[player])
-					kept.counter[T_KILLS] += game.last_timer[player] == 0u || hits < game.last_hits[player]
-						? hits + 1u : hits > game.last_hits[player] ? hits - game.last_hits[player] : 1u;
 			}
 			game.last_lives[player] = lives;
 			game.last_bees[player] = bees;
 			game.last_bombs[player] = bombs;
 			game.last_power[player] = power;
-			game.last_timer[player] = timer;
-			game.last_hits[player] = hits;
 			game.last_flying[player] = now_flying;
 			at_least(&kept.counter[R_BEST_CHAIN], hits);
 			at_least(&kept.counter[best_score[difficulty]], score);
 			if (player == 0)
 				at_least(&kept.ship_best[game.ship], score);
+		}
+		/* kills: an enemy's hit record that could be shot, now destroyed */
+		for (unsigned record = 0; record < 150u; record++)
+		{
+			const uint32_t at = record < 100u ? 0x103814u + 0x20u * record : 0x104494u + 0x20u * (record - 100u);
+			const unsigned flags = word(at);
+
+			if (game.last_mode == 7u && (game.last_record[record] & 0xA000u) == 0xA000u && (flags & 0x8000u)
+					&& !(flags & 0x2000u) && (flags & 0x0100u))
+				kept.counter[T_KILLS]++;
+			game.last_record[record] = (uint16_t)flags;
 		}
 		if (flying(0))
 			at_least(&kept.counter[R_LONGEST_LIFE], ++game.life_frames);

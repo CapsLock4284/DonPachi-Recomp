@@ -31,6 +31,7 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `ui_sounds_wav` | The port's own sounds (menus, achievement) saved as `ui_sound_N_name.wav`, to listen to |
 | `ui_sound_compare` | The menu's cursor sound as the board makes it against the port's decoding of it (should match closely) |
 | `menu_shot` | Pictures of the main menu, Training, Achievements, Statistics (`STATS=autoplay.stats` to show those), Game Options and Graphics pages, and the options in a training game (`menu_*.ppm`) |
+| `kills_check FRAMES` | Autoplays (shielded) and counts the enemies destroyed as the statistics do (`LOG=1` each, `SCORES=1` each score change beside them, `TRACE=frame` the hit records changing for 40 frames from there) |
 | `midboss_find AREA [FRAMES]` | From an area's mid-boss place (`START=1`: its start), the objects as they appear and those with big hit points: how the mid-bosses were found |
 | `midboss_fight AREA` | From an area's mid-boss place, a bot shooting it: its hit records every 30 frames, until it is gone (`RESERVE=frame`: its object and records then, in full) |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |

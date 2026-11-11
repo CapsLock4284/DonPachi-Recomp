@@ -42,8 +42,8 @@ Free play is on by default: Start drops in a credit.
 
 FEATURES
 --------
-  - Main menu: START GAME, TRAINING (start at any area or boss, with your choice
-    of ship, power, bombs and difficulty), SETTINGS
+  - Main menu: START GAME, TRAINING (start at any area, mid-boss or boss, with
+    your choice of ship, power, bombs and difficulty), SETTINGS
   - Side panels on wide screens: chain gauge, rank, run statistics, bees
     collected, score graph against the top score, stage progress and boss health
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive

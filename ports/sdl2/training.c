@@ -14,13 +14,19 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define GAME_MODE     0x1018ECu   /* 0xB the ship select, 7 playing */
 #define STAGE         0x101A40u
 #define LOOP          0x101A42u
 #define SHIP          0x102158u   /* player 1's ship's record */
 #define SHIELD        0x102196u   /* (byte) the ship's respawn shield: frames it cannot be hit */
-#define POWER         0x102179u   /* (byte) */
+#define POWER         0x102179u   /* (byte) 0-4: shot levels 1-4, MAX */
+#define POWER_HALF    0x102194u   /* the power-ups toward the next level: each 2 one more */
+#define MAX_POWER     0x101A86u   /* 1 at MAX (with the ship's record's bit 10): a power-up then the bonus */
+#define SCROLL        0x101A56u   /* the area's way on (below 0 as it starts) */
+#define BEES_TAKEN    0x10379Au   /* the bees taken in the area */
+#define BULLETS       0x104E94u   /* the enemies' bullets: 75 of $40 bytes, +0 not 0 in use */
 #define BOMBS         0x10217Bu   /* (byte) */
 #define LIVES         0x101A2Fu   /* (byte) */
 #define SCORE         0x10177Au   /* (BCD long) */
@@ -64,26 +70,28 @@ static bool object_up(unsigned type)
 	return false;
 }
 
-/* (the true boss: the stick towards area 10's first boss, to shoot it down; the collision records as the game's
-   hit test reads them, $104494: 50 of $20 bytes, +0 bit 13 can be shot, +8 its x, +$18 its hit points) */
+/* The stick towards the strongest enemy on the screen, to shoot it down (area 10's first boss for the true boss;
+   the way to a mid-boss): the collision records as the game's hit test reads them, $103814 (100) and $104494 (50,
+   the bosses'), $20 bytes each: +0 bits 15 and 13 in play and can be shot, +6 y, +8 x, +$18 hit points */
 static unsigned towards_target(void)
 {
-	int best = -1, most = 0;
+	int most = 0, target = -1;
 
-	for (int record = 0; record < 50; record++)
+	for (int record = 0; record < 150; record++)
 	{
-		const uint32_t at = 0x104494u + 0x20u * (uint32_t)record;
-		const int hit_points = (int16_t)word(at + 0x18u);
+		const uint32_t at = record < 100 ? 0x103814u + 0x20u * (uint32_t)record
+			: 0x104494u + 0x20u * (uint32_t)(record - 100);
+		const int hit_points = (int16_t)word(at + 0x18u), x = (int16_t)word(at + 8u), y = (int16_t)word(at + 6u);
 
-		if ((word(at) & 0xA000u) == 0xA000u && hit_points > most)
+		if ((word(at) & 0xA000u) == 0xA000u && hit_points > most && y >= 0 && y < 0x5000 && x >= 0 && x < 0x3C00)
 		{
 			most = hit_points;
-			best = record;
+			target = x;
 		}
 	}
-	if (best >= 0)
+	if (target >= 0)
 	{
-		const int target = (int16_t)word(0x104494u + 0x20u * (uint32_t)best + 8u), ship = (int16_t)word(SHIP + 8u);
+		const int ship = (int16_t)word(SHIP + 8u);
 
 		if (target > ship + 256)
 			return CAVE_RIGHT;
@@ -93,10 +101,85 @@ static unsigned towards_target(void)
 	return 0;
 }
 
+/* The stick towards the clearest place on the ship's row: the x (in steps of 4 pixels) farthest from any enemy on
+   the screen (by its hit record's x and y, $40 to the pixel), so the hand-over does not leave the ship in a swarm
+   (area 4's: the shield taken off, the ship was hit at once) */
+static unsigned towards_clear(void)
+{
+	const int ship = (int16_t)word(SHIP + 8u), row = (int16_t)word(SHIP + 6u);
+	int best = ship, clearest = -1;
+
+	for (int x = 0x600; x <= 0x3600; x += 0x100)
+	{
+		int nearest = 1 << 30;
+
+		for (int record = 0; record < 150; record++)
+		{
+			const uint32_t at = record < 100 ? 0x103814u + 0x20u * (uint32_t)record
+				: 0x104494u + 0x20u * (uint32_t)(record - 100);
+			const int ex = (int16_t)word(at + 8u), ey = (int16_t)word(at + 6u);
+
+			if ((word(at) & 0x8000u) && ey >= 0 && ey < 0x5000 && ex >= 0 && ex < 0x3C00)
+			{
+				const int distance = abs(ex - x) + abs(ey - row);
+
+				if (distance < nearest)
+					nearest = distance;
+			}
+		}
+		/* (the farthest; of those as far, the nearest to the ship) */
+		if (nearest > clearest || (nearest == clearest && abs(x - ship) < abs(best - ship)))
+		{
+			clearest = nearest;
+			best = x;
+		}
+	}
+	if (best > ship + 128)
+		return CAVE_RIGHT;
+	if (best < ship - 128)
+		return CAVE_LEFT;
+	return 0;
+}
+
+/* The calm spot before each area's mid-boss (the same in both loops): the scroll the way there stops at */
+static const int calm_spot[5] = { 490, 317, 258, 376, 335 };    /* (area 4: before its swarm, 378-391) */
+#define CEASE_FIRE    4           /* the fire stopped this much of the scroll before it (about 1.5 seconds): the shots
+                                     and the explosions, their points, over by the place */
+
+/* ON PACE: the power-ups taken on the way to the place, areas 1 and 2 (from area 3 on, MAX: 8 or more): at the
+   start, the calm spot before the mid-boss, the boss (the power-ups there are, with the ship shooting all it can) */
+static const int on_pace[2][3] = { { 0, 2, 5 }, { 5, 7, 9 } };
+
+/* the power-ups for the setup's power: levels 2 each */
+static int power_ups(const training_setup *setup)
+{
+	if (setup->power == TRAINING_POWER_ON_PACE)
+	{
+		const int point = setup->point > TRAINING_BOSS ? TRAINING_BOSS : setup->point;
+
+		return setup->area < 2 ? on_pace[setup->area][point] : 8;
+	}
+	return setup->power >= TRAINING_POWER_MAX ? 8 : 2 * setup->power;
+}
+
+const char *training_power_name(const training_setup *setup)
+{
+	static char name[16];
+	static const char *const levels[4] = { "1", "2", "3", "4" };
+	const int ups = power_ups(setup);
+	const char *const level = ups >= 8 ? "MAX" : levels[ups / 2];
+
+	if (setup->power == TRAINING_POWER_ON_PACE)
+		snprintf(name, sizeof(name), "ON PACE (%s)", level);
+	else
+		snprintf(name, sizeof(name), "%s", level);
+	return name;
+}
+
 const char *training_name(const training_setup *setup)
 {
 	static char name[40];
-	static const char *const points[TRAINING_POINTS] = { "", " BOSS", " TRUE BOSS" };
+	static const char *const points[TRAINING_POINTS] = { "", " MID-BOSS", " BOSS", " TRUE BOSS" };
 
 	snprintf(name, sizeof(name), "AREA %d%s", setup->area + 1, points[setup->point]);
 	return name;
@@ -171,7 +254,8 @@ static const char *run_to_place(const training_setup *setup)
 	const unsigned stage = (unsigned)(setup->area % 5), loop = (unsigned)(setup->area / 5);
 	const int point = setup->point == TRAINING_TRUE_BOSS && setup->area != 9 ? TRAINING_BOSS : setup->point;
 	long frame = 0, select_frames = 0;
-	bool playing = false, area1_boss_seen = false, sent = setup->area == 0, done = false;
+	bool playing = false, area1_boss_seen = false, sent = setup->area == 0, done = false, begun = false;
+	unsigned bees = 0;
 
 	program_reset();
 	cave_board.in0 = cave_board.in1 = 0xFFFFu;
@@ -194,8 +278,13 @@ static const char *run_to_place(const training_setup *setup)
 		else if (mode == 7u && select_frames > 0)
 		{
 			playing = true;
+			if (sent && !begun && area_now() == setup->area && (setup->area == 0 || (int16_t)word(SCROLL) < 0))
+			{
+				begun = true;    /* (the place's area begun: its bees taken so far, the run's own) */
+				bees = word(BEES_TAKEN);
+			}
 			if (sent && area_now() == setup->area && point == TRAINING_START
-					&& (setup->area == 0 || (int16_t)word(0x101A56u) < 0))
+					&& (setup->area == 0 || (int16_t)word(SCROLL) < 0))
 				done = true;    /* (the area's start: its scroll from below 0, as it begins) */
 			else
 			{
@@ -206,11 +295,14 @@ static const char *run_to_place(const training_setup *setup)
 				set_byte(BOMBS, 0u);
 				set_word(SCORE, 0);    /* (and no score: the HIGH would go up with it) */
 				set_word(SCORE + 2u, 0);
-				if (point == TRAINING_TRUE_BOSS && sent)
+				if ((point == TRAINING_TRUE_BOSS && sent)
+					|| (point == TRAINING_MIDBOSS && begun && (int16_t)word(SCROLL) < calm_spot[stage] - CEASE_FIRE))
 				{
 					set_byte(POWER, 4u);
 					held = ((frame / 2) % 2 ? CAVE_BUTTON1 : 0u) | towards_target();
 				}
+				else if (point == TRAINING_MIDBOSS && begun)
+					held = towards_clear();    /* (the fire stopped: to the hand-over away from the enemies) */
 				if (!sent)
 				{
 					/* area 1 played to its boss's end: then the game's next area is the place's (it adds 1
@@ -234,6 +326,8 @@ static const char *run_to_place(const training_setup *setup)
 						sent = true;
 					}
 				}
+				else if (point == TRAINING_MIDBOSS)
+					done = begun && (int16_t)word(SCROLL) >= calm_spot[stage];
 				else if (area_now() == setup->area)
 					done = point == TRAINING_TRUE_BOSS ? object_up(TRUE_BOSS) : object_up(WARNING);
 			}
@@ -267,9 +361,9 @@ static const char *run_to_place(const training_setup *setup)
 	for (uint32_t at = 0; at < 4u; at++)    /* (the HUD's HIGH: the table's #1 again, not the way here's score) */
 		*cave_work_ram_byte(0x101782u + at) = *cave_work_ram_byte(0x101846u + at);
 	training_hud();
-	for (uint32_t at = 0x10173Au; at < 0x101750u; at += 2u)
-		set_word(at, 0);    /* (the chain: the last kill's values, its timer, display, sum, points, hits) */
-	set_word(0x101754u, 0);    /* (the best chain) */
+	for (uint32_t at = 0x10173Au; at < 0x101758u; at += 2u)
+		set_word(at, 0);    /* (the chain: the last kill's values, its timer, display, sum, points, hits; the big
+		                       "N HIT"'s hits and timer; the best chain) */
 	set_byte(LIVES, 3u);
 	{
 		const unsigned bombs = setup->max_bombs ? 7u : 3u;
@@ -280,7 +374,23 @@ static const char *run_to_place(const training_setup *setup)
 		set_word(SHIP + 0x22u, bombs);
 		func_005020(0x100082u, SHIP);    /* (as the game draws them when they change) */
 	}
-	set_byte(POWER, setup->max_power ? 4u : 0u);
+	{
+		/* the power: as the game's power-ups make it (MAX: the flags a power-up then reads for the bonus) */
+		const int ups = power_ups(setup) > 8 ? 8 : power_ups(setup);
+
+		set_byte(POWER, (unsigned)ups / 2u);
+		set_word(POWER_HALF, ups < 8 ? (unsigned)ups % 2u : 0u);
+		set_word(MAX_POWER, ups >= 8 ? 1u : 0u);
+		set_word(SHIP, ups >= 8 ? word(SHIP) | 0x400u : word(SHIP) & ~0x400u);
+	}
+	if (point == TRAINING_MIDBOSS)
+	{
+		/* the way's fight: the bees it took not the player's, the enemies' bullets taken off (as a bomb's start
+		   does, func_02CB82) */
+		set_word(BEES_TAKEN, bees);
+		for (uint32_t bullet = 0; bullet < 75u; bullet++)
+			set_word(BULLETS + 0x40u * bullet, 0);
+	}
 	set_byte(SHIELD, 0u);    /* (the shield the way here was held at: the game counts it down only from a respawn) */
 	set_byte(0x10139Bu, 0u);    /* (the credits the way here put in beyond the game's) */
 	cave_board.in0 = 0xFFFFu;

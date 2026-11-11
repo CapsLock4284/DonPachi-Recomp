@@ -13,12 +13,17 @@ notes). The release zip carries this file as `CHANGES.txt`.
   and in Game Options lists them all with the date each was earned. Earned in arcade games only: not in training, or
   in a game that used a cheat or loaded a save state. Kept in `donpachi.achievements` beside the program.
 - **Version number** on the title screen (bottom right).
+- **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
+  hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
+- **Training: POWER range.** Choose level 1, 2, 3, 4 or MAX, or **ON PACE**: the power you would have by that point
+  if you had collected every power-up on the way (shown as e.g. "ON PACE (3)").
 
 ### Changed
 - **Fast forward speed** moved to Game Options (its key stays on the Controls page).
 - The player README explains how to add MAME's cheat file for the Cheats page.
 
 ### Fixed
+- Training at full power: the game now knows it is at MAX, so the next power-up gives the MAX bonus as it should.
 - The two hint lines at the bottom of the menus no longer overlap.
 
 ### Behind the scenes

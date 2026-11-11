@@ -9,7 +9,7 @@
 
 int main(int argc, char **argv)
 {
-	const training_setup setup = { argc > 1 ? atoi(argv[1]) : 0, 0, 0, true, false, 0 };
+	const training_setup setup = { argc > 1 ? atoi(argv[1]) : 0, 0, 0, TRAINING_POWER_MAX, false, 0 };
 	const long frames = argc > 2 ? atol(argv[2]) : 1800;
 	static uint32_t left[WIDGET_W * WIDGET_H], right[WIDGET_W * WIDGET_H];
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];

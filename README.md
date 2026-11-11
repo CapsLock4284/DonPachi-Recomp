@@ -42,8 +42,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
 
 - **The arcade game, exactly:** checked frame by frame against MAME's 68000 core through both loops
 - **Low input lag** by default, with the board's own timing as an option
-- **Main menu** with **Training**: start at any area, its boss or area 10's true boss, with your choice of ship, power,
-  bombs and difficulty, and retry on a miss
+- **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
+  of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
   top score, stage progress and boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions

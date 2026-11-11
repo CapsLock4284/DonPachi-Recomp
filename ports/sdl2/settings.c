@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "settings.h"
+#include "training.h"
 
 #include "cave/machine.h"
 
@@ -80,7 +81,7 @@ void settings_defaults(settings *s)
 	s->training_area = 0;
 	s->training_point = 0;
 	s->training_ship = 0;
-	s->training_max_power = false;
+	s->training_power = 0;
 	s->training_max_bombs = false;
 	s->training_retry = true;
 	s->training_hitbox = true;
@@ -315,7 +316,7 @@ static bool take(settings *s, const char *section, const char *name, char *value
 	}
 	if (!SDL_strcasecmp(section, "training"))
 	{
-		static const char *const points[3] = { "start", "boss", "true_boss" };
+		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss" };
 		static const char *const ships[3] = { "a", "b", "c" };
 
 		if (!SDL_strcasecmp(name, "area"))
@@ -329,7 +330,7 @@ static bool take(settings *s, const char *section, const char *name, char *value
 		}
 		if (!SDL_strcasecmp(name, "place"))
 		{
-			for (int point = 0; point < 3; point++)
+			for (int point = 0; point < TRAINING_POINTS; point++)
 				if (!SDL_strcasecmp(value, points[point]))
 				{
 					s->training_point = point;
@@ -347,8 +348,28 @@ static bool take(settings *s, const char *section, const char *name, char *value
 				}
 			return false;
 		}
+		if (!SDL_strcasecmp(name, "power"))
+		{
+			static const char *const powers[TRAINING_POWERS] = { "1", "2", "3", "4", "on_pace", "max" };
+
+			for (int power = 0; power < TRAINING_POWERS; power++)
+				if (!SDL_strcasecmp(value, powers[power]))
+				{
+					s->training_power = power;
+					return true;
+				}
+			return false;
+		}
 		if (!SDL_strcasecmp(name, "max_power"))
-			return parse_bool(value, &s->training_max_power);
+		{
+			/* (the older files': full power or not) */
+			bool max = false;
+
+			if (!parse_bool(value, &max))
+				return false;
+			s->training_power = max ? TRAINING_POWER_MAX : 0;
+			return true;
+		}
 		if (!SDL_strcasecmp(name, "max_bombs"))
 			return parse_bool(value, &s->training_max_bombs);
 		if (!SDL_strcasecmp(name, "retry_on_miss"))
@@ -577,16 +598,22 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("\n\n", file);
 
 	{
-		static const char *const points[3] = { "start", "boss", "true_boss" };
+		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss" };
 
 		fputs("[training]\n", file);
-		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, boss, true_boss: area 10's last), the\n"
-			"; ship (a, b, c), full power from the start, and a miss going straight back to the place. A training game\n"
+		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, midboss, boss, true_boss: area 10's\n"
+			"; last), the ship (a, b, c), and a miss going straight back to the place. A training game\n"
 			"; ends at the area's BONUS screen (or a game over), back to the training page\n", file);
 		fprintf(file, "area = %d\n", s->training_area + 1);
-		fprintf(file, "place = %s\n", points[s->training_point < 0 || s->training_point > 2 ? 0 : s->training_point]);
+		fprintf(file, "place = %s\n", points[s->training_point < 0 || s->training_point >= TRAINING_POINTS ? 0 : s->training_point]);
 		fprintf(file, "ship = %c\n", 'a' + (s->training_ship < 0 || s->training_ship > 2 ? 0 : s->training_ship));
-		fprintf(file, "max_power = %s\n", bool_text(s->training_max_power));
+		{
+			static const char *const powers[TRAINING_POWERS] = { "1", "2", "3", "4", "on_pace", "max" };
+
+			fprintf(file, "; the power to start with: 1-4, on_pace (the power-ups on the way there), max\n");
+			fprintf(file, "power = %s\n", powers[s->training_power < 0 || s->training_power >= TRAINING_POWERS ? 0
+				: s->training_power]);
+		}
 		fprintf(file, "; 7 bombs in 7 slots (the game's most) instead of 3\n");
 		fprintf(file, "max_bombs = %s\n", bool_text(s->training_max_bombs));
 		fprintf(file, "retry_on_miss = %s\n", bool_text(s->training_retry));

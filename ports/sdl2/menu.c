@@ -312,7 +312,7 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_T_POINT:
 	{
-		const int points = in_use->training_area == 9 ? 3 : 2;
+		const int points = in_use->training_area == 9 ? TRAINING_POINTS : TRAINING_TRUE_BOSS;
 
 		in_use->training_point = file->training_point = (in_use->training_point + step + points) % points;
 		break;
@@ -321,7 +321,7 @@ static void change(int item, int step, bool wrap)
 		in_use->training_ship = file->training_ship = (in_use->training_ship + step + 3) % 3;
 		break;
 	case ITEM_T_POWER:
-		in_use->training_max_power = file->training_max_power = !in_use->training_max_power;
+		in_use->training_power = file->training_power = (in_use->training_power + step + TRAINING_POWERS) % TRAINING_POWERS;
 		break;
 	case ITEM_T_BOMBS:
 		in_use->training_max_bombs = file->training_max_bombs = !in_use->training_max_bombs;
@@ -986,17 +986,21 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_POINT:
 	{
-		static const char *const points[3] = { "STAGE START", "BOSS", "TRUE BOSS" };
+		static const char *const points[TRAINING_POINTS] = { "STAGE START", "MID-BOSS", "BOSS", "TRUE BOSS" };
 
-		snprintf(out, size, "%s", points[s->training_point < 0 || s->training_point > 2 ? 0 : s->training_point]);
+		snprintf(out, size, "%s", points[s->training_point < 0 || s->training_point >= TRAINING_POINTS ? 0 : s->training_point]);
 		break;
 	}
 	case ITEM_T_SHIP:
 		snprintf(out, size, "TYPE %c", 'A' + s->training_ship);
 		break;
 	case ITEM_T_POWER:
-		snprintf(out, size, "%s", s->training_max_power ? "MAX" : "NORMAL");
+	{
+		const training_setup setup = { s->training_area, s->training_point, 0, s->training_power, false, 0 };
+
+		snprintf(out, size, "%s", training_power_name(&setup));
 		break;
+	}
 	case ITEM_T_BOMBS:
 		snprintf(out, size, "%s", s->training_max_bombs ? "MAX (7)" : "NORMAL (3)");
 		break;

@@ -5,6 +5,7 @@
 #include "menu.h"
 #include "settings.h"
 #include "achievements.h"
+#include "training.h"
 
 static void quiet(bool flag) { (void)flag; }
 static void nothing(void) {}
@@ -36,6 +37,9 @@ int main(void)
 
 	settings_defaults(&options);
 	settings_defaults(&file);
+	options.training_area = file.training_area = 1;    /* (the training page's longest values) */
+	options.training_point = file.training_point = TRAINING_MIDBOSS;
+	options.training_power = file.training_power = TRAINING_POWER_ON_PACE;
 	start_game();
 	achievements_load("menu_shot.achievements");
 	host.options = &options;

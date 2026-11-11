@@ -662,6 +662,8 @@ static void *save_state_panels;    /* (the side panels' run, as it was: widgets.
 static bool state_loaded;          /* this game went back to a save state, or had a cheat on: its scores are not kept
                                       (hiscore.h) */
 
+static void state_put_back(const program_state *state, const void *panels);
+
 static void state_action(bool save)
 {
 	if (save)
@@ -688,15 +690,7 @@ static void state_action(bool save)
 		menu_notice("NO SAVE STATE YET");
 		return;
 	}
-	program_state_load(save_state);
-	widgets_state_load(save_state_panels);
-	free_play_reset();
-	hiscore_state_loaded();
-	video_latch_sprites();    /* (the sprites the state's picture had) */
-	draw_picture();
-	if (audio)
-		audio_restart();
-	state_loaded = true;
+	state_put_back(save_state, save_state_panels);
 	menu_notice("STATE LOADED");
 }
 
@@ -713,6 +707,23 @@ static void menu_main_menu(void)
 
 /* ---- training (training.h): the game to a place of the player's choosing, a save state there ---- */
 
+/* A state put back: the game, the side panels' run, the picture and sound (no high score from the game after) */
+static void state_put_back(const program_state *state, const void *panels)
+{
+	program_state_load(state);
+	widgets_state_load(panels);
+	free_play_reset();
+	hiscore_state_loaded();
+	video_latch_sprites();    /* (the sprites the state's picture had) */
+	draw_picture();
+	if (audio)
+		audio_restart();
+	state_loaded = true;
+}
+
+static program_state *training_place;    /* the training game's place as it began (RETRY TRAINING: F5 does not
+                                            change it, as it does the retry on a miss's) */
+static void *training_place_panels;
 static bool ship_was_alive;
 static int retry_in;               /* frames to the retry, after a miss */
 static unsigned training_stage;    /* the stage the training game is in: when it changes (past the area's BONUS
@@ -747,6 +758,10 @@ static bool menu_training(void)
 	save_state = program_state_save();
 	save_state_panels = widgets_state_save();
 	state_loaded = true;    /* (no high score from training) */
+	program_state_free(training_place);
+	free(training_place_panels);
+	training_place = program_state_save();
+	training_place_panels = widgets_state_save();
 	training_active = true;
 	ship_was_alive = true;
 	retry_in = 0;
@@ -762,6 +777,17 @@ static bool menu_training(void)
 		menu_notice(text);
 	}
 	return true;
+}
+
+/* The options' RETRY TRAINING: the training game's place again */
+static void menu_retry_training(void)
+{
+	if (!training_active || !training_place)
+		return;
+	state_put_back(training_place, training_place_panels);
+	retry_in = 0;
+	ship_was_alive = true;
+	menu_notice("RETRY");
 }
 
 /* After each frame of a training game: a miss (the ship down) goes back to the place a moment later; the area
@@ -945,6 +971,7 @@ int main(int argc, char **argv)
 		menu.main_menu = menu_main_menu;
 		menu.training = menu_training;
 		menu.in_training = in_training;
+		menu.retry_training = menu_retry_training;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();

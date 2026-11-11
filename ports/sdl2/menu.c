@@ -73,6 +73,7 @@ enum
 	ITEM_BIG_HIT,                 /* the GP window's large HIT display, always on */
 	ITEM_VERSION,                 /* the main menu's version of the game (the US one only, so far) */
 	ITEM_ACHIEVEMENTS,            /* the achievements page (the main menu's, the game options') */
+	ITEM_RETRY_TRAINING,          /* a training game: back to its place, as it began */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -138,17 +139,20 @@ static void build_items(void)
 		static const int settings_items[] = { ITEM_TIMING, ITEM_HITBOX, ITEM_VOLUME, ITEM_GAME,
 			ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_BACK };
 
+		/* (a training game's: its place again and its page at the top, no RESET or save states: the training
+		   is its own save state, F5 / F8 still there) */
+		static const int training_game_items[] = { ITEM_RESUME, ITEM_RETRY_TRAINING, ITEM_TRAINING_MENU, ITEM_TIMING,
+			ITEM_HITBOX, ITEM_VOLUME, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_MAIN_MENU, ITEM_QUIT };
+
 		if (front)
 			for (size_t index = 0; index < sizeof(settings_items) / sizeof(settings_items[0]); index++)
 				items[item_count++] = settings_items[index];
+		else if (host.in_training && host.in_training())
+			for (size_t index = 0; index < sizeof(training_game_items) / sizeof(training_game_items[0]); index++)
+				items[item_count++] = training_game_items[index];
 		else
 			for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
-			{
-				/* (a training game: back to its page, before MAIN MENU) */
-				if (main_items[index] == ITEM_MAIN_MENU && host.in_training && host.in_training())
-					items[item_count++] = ITEM_TRAINING_MENU;
 				items[item_count++] = main_items[index];
-			}
 	}
 	else if (page == PAGE_TRAINING)
 	{
@@ -460,6 +464,10 @@ static void choose(int item)
 	case ITEM_TRAINING_MENU:
 		host.main_menu();
 		menu_open_training();
+		break;
+	case ITEM_RETRY_TRAINING:
+		host.retry_training();
+		close_menu();
 		break;
 	case ITEM_RESET:
 	case ITEM_SERVICE:
@@ -917,7 +925,8 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
+		"RETRY TRAINING"
 	};
 
 	if (is_hotkey_item(item))
@@ -1245,8 +1254,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			char value[48];
 
 			if ((items[index] == ITEM_QUIT && !(index > 0 && items[index - 1] == ITEM_MAIN_MENU))
-					|| (items[index] == ITEM_MAIN_MENU && !(index > 0 && items[index - 1] == ITEM_TRAINING_MENU))
-					|| items[index] == ITEM_TRAINING_MENU || items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
+					|| items[index] == ITEM_MAIN_MENU || (index > 0 && items[index - 1] == ITEM_TRAINING_MENU)
+					|| items[index] == ITEM_FAST_FORWARD_KEY || items[index] == ITEM_DEADZONE
 					|| (items[index] == ITEM_BACK && page != PAGE_CONTROLS) || items[index] == ITEM_SCALE
 					|| items[index] == ITEM_SAVE_STATE || items[index] == ITEM_GAME || items[index] == ITEM_T_START)
 				y += gap;    /* (a gap before them) */

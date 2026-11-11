@@ -1,6 +1,6 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm. Keys are sent as the player would press them. */
+   menu_graphics.ppm, menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
@@ -10,6 +10,7 @@
 static void quiet(bool flag) { (void)flag; }
 static void nothing(void) {}
 static bool no(void) { return false; }
+static bool yes(void) { return true; }
 
 static void key(SDL_Scancode code)
 {
@@ -50,6 +51,7 @@ int main(void)
 	host.apply_window = host.apply_video = host.apply_timing = host.quit = host.main_menu = nothing;
 	host.state = quiet;
 	host.in_training = host.training = no;
+	host.retry_training = nothing;
 	menu_init(&host);
 
 	menu_open_front();
@@ -72,5 +74,9 @@ int main(void)
 	key(SDL_SCANCODE_DOWN);    /* GRAPHICS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_graphics.ppm");
+	host.in_training = yes;    /* (the options in a training game) */
+	menu_init(&host);
+	menu_open();
+	shot("menu_training_game.ppm");
 	return 0;
 }

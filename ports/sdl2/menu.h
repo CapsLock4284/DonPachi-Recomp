@@ -35,7 +35,8 @@ typedef struct
 	void (*state)(bool save);   /* the save state: kept, or gone back to */
 	void (*main_menu)(void);    /* the game reset, for the main menu (then it shows) */
 	bool (*training)(void);     /* the game to training's place (options->training_...): false if it could not */
-	bool (*in_training)(void);  /* a training game is on (the options then have TRAINING MENU) */
+	bool (*in_training)(void);  /* a training game is on (the options then have RETRY TRAINING and TRAINING MENU) */
+	void (*retry_training)(void);   /* the training game back to its place, as it began */
 } menu_host;
 
 void menu_init(const menu_host *host);

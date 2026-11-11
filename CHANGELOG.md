@@ -19,6 +19,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
   if you had collected every power-up on the way (shown as e.g. "ON PACE (3)").
 
 ### Changed
+- **Pause menu in training:** RETRY TRAINING (back to the start of the training you are on) and TRAINING MENU are
+  now at the top. RESET, SAVE STATE and LOAD STATE are left out there (F5 / F8 still work).
 - **Fast forward speed** moved to Game Options (its key stays on the Controls page).
 - The player README explains how to add MAME's cheat file for the Cheats page.
 

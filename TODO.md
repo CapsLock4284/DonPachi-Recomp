@@ -23,9 +23,17 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 
 ## Next
 
+- [ ] **Training: a loading message** while START TRAINING runs the game there (up to about a second and a half): "LOADING..." drawn first, then the game run
+- [ ] **Training: the hitbox shown by default** in a training game (its own setting on the Training page, on unless turned off; the normal game keeps HITBOX as set)
+- [ ] **Training bug: area 6 with the laser** shows a strange graphics effect (to look into: area 6 reached by setting the loop at area 1's end; perhaps something area 5's end or the loop's start sets that the laser's drawing uses)
+
 The sections below: graphics options, the player features, accuracy checks, polish.
 
 ## Player features (the owner's ideas)
+
+- [ ] **Difficulty in the options** (GAME OPTIONS): the service menu's difficulty setting, the same value in the EEPROM, changed from the menu
+- [ ] **Achievements** (low priority): goals kept in a file (clear an area with no miss, a chain of N, the true boss, ...), shown as they are earned
+- [ ] **Online leaderboard** (low priority; only with free hosting): scores sent from unassisted games (no cheats, save states or training), with the run's details
 
 - [x] **Hitbox dot**: the menu's HITBOX (`[game] hitbox`): each ship's real hitbox as a white glowing box, from the game's own test (`func_0055DA`: a bullet's centre, or an enemy's box, against the box at `+10`-`+16` of the ship's record around its position `+06`/`+08`, in 64ths of a pixel); drawn from the frame of the sprites on screen (a frame back, two with arcade timing) so it stays on the ship as it moves (`ports/sdl2/hitbox.c`)
 - [x] **Main menu** (the title screen, as the program starts; `[game] main_menu`): START GAME (the arcade game from its reset), TRAINING, SETTINGS (the options that can be set before a game: timing, fast forward, hitbox, volume, game options, graphics, controls), QUIT TO DESKTOP; the in-game options have MAIN MENU (the game reset, back to it)
@@ -71,6 +79,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
   - [x] Rotate (TATE): the picture turned right or left for a monitor on its side
   - [x] Window size and full screen moved to the page
 - [ ] A CRT shader (curvature, glow, a shadow mask), beyond the scanlines
+- [ ] **Borderless fullscreen** in the GRAPHICS page (the desktop's resolution, no mode change: quick to switch to and from), beside the exclusive fullscreen
 
 ## Other versions
 

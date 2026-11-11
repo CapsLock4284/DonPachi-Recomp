@@ -51,6 +51,17 @@ FEATURES
   - High scores kept between sessions (not while cheats or save states were used)
 
 
+CHEATS (optional)
+-----------------
+The cheats page (SETTINGS > GAME OPTIONS > CHEATS) reads MAME's cheat file for
+DonPachi, which isn't included here. To add it:
+  1. Download MAME's cheat collection, cheat.7z (from Pugsy's Cheats,
+     https://www.mamecheat.co.uk).
+  2. Open it with 7-Zip and take out donpachi.xml.
+  3. Make a folder called "cheats" beside donpachi.exe and put donpachi.xml in it.
+High scores aren't saved while a cheat is on.
+
+
 FILES THE GAME KEEPS BESIDE donpachi.exe
 ----------------------------------------
   donpachi_usa.dat   the game data taken from your ROM set

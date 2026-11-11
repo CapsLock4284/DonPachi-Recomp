@@ -58,6 +58,8 @@ FEATURES
     SAVE REPLAY in the pause menu keeps the attempt. Watch, rename or delete
     them from the menu, or share the .dpreplay files. While watching: Space
     (gamepad A) pauses, Right (d-pad right) steps one frame
+  - Menu tooltips: with the side panels on, the right one explains the
+    highlighted option while a menu is open
   - Lifetime statistics (main menu > STATISTICS): games, play time, clears,
     bosses, deaths, bombs, bees, best chain and scores, per ship and per area
     (arcade games only, as the achievements)

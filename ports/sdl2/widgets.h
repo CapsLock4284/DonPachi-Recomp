@@ -36,6 +36,9 @@
 /* After each of the game's frames: what the graph keeps (the score's history, the stages' marks) */
 void widgets_frame(void);
 
+/* A panel of the menu's tooltip instead of the game's: the chosen entry's name and what it does, in lines that fit */
+void widgets_draw_help(uint32_t *pixels, const char *title, const char *text);
+
 /* The bosses the panels saw shot down since the last call (1 a stage's boss, 2 the true boss, 4 a mid-boss: shot down,
    not flown off), for the statistics */
 unsigned widgets_take_defeats(void);

@@ -1223,6 +1223,50 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 		draw_toast(&p);
 }
 
+/* ---- the menu's tooltips: a panel of their own ---- */
+
+/* 'text' from 'y', broken at its spaces into lines that fit the panel (8 pixels a letter, 6 at each side): the y
+   after it */
+static int put_wrapped(panel *p, int y, const char *text, uint32_t colour)
+{
+	const int most = (WIDGET_W - 12) / 8;
+	char line[32];
+
+	while (*text && y < WIDGET_H - 12)
+	{
+		int length = (int)strlen(text), take = length;
+
+		if (length > most)
+		{
+			/* (the last space that fits; a word too long for a line is cut) */
+			take = most;
+			while (take > 0 && text[take] != ' ')
+				take--;
+			if (take == 0)
+				take = most;
+		}
+		snprintf(line, sizeof(line), "%.*s", take, text);
+		put_text(p, 6, y, line, colour, 1);
+		y += 11;
+		text += take;
+		while (*text == ' ')
+			text++;
+	}
+	return y;
+}
+
+void widgets_draw_help(uint32_t *pixels, const char *title, const char *text)
+{
+	panel p;
+	int y;
+
+	p.pixels = pixels;
+	frame_panel(&p, "HELP");
+	y = put_wrapped(&p, 26, title, GOLD);
+	box(&p, 6, y + 2, WIDGET_W - 6, y + 3, FRAME);
+	put_wrapped(&p, y + 10, text, WHITE);
+}
+
 unsigned widgets_take_defeats(void)
 {
 	const unsigned events = defeat_events;

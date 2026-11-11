@@ -553,6 +553,13 @@ static void show_picture(const uint32_t *pixels)
 		const SDL_FRect right = { x + w - WIDGET_W * scale_x, y, WIDGET_W * scale_x, WIDGET_H * scale_y };
 
 		widgets_draw(panel_pixels[0], panel_pixels[1]);
+		{
+			/* (the menu up: its chosen entry explained on the right panel) */
+			const char *title, *text;
+
+			if (menu_help(&title, &text))
+				widgets_draw_help(panel_pixels[1], title, text);
+		}
 		for (int side = 0; side < 2; side++)
 		{
 			SDL_UpdateTexture(panel_textures[side], NULL, panel_pixels[side], WIDGET_W * (int)sizeof(uint32_t));

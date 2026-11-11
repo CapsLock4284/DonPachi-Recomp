@@ -15,6 +15,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Version number** on the title screen (bottom right).
 - **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
   hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
+- **Menu tooltips:** with the side panels on, the right panel explains the highlighted menu entry while a menu is
+  open.
 - **Replays:** every arcade game is recorded as you play. When it ends (or when you leave it for the main menu) you
   are asked "DO YOU WANT TO SAVE THE REPLAY?"; saved ones go in a `replays` folder beside the program. Watch them
   from the new REPLAYS page on the main menu, which lists each with its date (or its name), the area reached and the

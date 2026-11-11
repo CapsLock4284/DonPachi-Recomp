@@ -52,6 +52,7 @@ version: [CHANGELOG.md](CHANGELOG.md).
   them from the main menu's REPLAYS, with pause and frame-by-frame stepping; rename or delete them there
 - **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and
   per area (arcade games only)
+- **Menu tooltips** on the side panel, explaining each option
 - **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
 - **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu, MAME cheats
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`

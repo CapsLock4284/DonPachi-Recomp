@@ -1,7 +1,8 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
    menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
-   chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. */
+   chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. Each
+   picture has the chosen entry's tooltip panel at its right. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
@@ -9,6 +10,7 @@
 #include "training.h"
 #include "stats.h"
 #include "replay.h"
+#include "widgets.h"
 
 static void quiet(bool flag) { (void)flag; }
 static void nothing(void) {}
@@ -25,12 +27,22 @@ static void key(SDL_Scancode code)
 	menu_event(&event);
 }
 
+/* the menu's picture, with its tooltip's panel at the right (as the port shows it on a wide screen) */
 static void shot(const char *name)
 {
-	static uint32_t game[240 * 320], out[240 * 320];
+	static uint32_t game[240 * 320], out[240 * 320], help[WIDGET_W * WIDGET_H], both[(240 + WIDGET_W) * 320];
+	const char *title, *text;
 
 	menu_draw(game, out);
-	save_ppm(name, out, 240, 320);
+	memset(help, 0, sizeof(help));
+	if (menu_help(&title, &text))
+		widgets_draw_help(help, title, text);
+	for (int y = 0; y < 320; y++)
+	{
+		memcpy(both + y * (240 + WIDGET_W), out + y * 240, 240 * sizeof(uint32_t));
+		memcpy(both + y * (240 + WIDGET_W) + 240, help + y * WIDGET_W, WIDGET_W * sizeof(uint32_t));
+	}
+	save_ppm(name, both, 240 + WIDGET_W, 320);
 	printf("%s\n", name);
 }
 

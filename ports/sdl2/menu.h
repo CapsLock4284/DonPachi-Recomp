@@ -67,6 +67,10 @@ void menu_open_replays(void);
 /* The training page (the game reset first by the port: its training game over, or TRAINING MENU) */
 void menu_open_training(void);
 
+/* The chosen entry's tooltip, for the right side panel: its name and what it does (false: none, or the menu is not
+   up) */
+bool menu_help(const char **title, const char **text);
+
 /* An event while it is open: true when the menu took it (all are taken while it is open) */
 bool menu_event(const SDL_Event *event);
 

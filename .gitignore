@@ -10,3 +10,6 @@ symbols - Copy*.txt
 *.dat.part
 # the player packages (tools/make_release.ps1)
 /release/
+# the test tools, built (tests/harness/build.sh), and the pictures they write
+/tests/harness/bin/
+*.ppm

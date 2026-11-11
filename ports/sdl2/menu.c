@@ -60,6 +60,7 @@ enum
 	ITEM_MAIN_MENU,               /* back to the main menu from the game */
 	ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY, ITEM_T_START,    /* the training page */
 	ITEM_T_BOMBS, ITEM_TRAINING_MENU,   /* (and the options' way back to it, in a training game) */
+	ITEM_T_HITBOX,
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -95,6 +96,7 @@ static int item_hotkey(int item)
 static bool open, just_closed;
 static bool front;                      /* the main menu is up (the game not started): the options are its settings */
 static int front_message;               /* frames "coming soon" is still shown */
+static int training_pending;            /* START TRAINING: the frames until it starts (LOADING... shown meanwhile) */
 
 void menu_open_front(void);
 static int page, selected, player;
@@ -132,7 +134,7 @@ static void build_items(void)
 	else if (page == PAGE_TRAINING)
 	{
 		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_BOMBS,
-			ITEM_T_RETRY, ITEM_T_START, ITEM_BACK };
+			ITEM_T_RETRY, ITEM_T_HITBOX, ITEM_T_START, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(training_items) / sizeof(training_items[0]); index++)
 			items[item_count++] = training_items[index];
@@ -279,6 +281,9 @@ static void change(int item, int step, bool wrap)
 	case ITEM_T_BOMBS:
 		in_use->training_max_bombs = file->training_max_bombs = !in_use->training_max_bombs;
 		break;
+	case ITEM_T_HITBOX:
+		in_use->training_hitbox = file->training_hitbox = !in_use->training_hitbox;
+		break;
 	case ITEM_T_RETRY:
 		in_use->training_retry = file->training_retry = !in_use->training_retry;
 		break;
@@ -374,10 +379,7 @@ static void choose(int item)
 		break;
 	case ITEM_T_START:
 		front_message = 0;
-		if (host.training())
-			close_menu();    /* (the game is at the place: it goes on from there) */
-		else
-			front_message = 180;
+		training_pending = 2;    /* (LOADING... shown first: menu_draw starts it, a frame later) */
 		break;
 	case ITEM_SETTINGS:
 		page = PAGE_MAIN;
@@ -832,7 +834,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX"
 	};
 
 	if (is_hotkey_item(item))
@@ -908,6 +910,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_BOMBS:
 		snprintf(out, size, "%s", s->training_max_bombs ? "MAX (7)" : "NORMAL (3)");
+		break;
+	case ITEM_T_HITBOX:
+		snprintf(out, size, "%s", s->training_hitbox ? "ON" : "OFF");
 		break;
 	case ITEM_T_RETRY:
 		snprintf(out, size, "%s", s->training_retry ? "ON" : "OFF");
@@ -999,6 +1004,17 @@ static void draw_front(uint32_t *out)
 
 void menu_draw(const uint32_t *game, uint32_t *out)
 {
+	if (training_pending > 0 && --training_pending == 0)
+	{
+		/* (the LOADING... frame is on the screen: the game run to the place now, a second or so) */
+		if (host.training())
+		{
+			close_menu();    /* (the game is at the place: it goes on from there) */
+			memcpy(out, game, sizeof(uint32_t) * PICTURE_W * PICTURE_H);
+			return;
+		}
+		front_message = 180;
+	}
 	if (page == PAGE_FRONT)
 	{
 		draw_front(out);
@@ -1061,6 +1077,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
 			y += step;
 		}
+		if (page == PAGE_TRAINING && training_pending > 0)
+			put_text_y(out, (COLUMNS - 10) / 2, y + 2, "LOADING...", GOLD);
 		if (page == PAGE_TRAINING && front_message > 0)
 		{
 			front_message--;

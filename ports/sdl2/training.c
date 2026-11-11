@@ -195,8 +195,18 @@ const char *training_prepare(const training_setup *setup)
 						area1_boss_seen = true;
 					else if (area1_boss_seen)
 					{
-						set_word(STAGE, (stage - 1u) & 0xFFFFu);
-						set_word(LOOP, loop);
+						if (setup->area == 5)
+						{
+							/* area 6: the first loop's end (area 5 cleared), as the game goes to the second:
+							   its story between the loops, then area 6 from the dropship, as area 1 */
+							set_word(STAGE, 4u);
+							set_word(LOOP, 0u);
+						}
+						else
+						{
+							set_word(STAGE, (stage - 1u) & 0xFFFFu);
+							set_word(LOOP, loop);
+						}
 						sent = true;
 					}
 				}

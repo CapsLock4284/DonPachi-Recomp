@@ -82,6 +82,7 @@ void settings_defaults(settings *s)
 	s->training_max_power = false;
 	s->training_max_bombs = false;
 	s->training_retry = true;
+	s->training_hitbox = true;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->scaling = VIDEO_FIT;
@@ -338,6 +339,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->training_max_bombs);
 		if (!SDL_strcasecmp(name, "retry_on_miss"))
 			return parse_bool(value, &s->training_retry);
+		if (!SDL_strcasecmp(name, "hitbox"))
+			return parse_bool(value, &s->training_hitbox);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "files"))
@@ -554,7 +557,9 @@ const char *settings_save(const settings *s, const char *path)
 		fprintf(file, "max_power = %s\n", bool_text(s->training_max_power));
 		fprintf(file, "; 7 bombs in 7 slots (the game's most) instead of 3\n");
 		fprintf(file, "max_bombs = %s\n", bool_text(s->training_max_bombs));
-		fprintf(file, "retry_on_miss = %s\n\n", bool_text(s->training_retry));
+		fprintf(file, "retry_on_miss = %s\n", bool_text(s->training_retry));
+		fprintf(file, "; the ship's hitbox shown in a training game ([game] hitbox is the normal game's)\n");
+		fprintf(file, "hitbox = %s\n\n", bool_text(s->training_hitbox));
 	}
 
 	fputs("[files]\n", file);

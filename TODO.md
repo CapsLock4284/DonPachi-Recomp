@@ -23,9 +23,9 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 
 ## Next
 
-- [ ] **Training: a loading message** while START TRAINING runs the game there (up to about a second and a half): "LOADING..." drawn first, then the game run
-- [ ] **Training: the hitbox shown by default** in a training game (its own setting on the Training page, on unless turned off; the normal game keeps HITBOX as set)
-- [ ] **Training bug: area 6 with the laser** shows a strange graphics effect (to look into: area 6 reached by setting the loop at area 1's end; perhaps something area 5's end or the loop's start sets that the laser's drawing uses)
+- [x] **Training: a loading message**: START TRAINING shows LOADING... for a frame (on the screen) before the game is run there
+- [x] **Training: the hitbox shown by default** in a training game: the Training page's HITBOX (`[training] hitbox`, on); the normal game keeps the options' HITBOX
+- [x] **Training bug: area 6** (the picture wobbling, the ship flying from the start though the dropship comes in): area 6 was entered as a mere next area from area 1's end, the loop set by hand. Now area 1's end is made area 5's (the stage set to 4, loop 0), so the game goes through the first loop's end, its story between the loops, and starts area 6 itself, from the dropship
 
 The sections below: graphics options, the player features, accuracy checks, polish.
 

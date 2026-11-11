@@ -9,7 +9,8 @@
  *    The game is run there unseen and unheard, as fast as it goes: from the board's reset, a coin and Start, the ship
  *    chosen on its select screen (down presses); area 1 played with the ship shielded (the respawn shield $102196
  *    held), not firing, to its boss's end, where the stage and loop are set ($101A40, $101A42) so that the game's next
- *    area is the place's. A boss: on, shielded, until its WARNING starts (object $3F in $100102's list; the true boss:
+ *    area is the place's (area 6: area 5's, so that the game goes through the loop's end into the second, as it starts
+ *    area 6 with the dropship; set straight to it, the stage began as a mere next area, the ship already flying). A boss: on, shielded, until its WARNING starts (object $3F in $100102's list; the true boss:
  *    its own object, $7C, area 10's first boss shot down on the way). There the player's run is made a fresh one:
  *    score 0, the chain gone, 3 lives, 3 bombs (or 7 in 7 slots), the power chosen, the shield taken off.
  */

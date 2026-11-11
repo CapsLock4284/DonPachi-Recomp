@@ -25,6 +25,7 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - The player README explains how to add MAME's cheat file for the Cheats page.
 
 ### Fixed
+- **Hitbox:** it no longer appears on screen before your ship does at the start of a game.
 - Training at full power: the game now knows it is at MAX, so the next power-up gives the MAX bonus as it should.
 - The two hint lines at the bottom of the menus no longer overlap.
 

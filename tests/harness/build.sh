@@ -15,12 +15,13 @@ mkdir -p "$OBJ"
 # the game: the board, the decompiled program, and the port's parts the tools use (not its main.c)
 for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
          "$ROOT"/ports/sdl2/settings.c "$ROOT"/ports/sdl2/menu.c "$ROOT"/ports/sdl2/widgets.c \
-         "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c; do
+         "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c \
+         "$ROOT"/ports/sdl2/hitbox.c; do
 	o="$OBJ/$(echo "$f" | sed "s|$ROOT/||;s|/|_|g;s|\.c$|.o|")"
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done
 
-for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp}; do
+for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check}; do
 	echo "link $tool"
 	gcc $CFLAGS "$HERE/$tool.c" "$OBJ"/*.o $SDL_LIB -lm -o "$OUT/$tool"
 done

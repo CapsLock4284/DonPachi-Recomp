@@ -26,6 +26,7 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `pickups AREA` | Fights through an area from its start, collecting items, and logs each power-up taken with its scroll (`SPRITES=1`: each item as it appears). The counts behind training's ON PACE |
 | `botcmp AREA SCROLL BOT` | Compares ways of aiming for the mid-boss run: fights from the area's start to the scroll and counts the enemies and bullets left (bot 0 strongest first, the one training uses; 1 nearest; 2 alternating; 3 sweep) |
 | `panels_shot AREA FRAMES [TOAST]` | A wide-screen picture as the port shows it, panels and game together (`panels.ppm`); with TOAST, an achievement pop-up on it. The README's pictures: `panels_shot 2 1800`, `panels_shot 3 2200` |
+| `hitbox_check` | Starts a game and prints each frame the hitbox appears or goes, with a picture as it first appears (`hitbox_N.ppm`): it should wait for the ship to fly in |
 | `menu_shot` | Pictures of the main menu, Training, Achievements, Game Options and Graphics pages, and the options in a training game (`menu_*.ppm`) |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |
 | `drop_window_test` | The first run's drop window, with a wrong file then the ROM set dropped on it (run with a desktop, or `xvfb-run -a`) |

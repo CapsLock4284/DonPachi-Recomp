@@ -16,12 +16,12 @@ mkdir -p "$OBJ"
 for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
          "$ROOT"/ports/sdl2/settings.c "$ROOT"/ports/sdl2/menu.c "$ROOT"/ports/sdl2/widgets.c \
          "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c \
-         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c; do
+         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/replay.c; do
 	o="$OBJ/$(echo "$f" | sed "s|$ROOT/||;s|/|_|g;s|\.c$|.o|")"
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done
 
-for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check}; do
+for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check}; do
 	echo "link $tool"
 	gcc $CFLAGS "$HERE/$tool.c" "$OBJ"/*.o $SDL_LIB -lm -o "$OUT/$tool"
 done

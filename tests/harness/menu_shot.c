@@ -1,17 +1,19 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm, menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
+   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
 #include "achievements.h"
 #include "training.h"
 #include "stats.h"
+#include "replay.h"
 
 static void quiet(bool flag) { (void)flag; }
 static void nothing(void) {}
 static bool no(void) { return false; }
 static bool yes(void) { return true; }
+static bool no_replay(const char *file) { (void)file; return false; }
 
 static void key(SDL_Scancode code)
 {
@@ -45,6 +47,7 @@ int main(void)
 	start_game();
 	achievements_load("menu_shot.achievements");
 	stats_load(getenv("STATS") ? getenv("STATS") : "menu_shot.stats");
+	replay_folder("replays/");
 	host.options = &options;
 	host.file = &file;
 	host.path = "menu_shot.ini";
@@ -53,6 +56,8 @@ int main(void)
 	host.apply_window = host.apply_video = host.apply_timing = host.quit = host.main_menu = nothing;
 	host.state = quiet;
 	host.in_training = host.training = no;
+	host.in_replay = no;
+	host.play_replay = no_replay;
 	host.retry_training = nothing;
 	menu_init(&host);
 
@@ -61,6 +66,10 @@ int main(void)
 	key(SDL_SCANCODE_DOWN);    /* TRAINING */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_training.ppm");
+	key(SDL_SCANCODE_BACKSPACE);
+	key(SDL_SCANCODE_DOWN);    /* REPLAYS */
+	key(SDL_SCANCODE_RETURN);
+	shot("menu_replays.ppm");
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* ACHIEVEMENTS */
 	key(SDL_SCANCODE_RETURN);

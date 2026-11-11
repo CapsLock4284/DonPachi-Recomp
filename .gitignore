@@ -18,3 +18,4 @@ symbols - Copy*.txt
 *.stats
 *.hiscore
 *.eeprom
+*.dpreplay

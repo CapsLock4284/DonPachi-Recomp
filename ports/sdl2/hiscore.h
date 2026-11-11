@@ -35,4 +35,8 @@ void hiscore_state_loaded(void);
    changes may go into the file (not while cheats are on) */
 void hiscore_frame(bool enabled, bool saving);
 
+/* The file's table was put back in the game's memory (at boot) since the last call: once (a replay records what was
+   written: $101846-$10189F and the HUD's HIGH) */
+bool hiscore_take_put_back(void);
+
 #endif

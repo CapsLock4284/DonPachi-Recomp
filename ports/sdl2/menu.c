@@ -12,6 +12,7 @@
  */
 #include "menu.h"
 #include "training.h"
+#include "replay.h"
 #include "stats.h"
 #include "ui_sound.h"
 
@@ -51,7 +52,7 @@
 #define STICK_DEAD   16000
 
 enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS,
-	PAGE_STATS };
+	PAGE_STATS, PAGE_REPLAYS };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -78,12 +79,15 @@ enum
 	ITEM_ACHIEVEMENTS,            /* the achievements page (the main menu's, the game options') */
 	ITEM_RETRY_TRAINING,          /* a training game: back to its place, as it began */
 	ITEM_STATISTICS,              /* the lifetime statistics page (the main menu's, the game options') */
+	ITEM_REPLAYS,                 /* the main menu's replays page */
+	ITEM_STOP_REPLAY,             /* a replay playing: back to the replays page */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
 	ITEM_CHEAT = 200,             /* + a cheat of the cheat file (cave/cheats.h) */
 	ITEM_ACHIEVEMENT = 400,       /* + an achievement (achievements.h) */
-	ITEM_STAT = 500               /* + a line of the statistics page (stats.h) */
+	ITEM_STAT = 500,              /* + a line of the statistics page (stats.h) */
+	ITEM_REPLAY = 600             /* + a replay of the replays page's list */
 };
 
 static const char *const action_labels[ACTIONS] = {
@@ -104,11 +108,19 @@ static bool is_cheat(int item)
 
 static bool is_stat(int item)
 {
-	return item >= ITEM_STAT;
+	return item >= ITEM_STAT && item < ITEM_REPLAY;
+}
+
+static bool is_replay(int item)
+{
+	return item >= ITEM_REPLAY;
 }
 
 static int achievements_from = PAGE_FRONT;    /* the page the achievements page was opened from */
 static int stats_from = PAGE_FRONT;           /* the page the statistics page was opened from */
+#define REPLAYS_LISTED 100
+static replay_info replays[REPLAYS_LISTED];    /* the replays page's list, as it was opened */
+static int replay_count;
 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
@@ -158,6 +170,14 @@ static void build_items(void)
 		if (front)
 			for (size_t index = 0; index < sizeof(settings_items) / sizeof(settings_items[0]); index++)
 				items[item_count++] = settings_items[index];
+		else if (host.in_replay && host.in_replay())
+		{
+			static const int replay_items[] = { ITEM_RESUME, ITEM_STOP_REPLAY, ITEM_TIMING, ITEM_HITBOX, ITEM_VOLUME,
+				ITEM_GRAPHICS, ITEM_MAIN_MENU, ITEM_QUIT };
+
+			for (size_t index = 0; index < sizeof(replay_items) / sizeof(replay_items[0]); index++)
+				items[item_count++] = replay_items[index];
+		}
 		else if (host.in_training && host.in_training())
 			for (size_t index = 0; index < sizeof(training_game_items) / sizeof(training_game_items[0]); index++)
 				items[item_count++] = training_game_items[index];
@@ -175,8 +195,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_FRONT)
 	{
-		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_ACHIEVEMENTS,
-			ITEM_STATISTICS, ITEM_SETTINGS, ITEM_QUIT };
+		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_REPLAYS,
+			ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_SETTINGS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(front_items) / sizeof(front_items[0]); index++)
 			items[item_count++] = front_items[index];
@@ -193,6 +213,12 @@ static void build_items(void)
 	{
 		for (int index = 0; index < achievements_count(); index++)
 			items[item_count++] = ITEM_ACHIEVEMENT + index;
+		items[item_count++] = ITEM_BACK;
+	}
+	else if (page == PAGE_REPLAYS)
+	{
+		for (int index = 0; index < replay_count; index++)
+			items[item_count++] = ITEM_REPLAY + index;
 		items[item_count++] = ITEM_BACK;
 	}
 	else if (page == PAGE_STATS)
@@ -517,6 +543,16 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_REPLAYS:
+		replay_count = replay_list(replays, REPLAYS_LISTED);
+		page = PAGE_REPLAYS;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_STOP_REPLAY:
+		host.main_menu();
+		menu_open_replays();
+		break;
 	case ITEM_STATISTICS:
 		stats_from = page;
 		page = PAGE_STATS;
@@ -555,6 +591,14 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
+		if (page == PAGE_REPLAYS)
+		{
+			page = PAGE_FRONT;
+			build_items();
+			for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_REPLAYS; selected++)
+				;
+			break;
+		}
 		if (page == PAGE_STATS)
 		{
 			page = stats_from;
@@ -594,6 +638,15 @@ static void choose(int item)
 	default:
 		if (is_stat(item))
 			break;    /* (a line to read) */
+		if (is_replay(item))
+		{
+			if (host.play_replay(replays[item - ITEM_REPLAY].file))
+			{
+				front = false;
+				close_menu();
+			}
+			break;
+		}
 		if (is_action(item) || is_hotkey_item(item))
 		{
 			capture = item;
@@ -728,6 +781,15 @@ void menu_open_front(void)
 	build_items();
 	for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_START_GAME; selected++)
 		;
+}
+
+void menu_open_replays(void)
+{
+	menu_open_front();
+	replay_count = replay_list(replays, REPLAYS_LISTED);
+	page = PAGE_REPLAYS;
+	selected = 0;
+	build_items();
 }
 
 void menu_open_training(void)
@@ -975,7 +1037,7 @@ static const char *item_label(int item)
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
-		"RETRY TRAINING", "STATISTICS"
+		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY"
 	};
 
 	if (is_hotkey_item(item))
@@ -993,6 +1055,8 @@ static const char *item_label(int item)
 		name[19] = '\0';
 		return name;
 	}
+	if (is_replay(item))
+		return replays[item - ITEM_REPLAY].date;
 	if (is_stat(item))
 		return stats_label(item - ITEM_STAT);
 	if (item >= ITEM_ACHIEVEMENT)
@@ -1149,7 +1213,7 @@ static void draw_front(uint32_t *out)
 	{
 		const bool chosen = index == selected;
 		const char *const label = item_label(items[index]);
-		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 140 + index * 20;
+		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 128 + index * 19;
 
 		if (chosen)
 		{
@@ -1276,6 +1340,62 @@ static void draw_stats(uint32_t *out)
 	put_hints(out, "UP / DOWN: SCROLL", "B: BACK");
 }
 
+/* The replays page: the saved ones, newest first (14 at a time): the date, the area reached and the score; under it
+   the chosen one's ship, difficulty, length and end */
+#define REPLAY_ROWS 14
+
+static void draw_replays(uint32_t *out)
+{
+	static const char *const difficulties[4] = { "NORMAL", "EASY", "HARD", "V.HARD" };
+	const int first = item_count <= REPLAY_ROWS || selected < REPLAY_ROWS / 2 ? 0
+		: selected > item_count - REPLAY_ROWS / 2 ? item_count - REPLAY_ROWS : selected - REPLAY_ROWS / 2;
+	char line[48];
+
+	put_centre(out, PANEL_TOP + 1, "REPLAYS", GOLD);
+	if (replay_count == 0)
+		put_centre_y(out, (PANEL_TOP + 2) * 8 + 3, "NONE YET: PLAY A GAME", GREY);
+	else
+	{
+		snprintf(line, sizeof(line), "%d SAVED", replay_count);
+		put_centre_y(out, (PANEL_TOP + 2) * 8 + 3, line, GREY);
+	}
+	for (int row = 0; row < REPLAY_ROWS && first + row < item_count; row++)
+	{
+		const int index = first + row, item = items[index], y = (PANEL_TOP + 4) * 8 + row * 12;
+		const bool chosen = index == selected;
+
+		if (chosen)
+			put_char_y(out, PANEL_LEFT + 1, y, '>', GOLD);
+		if (item == ITEM_BACK)
+		{
+			put_text_y(out, PANEL_LEFT + 3, y, "BACK", chosen ? GOLD : WHITE);
+			continue;
+		}
+		{
+			const replay_info *const r = &replays[item - ITEM_REPLAY];
+
+			/* "11-11 15:20  A3" ... the score */
+			snprintf(line, sizeof(line), "%.5s %.5s A%d", r->date + 5, r->date + 11, r->area);
+			put_text_y(out, PANEL_LEFT + 3, y, line, chosen ? GOLD : WHITE);
+			snprintf(line, sizeof(line), "%u", r->score);
+			put_right_y(out, PANEL_RIGHT, y, line, chosen ? GOLD : CYAN);
+		}
+	}
+	if (selected < item_count && is_replay(items[selected]))
+	{
+		const replay_info *const r = &replays[items[selected] - ITEM_REPLAY];
+		const unsigned long seconds = (unsigned long)((double)r->frames * 17376.0 / 1000000.0);
+		const int y = (PANEL_TOP + 4) * 8 + REPLAY_ROWS * 12 + 6;
+
+		snprintf(line, sizeof(line), "TYPE %c  %s  %lu:%02lu", 'A' + (r->ship % 3), difficulties[r->difficulty & 3],
+			seconds / 60u, seconds % 60u);
+		put_centre_y(out, y, line, CYAN);
+		snprintf(line, sizeof(line), "%s", r->finished ? "TO THE GAME'S END" : "STOPPED PART WAY");
+		put_centre_y(out, y + 12, line, GREY);
+	}
+	put_hints(out, "A: WATCH", "B: BACK");
+}
+
 void menu_draw(const uint32_t *game, uint32_t *out)
 {
 	if (training_pending > 0 && --training_pending == 0)
@@ -1321,6 +1441,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_STATS)
 	{
 		draw_stats(out);
+		return;
+	}
+	else if (page == PAGE_REPLAYS)
+	{
+		draw_replays(out);
 		return;
 	}
 	else if (page == PAGE_CHEATS)

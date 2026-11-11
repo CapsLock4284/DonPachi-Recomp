@@ -37,6 +37,8 @@ typedef struct
 	bool (*training)(void);     /* the game to training's place (options->training_...): false if it could not */
 	bool (*in_training)(void);  /* a training game is on (the options then have RETRY TRAINING and TRAINING MENU) */
 	void (*retry_training)(void);   /* the training game back to its place, as it began */
+	bool (*play_replay)(const char *file);    /* a replay played (its file in the replays folder): false if not */
+	bool (*in_replay)(void);    /* a replay is playing (the options then have STOP REPLAY) */
 } menu_host;
 
 void menu_init(const menu_host *host);
@@ -48,6 +50,9 @@ void menu_open(void);
    the options' MAIN MENU: the game is not run while it is up (menu_is_open); START GAME closes it */
 void menu_open_front(void);
 bool menu_in_front(void);
+
+/* The replays page (the game reset first by the port: a replay's end, or STOP REPLAY) */
+void menu_open_replays(void);
 
 /* The training page (the game reset first by the port: its training game over, or TRAINING MENU) */
 void menu_open_training(void);

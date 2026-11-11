@@ -31,6 +31,7 @@ static bool have_file;
 static uint8_t saved[TABLE_SIZE];       /* the table as last saved (or put back) */
 static bool pending = true;             /* waiting for the game to set its table up */
 static bool restored;                   /* the file's table was put back this boot: the table may be saved */
+static bool put_back;                   /* it was put back in the game's memory since hiscore_take_put_back */
 
 static void read_table(uint8_t *out)
 {
@@ -121,6 +122,14 @@ void hiscore_state_loaded(void)
 	read_table(saved);
 }
 
+bool hiscore_take_put_back(void)
+{
+	const bool was = put_back;
+
+	put_back = false;
+	return was;
+}
+
 void hiscore_frame(bool enabled, bool saving)
 {
 	uint8_t table[TABLE_SIZE];
@@ -139,6 +148,7 @@ void hiscore_frame(bool enabled, bool saving)
 				*cave_work_ram_byte(TABLE + at) = file_table[at];
 			for (uint32_t at = 0; at < 4u; at++)
 				*cave_work_ram_byte(HUD_HIGH + at) = file_table[at];    /* (#1's score) */
+			put_back = true;
 		}
 		read_table(saved);
 		restored = true;

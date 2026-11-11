@@ -92,7 +92,7 @@ $allowed = @($files.Values)
 foreach ($file in Get-ChildItem $out -Recurse -File) {
     $relative = $file.FullName.Substring($out.Length + 1)
     if ($allowed -notcontains $relative) { $problems += "not on the list: $relative" }
-    if ($file.Extension -in ".zip", ".7z", ".dat", ".part", ".eeprom", ".hiscore", ".achievements", ".stats", ".ini", ".bin", ".rom", ".xml") {
+    if ($file.Extension -in ".zip", ".7z", ".dat", ".part", ".eeprom", ".hiscore", ".achievements", ".stats", ".dpreplay", ".ini", ".bin", ".rom", ".xml") {
         $problems += "a ROM set, game data, save or settings file: $relative"
     }
 }

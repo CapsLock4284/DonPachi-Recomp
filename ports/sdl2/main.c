@@ -64,6 +64,7 @@
 #include "rom_drop.h"
 #include "hitbox.h"
 #include "training.h"
+#include "replay.h"
 #include "stats.h"
 #include "ui_sound.h"
 #include "menu.h"
@@ -173,6 +174,8 @@ static bool hotkey_down(int hotkey)
 	return false;
 }
 
+static bool big_hit_set;    /* (the big HIT display's flags set by the port, to clear when the option goes off) */
+
 /* A hotkey pressed (not held from before): the reset, or the reset into the test mode (fast forward is held: the
    main loop asks hotkey_down) */
 static void hotkeys(void)
@@ -183,9 +186,12 @@ static void hotkeys(void)
 
 		if (down && !hotkey_was_down[hotkey])
 		{
+			replay_save_unfinished();
 			program_reset();
+			replay_reset();
 			free_play_reset();
 			hiscore_reset();
+			big_hit_set = false;
 			training_active = false;
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
 		}
@@ -600,8 +606,6 @@ static void show_picture(const uint32_t *pixels)
    while a game is played; turned off, they are cleared once, and the command works as on the board again */
 #define BIG_HIT_FLAGS 0x101738u
 
-static bool big_hit_set;
-
 static void big_hit_frame(void)
 {
 	uint8_t *const flags = cave_work_ram_byte(BIG_HIT_FLAGS);    /* (a byte) */
@@ -622,9 +626,15 @@ static void big_hit_frame(void)
 
 static void menu_reset(bool service_menu)
 {
+	if (replay_playing())
+		replay_stop();    /* (the player's own EEPROM back) */
+	else
+		replay_save_unfinished();
 	program_reset();
+	replay_reset();
 	free_play_reset();
 	hiscore_reset();
+	big_hit_set = false;
 	training_active = false;
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
 }
@@ -737,6 +747,7 @@ static void menu_main_menu(void)
 static void state_put_back(const program_state *state, const void *panels)
 {
 	program_state_load(state);
+	replay_taint();    /* (not a replay: the inputs before it are not this game's) */
 	widgets_state_load(panels);
 	free_play_reset();
 	hiscore_state_loaded();
@@ -769,6 +780,8 @@ static bool menu_training(void)
 	hiscore_reset();
 	free_play_reset();
 	service_held = 0;
+	replay_save_unfinished();
+	replay_taint();    /* (training: run to the place by the port, not a replay) */
 	if ((problem = training_prepare(&setup)) != NULL)
 	{
 		fprintf(stderr, "training: %s\n", problem);
@@ -847,6 +860,62 @@ static bool training_frame(void)
 		retry_in = 45;    /* (the ship's explosion seen first) */
 	ship_was_alive = alive;
 	return false;
+}
+
+/* ---- replays (replay.h) ---- */
+
+/* The main menu's REPLAYS: the replay played from its game's start (the frames before it run at once, unseen) */
+static bool menu_play_replay(const char *file)
+{
+	const char *problem;
+
+	hiscore_reset();
+	if ((problem = replay_play(file)) != NULL)
+	{
+		fprintf(stderr, "replay %s: %s\n", file, problem);
+		menu_main_menu();    /* (the board back to its own start) */
+		menu_notice("REPLAY NOT PLAYABLE");
+		return false;
+	}
+	free_play_reset();
+	widgets_reset();
+	state_loaded = true;    /* (no scores, achievements or statistics from it) */
+	training_active = false;
+	big_hit_set = false;
+	video_latch_sprites();
+	draw_picture();
+	if (audio)
+		audio_restart();
+	menu_notice("REPLAY");
+	return true;
+}
+
+static bool in_replay(void)
+{
+	return replay_playing();
+}
+
+/* A frame of the replay being played: false at its end (the replays page up again) */
+static bool replay_frame(bool fast)
+{
+	if (!replay_next(NULL))
+	{
+		menu_main_menu();    /* (the player's EEPROM back, the board reset) */
+		menu_open_replays();
+		return false;
+	}
+	program_run_frame();
+	if (!replay_after_playback_frame())
+		menu_notice("REPLAY OUT OF STEP");
+	if (fast)
+		cave_sound_drop();
+	else
+		audio_queue();
+	video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
+	hitbox_record();
+	widgets_frame();
+	widgets_take_defeats();
+	return true;
 }
 
 static void menu_quit(void)
@@ -948,6 +1017,8 @@ int main(int argc, char **argv)
 		achievements_load(path);
 		snprintf(path, sizeof(path), "%sdonpachi.stats", base ? base : "");
 		stats_load(path);
+		snprintf(path, sizeof(path), "%sreplays/", base ? base : "");
+		replay_folder(path);
 		SDL_free(base);
 	}
 	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
@@ -1000,6 +1071,8 @@ int main(int argc, char **argv)
 		menu.training = menu_training;
 		menu.in_training = in_training;
 		menu.retry_training = menu_retry_training;
+		menu.play_replay = menu_play_replay;
+		menu.in_replay = in_replay;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -1013,14 +1086,15 @@ int main(int argc, char **argv)
 	SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 
+	replay_reset();    /* (the board as it starts: recorded from here) */
 	period = SDL_GetPerformanceFrequency() * CAVE_FRAME_USEC / 1000000u;
 	next = SDL_GetPerformanceCounter() + period;
 	while (running)
 	{
 		SDL_Event event;
 
-		if (program_frames() % EEPROM_CHECK_FRAMES == 0)
-			eeprom_keep(false);
+		if (program_frames() % EEPROM_CHECK_FRAMES == 0 && !replay_playing())
+			eeprom_keep(false);    /* (a replay's EEPROM is its own: not saved) */
 
 		while (SDL_PollEvent(&event))
 		{
@@ -1071,7 +1145,8 @@ int main(int argc, char **argv)
 			show_picture(menu_picture);
 			goto pace;
 		}
-		hotkeys();
+		if (!replay_playing())
+			hotkeys();    /* (a replay: no reset or save states) */
 		{
 			/* fast forward, while its key or button is held: fast_forward_speed of the game's frames in this one,
 			   the last one shown, no sound */
@@ -1093,12 +1168,21 @@ int main(int argc, char **argv)
 			}
 			for (int frame = 0; frame < frames; frame++)
 			{
+				if (replay_playing())
+				{
+					if (!replay_frame(fast))
+						break;    /* (its end: the replays page is up) */
+					continue;
+				}
 				read_keys();
 				if (options.free_play)
 					free_play_inputs();
+				replay_input(cave_board.in0, cave_board.in1, options.big_hit ? REPLAY_BIG_HIT : 0u);
 				program_run_frame();
 				big_hit_frame();
 				cheats_apply();
+				if (cheats_any_on())
+					replay_taint();
 				if (fast)
 					cave_sound_drop();
 				else
@@ -1109,6 +1193,13 @@ int main(int argc, char **argv)
 				if (cheats_any_on())
 					state_loaded = true;
 				hiscore_frame(options.save_high_scores, !state_loaded && !training_active);
+				if (hiscore_take_put_back())
+				{
+					replay_patch(0x101846u, 0x5Au);    /* (the table) */
+					replay_patch(0x101782u, 4u);       /* (the HUD's HIGH) */
+				}
+				if (replay_after_frame())
+					menu_notice("REPLAY SAVED");
 				if (training_frame())
 					break;    /* (the training page is up: the game paused) */
 				/* (a new game: its scores are kept again) */
@@ -1152,6 +1243,10 @@ int main(int argc, char **argv)
 			next = (now > next + 4u * period) ? now + period : next + period;
 		}
 	}
+	if (replay_playing())
+		replay_stop();
+	else
+		replay_save_unfinished();
 	eeprom_keep(true);
 	stats_save();
 	if (audio)

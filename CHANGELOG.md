@@ -15,6 +15,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Version number** on the title screen (bottom right).
 - **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
   hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
+- **Replays:** every arcade game is recorded as you play and saved when it ends (or when you leave it), in a
+  `replays` folder beside the program. Watch them from the new REPLAYS page on the main menu, which lists each with
+  its date, the area reached and the score. A replay is a small file you can share; it plays the game back exactly
+  from the same inputs, and says so if it goes out of step. Games with training, cheats or a loaded save state are
+  not recorded.
 - **Mid-boss health bar:** the side panel's stage progress bar shows each area's mid-boss's health (orange) while it
   is on screen, then DEFEATED or ESCAPED.
 - **Lifetime statistics:** a STATISTICS page on the main menu and in Game Options: games played, credits, play time,

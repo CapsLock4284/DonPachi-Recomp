@@ -56,7 +56,6 @@ typedef struct
 	bool free_play;
 	bool cheats;                /* any turned on */
 	int fast_forward;           /* 0, or the frames a frame while it is held */
-	bool stage_map;             /* the right panel the stage's map (stagemap.h), not the score graph */
 } widgets_status;
 
 void widgets_set_status(const widgets_status *status);

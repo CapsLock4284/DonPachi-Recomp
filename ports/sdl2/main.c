@@ -71,7 +71,6 @@
 #include "widgets.h"
 #include "window_icon.h"
 #include "settings.h"
-#include "stagemap.h"
 
 #include <SDL.h>
 
@@ -632,39 +631,6 @@ static void big_hit_frame(void)
 
 /* ---- what the options menu does (menu.h's menu_host) ---- */
 
-/* ---- the stage maps (stagemap.h): made at the first start, from the game ---- */
-
-static void stage_maps_progress(int stage)
-{
-	static uint32_t blank[VIDEO_WIDTH * VIDEO_HEIGHT];
-	char text[40];
-
-	snprintf(text, sizeof(text), "BUILDING STAGE MAPS %d/5", stage + 1);
-	menu_notice(text);
-	SDL_PumpEvents();    /* (the window answering the system while it works) */
-	show_picture(menu_with_notice(blank));
-}
-
-static void stage_maps(void)
-{
-	char path[1024];
-	char *const base = SDL_GetBasePath();
-	const char *problem;
-
-	snprintf(path, sizeof(path), "%sdonpachi_maps.dat", base ? base : "");
-	SDL_free(base);
-	if (stagemap_load(path) || !options.stage_map)
-		return;    /* (off: made at the first start with it on) */
-	problem = stagemap_build(path, stage_maps_progress);
-	program_reset();    /* (the board left in area 5: started again) */
-	free_play_reset();
-	hiscore_reset();
-	widgets_reset();
-	menu_notice(problem ? problem : "STAGE MAPS MADE");
-	if (problem)
-		fprintf(stderr, "stage maps: %s\n", problem);
-}
-
 static void menu_reset(bool service_menu)
 {
 	if (replay_playing())
@@ -1156,7 +1122,6 @@ int main(int argc, char **argv)
 		if (data_extracted)
 			menu_notice("ROM DATA EXTRACTED");    /* (the .zip not needed from now on) */
 	}
-	stage_maps();
 	if (options.sound)
 		audio_open();
 	if (audio)
@@ -1259,7 +1224,7 @@ int main(int argc, char **argv)
 			}
 			{
 				const widgets_status status = { options.arcade_timing, options.free_play, cheats_any_on(),
-					fast ? frames : 0, options.stage_map };
+					fast ? frames : 0 };
 
 				widgets_set_status(&status);
 			}

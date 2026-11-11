@@ -7,11 +7,6 @@ notes). The release zip carries this file as `CHANGES.txt`.
 ## Unreleased
 
 ### New
-- **Stage map:** the right side panel now shows a map of the whole area, with a bright box over the part on screen
-  that moves up as the area scrolls; the rest of the map is slightly darker, with the mid-boss and the boss marked.
-  The maps are made from your own ROM set the first time the game starts (about 10 seconds, "BUILDING STAGE MAPS"),
-  and kept in `donpachi_maps.dat` beside the program. STAGE MAP in Settings > Graphics switches back to the score
-  graph.
 - **Achievements:** 23 goals, from area clears and one-credit clears to no-miss and no-bomb areas, all 13 bees, long
   chains, big scores, max rank and more. An "ACHIEVEMENT UNLOCKED" pop-up with a trophy appears on the right side
   panel (never over the game), with "+N MORE" when several are earned at once. An ACHIEVEMENTS page on the main menu

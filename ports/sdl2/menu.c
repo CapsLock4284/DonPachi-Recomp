@@ -904,9 +904,16 @@ const uint32_t *menu_with_notice(const uint32_t *picture)
 	return out;
 }
 
+/* a line centred to the pixel (an odd number of letters half a letter off the columns) */
+static void put_centre_y(uint32_t *out, int y, const char *text, uint32_t colour)
+{
+	for (int x = (PICTURE_W - (int)strlen(text) * 8) / 2; *text; text++, x += 8)
+		put_glyph(out, x, y, *text, colour, 1);
+}
+
 static void put_centre(uint32_t *out, int row, const char *text, uint32_t colour)
 {
-	put_text(out, (COLUMNS - (int)strlen(text)) / 2, row, text, colour);
+	put_centre_y(out, row * 8, text, colour);
 }
 
 static void fill(uint32_t *out, int x0, int y0, int x1, int y1, uint32_t colour)
@@ -1097,14 +1104,14 @@ static void draw_front(uint32_t *out)
 	{
 		const bool chosen = index == selected;
 		const char *const label = item_label(items[index]);
-		const int column = (COLUMNS - (int)strlen(label)) / 2, y = 146 + index * 22;
+		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 146 + index * 22;
 
 		if (chosen)
 		{
-			put_char_y(out, column - 2, y, '>', GOLD);
-			put_char_y(out, column + (int)strlen(label) + 1, y, '<', GOLD);
+			put_glyph(out, x - 16, y, '>', GOLD, 1);
+			put_glyph(out, x + ((int)strlen(label) + 1) * 8, y, '<', GOLD, 1);
 		}
-		put_text_y(out, column, y, label, chosen ? GOLD : WHITE);
+		put_centre_y(out, y, label, chosen ? GOLD : WHITE);
 	}
 	if (front_message > 0)
 	{

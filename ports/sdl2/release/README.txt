@@ -61,7 +61,11 @@ DonPachi, which isn't included here. To add it:
   1. Download MAME's cheat collection, cheat.7z (from Pugsy's Cheats,
      https://www.mamecheat.co.uk).
   2. Open it with 7-Zip and take out donpachi.xml.
-  3. Make a folder called "cheats" beside donpachi.exe and put donpachi.xml in it.
+  3. Make a folder called "cheats" beside donpachi.exe and put donpachi.xml in it,
+     so you have:   cheats\donpachi.xml   in the same folder as donpachi.exe.
+     (The game looks there when started by double-clicking donpachi.exe. Started
+     from a shortcut, it looks in the shortcut's "Start in" folder instead; or set
+     the full path as "cheats =" under [files] in donpachi.ini.)
 High scores aren't saved while a cheat is on.
 
 

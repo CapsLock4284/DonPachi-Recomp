@@ -31,6 +31,10 @@ The game reads its graphics, sound and data from it.
 3. On the first run a window asks for the ROM set: drag `donpachi.zip` onto it. The game extracts what it needs once
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
+**Cheats (optional):** the Cheats page (Settings > Game Options > Cheats) uses MAME's cheat file for DonPachi, which
+isn't included. Take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and
+put it in a `cheats` folder beside `donpachi.exe`, as `cheats\donpachi.xml`.
+
 The release's `README.txt` has the controls, hotkeys and the list of files the game keeps. What's new in each
 version: [CHANGELOG.md](CHANGELOG.md).
 

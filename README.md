@@ -31,7 +31,8 @@ The game reads its graphics, sound and data from it.
 3. On the first run a window asks for the ROM set: drag `donpachi.zip` onto it. The game extracts what it needs once
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
-The release's `README.txt` has the controls, hotkeys and the list of files the game keeps.
+The release's `README.txt` has the controls, hotkeys and the list of files the game keeps. What's new in each
+version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 

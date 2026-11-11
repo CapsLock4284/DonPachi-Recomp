@@ -49,6 +49,7 @@ $files = [ordered]@{
     "build\bin\donpachi.exe"              = "donpachi.exe"
     "build\bin\SDL2.dll"                  = "SDL2.dll"
     "ports\sdl2\release\README.txt"       = "README.txt"
+    "CHANGELOG.md"                        = "CHANGES.txt"
     "ports\sdl2\release\NOTICES.txt"      = "licenses\NOTICES.txt"
     "runtime\LICENSE.tmnt-runtime"        = "licenses\tmntarcade-runtime.txt"
 }
@@ -57,6 +58,11 @@ else { throw "No SDL2 LICENSE.txt in build\downloads\sdl2 (the SDL2 development 
 
 foreach ($from in $files.Keys) {
     if (-not (Test-Path $from -PathType Leaf)) { throw "Missing: $from (build the Release first?)" }
+}
+
+# the changelog has this version's section (the "Unreleased" one renamed to it, as the release is made)
+if ((Get-Content "CHANGELOG.md" -Raw) -notmatch "(?m)^## v$([regex]::Escape($Version))\b") {
+    throw "CHANGELOG.md has no '## v$Version' section: rename its '## Unreleased' to '## v$Version (date)' first"
 }
 
 # the .exe newer than the program's sources: a build made after the last change
@@ -74,7 +80,7 @@ foreach ($from in $files.Keys) {
     Copy-Item $from (Join-Path $out $files[$from])
 }
 # the text files with Windows' line ends (for Notepad), the version in the README
-foreach ($text in "README.txt", "licenses\NOTICES.txt") {
+foreach ($text in "README.txt", "CHANGES.txt", "licenses\NOTICES.txt") {
     $path = Join-Path $out $text
     $content = (Get-Content $path -Raw).Replace("`r`n", "`n").Replace("`n", "`r`n").Replace("{VERSION}", $Version)
     Set-Content $path $content -NoNewline -Encoding ASCII

@@ -59,6 +59,7 @@
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
+#include "achievements.h"
 #include "hiscore.h"
 #include "rom_drop.h"
 #include "hitbox.h"
@@ -887,6 +888,14 @@ int main(int argc, char **argv)
 	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
 	if ((problem = hiscore_open(NULL)) != NULL)
 		fprintf(stderr, "donpachi.hiscore: %s\n", problem);
+	{
+		char path[1024];
+		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
+
+		snprintf(path, sizeof(path), "%sdonpachi.achievements", base ? base : "");
+		SDL_free(base);
+		achievements_load(path);
+	}
 	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
 	for (int cheat = 0; cheat < cheat_count; cheat++)
 		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
@@ -1051,6 +1060,16 @@ int main(int argc, char **argv)
 				{
 					state_loaded = false;
 					hiscore_state_loaded();    /* (the table as the file has it: none of that game's scores) */
+				}
+				/* achievements: the arcade game only (not training, cheats or save states) */
+				achievements_frame(!state_loaded && !training_active && !cheats_any_on());
+				/* (shown on the side panel, never over the game: without the panels, only on the achievements page) */
+				if (!widgets_toast_busy())
+				{
+					const char *const earned = achievements_next_shown();
+
+					if (earned && options.panels)
+						widgets_toast(earned, achievements_waiting());
 				}
 			}
 		}

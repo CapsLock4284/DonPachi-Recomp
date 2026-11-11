@@ -360,12 +360,13 @@ static void graph_point(void)
 #define TOAST_FRAMES 230    /* 4 seconds */
 
 static char toast_name[32];
-static int toast_frames;
+static int toast_frames, toast_more;
 
-void widgets_toast(const char *name)
+void widgets_toast(const char *name, int more)
 {
 	snprintf(toast_name, sizeof(toast_name), "%s", name);
 	toast_frames = TOAST_FRAMES;
+	toast_more = more;
 }
 
 bool widgets_toast_busy(void)
@@ -375,7 +376,7 @@ bool widgets_toast_busy(void)
 
 static void draw_toast(panel *p)
 {
-	const int top = 18, bottom = 92;
+	const int top = 18, bottom = 102;
 	/* the frame flashes for its first half second */
 	const uint32_t rim = TOAST_FRAMES - toast_frames < 30 && (TOAST_FRAMES - toast_frames) / 5 % 2 ? WHITE : GOLD;
 	char first[32], second[32] = "";
@@ -420,6 +421,13 @@ static void draw_toast(panel *p)
 	put_centre(p, top + (second[0] ? 49 : 54), first, WHITE, 1);
 	if (second[0])
 		put_centre(p, top + 59, second, WHITE, 1);
+	if (toast_more > 0)
+	{
+		char more[16];
+
+		snprintf(more, sizeof(more), "+%d MORE", toast_more);
+		put_centre(p, top + 72, more, GREY, 1);
+	}
 }
 
 void widgets_frame(void)

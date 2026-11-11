@@ -340,6 +340,11 @@ const char *achievements_next_shown(void)
 	return list[showing].name;
 }
 
+int achievements_waiting(void)
+{
+	return queued;
+}
+
 int achievements_count(void)
 {
 	return ACHIEVEMENTS;

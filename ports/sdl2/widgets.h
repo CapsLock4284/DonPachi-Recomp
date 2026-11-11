@@ -60,4 +60,9 @@ void widgets_state_load(const void *state);
 /* Both panels, WIDGET_W x WIDGET_H each, upright as the player sees them */
 void widgets_draw(uint32_t *left, uint32_t *right);
 
+/* An achievement earned (achievements.h): "ACHIEVEMENT UNLOCKED" and its name over the right panel's top (never over
+   the game) for 4 seconds of play; busy while one is shown, so the next waits */
+void widgets_toast(const char *name, int more);    /* ('more': waiting after it, shown as "+2 MORE") */
+bool widgets_toast_busy(void);
+
 #endif

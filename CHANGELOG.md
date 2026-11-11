@@ -16,10 +16,13 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Training: MID-BOSS start** for every area. The training run fights its way through the area at full power and
   hands over at the calm spot just before the mid-boss, with the enemy bullets cleared and score 0.
 - **Replays:** every arcade game is recorded as you play. When it ends (or when you leave it for the main menu) you
-  are asked "DO YOU WANT TO SAVE THE REPLAY?"; saved ones go in a `replays` folder beside the program. Watch them from the new REPLAYS page on the main menu, which lists each with
-  its date, the area reached and the score. A replay is a small file you can share; it plays the game back exactly
-  from the same inputs, and says so if it goes out of step. Games with training, cheats or a loaded save state are
-  not recorded.
+  are asked "DO YOU WANT TO SAVE THE REPLAY?"; saved ones go in a `replays` folder beside the program. Watch them
+  from the new REPLAYS page on the main menu, which lists each with its date (or its name), the area reached and the
+  score; choose one to WATCH, RENAME (type a name, or pick letters with the gamepad) or DELETE it. While watching:
+  Space (or A) pauses, Right (or the d-pad's right) steps a frame at a time, fast forward works as in a game. A
+  replay is a small file you can share; it plays the game back exactly from the same inputs, and says so if it goes
+  out of step. Training runs too: SAVE REPLAY in the pause menu keeps the attempt (or the one before, just after a
+  miss), and clearing the area asks as a game's end does. Games with cheats or a loaded save state are not recorded.
 - **Mid-boss health bar:** the side panel's stage progress bar shows each area's mid-boss's health (orange) while it
   is on screen, then DEFEATED or ESCAPED.
 - **Lifetime statistics:** a STATISTICS page on the main menu and in Game Options: games played, credits, play time,
@@ -48,6 +51,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - The two hint lines at the bottom of the menus no longer overlap.
 
 ### Behind the scenes
+- A reset before the program's first frame (as training does when it is the first thing chosen after starting the
+  program) no longer delays the game by a frame: training's way to a place now comes out exactly the same every
+  time, which training replays need.
 - Release script: the zip now uses `/` in its paths (readable by Mac and Linux unzip tools); the version comes from
   `CMakeLists.txt`, the same one the game shows; achievement files are refused like other personal files; this
   changelog is included as `CHANGES.txt`.

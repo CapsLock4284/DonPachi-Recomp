@@ -698,6 +698,8 @@ static bool state_loaded;          /* this game went back to a save state, or ha
                                       (hiscore.h) */
 
 static void state_put_back(const program_state *state, const void *panels);
+static bool save_state_is_place;   /* the save state is the training's place (F5 not used since): a retry from it is
+                                      a replay's start again */
 
 static void state_action(bool save)
 {
@@ -717,6 +719,7 @@ static void state_action(bool save)
 		free(save_state_panels);
 		save_state = state;
 		save_state_panels = panels;
+		save_state_is_place = false;
 		menu_notice("STATE SAVED");
 		return;
 	}
@@ -799,6 +802,8 @@ static bool menu_training(void)
 	free(training_place_panels);
 	training_place = program_state_save();
 	training_place_panels = widgets_state_save();
+	save_state_is_place = true;
+	replay_begin_training(&setup);    /* (each attempt from the place recorded, to keep as a replay) */
 	training_active = true;
 	ship_was_alive = true;
 	retry_in = 0;
@@ -822,9 +827,16 @@ static void menu_retry_training(void)
 	if (!training_active || !training_place)
 		return;
 	state_put_back(training_place, training_place_panels);
+	replay_training_retry();
 	retry_in = 0;
 	ship_was_alive = true;
 	menu_notice("RETRY");
+}
+
+/* The options' SAVE REPLAY in a training game */
+static void menu_save_training_replay(void)
+{
+	menu_notice(replay_save_training() ? "REPLAY SAVED" : "NO REPLAY TO SAVE");
 }
 
 /* After each frame of a training game: a miss (the ship down) goes back to the place a moment later; the area
@@ -838,8 +850,15 @@ static bool training_frame(void)
 		return false;
 	if (retry_in == 0 && (*(const uint16_t *)cave_work_ram_at(0x101A40u, 2) != training_stage || mode != 7u))
 	{
-		menu_main_menu();    /* (the game reset: the training page next) */
-		menu_open_training();
+		/* (the attempt's replay kept or not first, if it is one: then the training page) */
+		replay_hold_training();
+		if (replay_waiting())
+			menu_ask_save_replay(MENU_AFTER_TRAINING_PAGE);
+		else
+		{
+			menu_main_menu();    /* (the game reset: the training page next) */
+			menu_open_training();
+		}
 		return true;
 	}
 	if (!options.training_retry)
@@ -849,6 +868,8 @@ static bool training_frame(void)
 		if (--retry_in == 0)
 		{
 			state_action(false);
+			if (save_state_is_place)
+				replay_training_retry();    /* (from the place again: a new attempt) */
 			menu_notice("RETRY");
 			ship_was_alive = true;
 		}
@@ -861,6 +882,9 @@ static bool training_frame(void)
 }
 
 /* ---- replays (replay.h) ---- */
+
+static bool replay_paused;         /* playback paused: Space or A; Right or the d-pad's right a frame on */
+static bool replay_step;
 
 /* The main menu's REPLAYS: the replay played from its game's start (the frames before it run at once, unseen) */
 static bool menu_play_replay(const char *file)
@@ -877,14 +901,17 @@ static bool menu_play_replay(const char *file)
 	}
 	free_play_reset();
 	widgets_reset();
+	if (replay_playing_training())
+		widgets_begin_game();    /* (the panels on the game at once, as for training) */
 	state_loaded = true;    /* (no scores, achievements or statistics from it) */
 	training_active = false;
 	big_hit_set = false;
+	replay_paused = replay_step = false;
 	video_latch_sprites();
 	draw_picture();
 	if (audio)
 		audio_restart();
-	menu_notice("REPLAY");
+	menu_notice("REPLAY  (SPACE: PAUSE)");
 	return true;
 }
 
@@ -1081,6 +1108,7 @@ int main(int argc, char **argv)
 		menu.keep_replay = menu_keep_replay;
 		menu.replay_in_game = replay_in_game;
 		menu.hold_replay = replay_hold_unfinished;
+		menu.save_training_replay = menu_save_training_replay;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -1124,6 +1152,25 @@ int main(int argc, char **argv)
 			}
 			else if (menu_is_open())
 				menu_event(&event);
+			else if (replay_playing() && ((event.type == SDL_KEYDOWN && !event.key.repeat
+					&& event.key.keysym.sym == SDLK_SPACE)
+					|| (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_A)))
+			{
+				replay_paused = !replay_paused;    /* (a replay: pause, or on again) */
+				menu_notice(replay_paused ? "PAUSED  (RIGHT: A FRAME)" : "PLAYING");
+				if (!replay_paused && audio)
+					audio_restart();
+			}
+			else if (replay_playing() && ((event.type == SDL_KEYDOWN && (event.key.keysym.sym == SDLK_RIGHT
+					|| event.key.keysym.sym == SDLK_PERIOD))
+					|| (event.type == SDL_CONTROLLERBUTTONDOWN
+						&& event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)))
+			{
+				if (!replay_paused)
+					menu_notice("PAUSED  (RIGHT: A FRAME)");
+				replay_paused = true;    /* (a frame on, paused: key repeat steps on while it is held) */
+				replay_step = true;
+			}
 			else if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)
 				menu_open();
 			else if (event.type == SDL_KEYDOWN && !event.key.repeat)
@@ -1178,8 +1225,16 @@ int main(int argc, char **argv)
 			{
 				if (replay_playing())
 				{
-					if (!replay_frame(fast))
+					if (replay_paused && !replay_step)
+					{
+						audio_menu_frame();    /* (silence meanwhile) */
+						break;
+					}
+					replay_step = false;
+					if (!replay_frame(fast || replay_paused))
 						break;    /* (its end: the replays page is up) */
+					if (replay_paused)
+						break;    /* (one frame: stepped) */
 					continue;
 				}
 				read_keys();
@@ -1231,7 +1286,7 @@ int main(int argc, char **argv)
 				/* a game over: its replay kept or not, as the player says (the game paused meanwhile) */
 				if (replay_after_frame())
 				{
-					menu_ask_save_replay(false);
+					menu_ask_save_replay(MENU_AFTER_RESUME);
 					break;
 				}
 			}

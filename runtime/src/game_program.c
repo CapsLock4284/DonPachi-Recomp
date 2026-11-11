@@ -44,6 +44,7 @@ static uint32_t interrupts;
 static host_task *port_task, *game_task;
 static jmp_buf restart;            /* (run_program's start, on the game task's own stack: program_reset) */
 static bool reset_pending;
+static bool started;               /* the program has begun (its first frame run): before, a reset is nothing to do */
 
 /* The save states (program_state_save): where the program waits for its frame, on its stack. next_frame keeps the
    registers there (frame_registers) before it hands the frame to the port, and the stack from there up to
@@ -314,6 +315,7 @@ static void run_program(void)
 	volatile unsigned char here = 0;
 
 	stack_top = (uintptr_t)&here & ~(uintptr_t)15;
+	started = true;
 	if (setjmp(restart))
 		reset_board();
 	game_entry();
@@ -339,7 +341,11 @@ const char *program_start(void)
 
 void program_reset(void)
 {
-	reset_pending = true;
+	/* (before its first frame the program starts from its reset vector anyway: a reset then would cost the frame
+	   it waits in first, and the frames after it would fall one later than after a reset of a running program, so
+	   training's way to a place and a replay's start would not be the same from the power on) */
+	if (started)
+		reset_pending = true;
 }
 
 void program_run_frame(void)

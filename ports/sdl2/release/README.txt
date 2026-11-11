@@ -54,8 +54,10 @@ FEATURES
     clears, all 13 bees, long chains, scores and more. Earned in the arcade game
     only: not in training, or in a game with a cheat or a loaded save state
   - Replays (main menu > REPLAYS): every arcade game is recorded; when it ends
-    you're asked whether to save it (in the replays folder). Watch them from
-    the menu, or share the .dpreplay files
+    you're asked whether to save it (in the replays folder). In training,
+    SAVE REPLAY in the pause menu keeps the attempt. Watch, rename or delete
+    them from the menu, or share the .dpreplay files. While watching: Space
+    (gamepad A) pauses, Right (d-pad right) steps one frame
   - Lifetime statistics (main menu > STATISTICS): games, play time, clears,
     bosses, deaths, bombs, bees, best chain and scores, per ship and per area
     (arcade games only, as the achievements)

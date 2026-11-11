@@ -1,6 +1,7 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. */
+   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
+   chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
@@ -73,6 +74,17 @@ int main(void)
 	key(SDL_SCANCODE_DOWN);    /* REPLAYS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_replays.ppm");
+	key(SDL_SCANCODE_RETURN);    /* (the newest) */
+	shot("menu_replay.ppm");
+	key(SDL_SCANCODE_DOWN);    /* RENAME */
+	key(SDL_SCANCODE_RETURN);
+	key(SDL_SCANCODE_UP);
+	shot("menu_replay_rename.ppm");
+	key(SDL_SCANCODE_ESCAPE);
+	key(SDL_SCANCODE_DOWN);    /* DELETE */
+	key(SDL_SCANCODE_RETURN);
+	shot("menu_replay_delete.ppm");
+	key(SDL_SCANCODE_BACKSPACE);    /* (no) */
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* ACHIEVEMENTS */
 	key(SDL_SCANCODE_RETURN);

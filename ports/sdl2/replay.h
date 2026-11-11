@@ -13,10 +13,16 @@
  *    board every so often to tell a replay gone out of step. Recorded from each reset; a game in it (from its ship
  *    select to the attract mode) is saved as it ends if the player says yes, from the reset (playback runs the
  *    frames before it unseen).
- *    Not recorded: a run with training, a cheat or a loaded save state in it since the reset.
+ *    Training: each attempt is recorded from the place (the file carries the training's setup: playback makes the
+ *    place again, as the training does); the options' SAVE REPLAY keeps it (or, just after a miss, the attempt
+ *    before), and an area cleared asks as an arcade game's end does.
+ *    Not recorded: a run with a cheat or a loaded save state of the player's (F8) in it since the reset or the
+ *    training place.
  */
 #ifndef DONPACHI_REPLAY_H
 #define DONPACHI_REPLAY_H
+
+#include "training.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -53,11 +59,24 @@ void replay_hold_unfinished(void);
 bool replay_waiting(void);
 const char *replay_keep(bool keep);
 
+/* Training: an attempt begins at the place (the game just made there by the training); again from the place (its
+   save state put back: a retry); the attempt held for the question (the area cleared); the options' SAVE REPLAY:
+   this attempt so far, or the one before if this one has only just begun (the file's name, or NULL) */
+void replay_begin_training(const training_setup *setup);
+void replay_training_retry(void);
+void replay_hold_training(void);
+const char *replay_save_training(void);
+
 /* ---- the list ---- */
+
+#define REPLAY_NAME_MOST 16    /* the letters of a name given to a replay */
 
 typedef struct
 {
 	char file[256];             /* its name in the folder */
+	char name[REPLAY_NAME_MOST + 1];    /* the player's name for it ("" none) */
+	bool training;              /* from a training place */
+	char place[24];             /* that place ("AREA 3 MID-BOSS") */
 	char date[20];              /* "2026-11-11 15:20" */
 	uint32_t score;             /* player 1's best */
 	int area;                   /* the furthest area reached, 1-10 */
@@ -70,6 +89,11 @@ typedef struct
 /* The replays in the folder, newest first, at most 'most': how many */
 int replay_list(replay_info *out, int most);
 
+/* A replay's file given the player's name for it (letters, digits, spaces, dashes; "" none: its date only), or
+   deleted: false if that could not be done */
+bool replay_rename(const char *file, const char *name);
+bool replay_delete(const char *file);
+
 /* ---- playback ---- */
 
 /* The replay loaded and the board reset to its start (its EEPROM; the player's own kept to put back): NULL, or what
@@ -77,6 +101,7 @@ int replay_list(replay_info *out, int most);
 const char *replay_play(const char *file);
 
 bool replay_playing(void);
+bool replay_playing_training(void);    /* (one from a training place) */
 
 /* Before each frame of playback: the frame's inputs set on the board; its flags. False: the replay is over */
 bool replay_next(unsigned *flags);

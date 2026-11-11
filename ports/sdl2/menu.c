@@ -52,7 +52,7 @@
 #define STICK_DEAD   16000
 
 enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS,
-	PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY };
+	PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -82,6 +82,9 @@ enum
 	ITEM_REPLAYS,                 /* the main menu's replays page */
 	ITEM_STOP_REPLAY,             /* a replay playing: back to the replays page */
 	ITEM_YES, ITEM_NO,            /* the question as a game ends: save its replay? */
+	ITEM_SAVE_REPLAY,             /* a training game's: the attempt kept as a replay */
+	ITEM_WATCH, ITEM_RENAME, ITEM_DELETE,    /* a replay chosen on the replays page */
+	ITEM_DELETE_YES, ITEM_DELETE_NO,
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -122,7 +125,11 @@ static int stats_from = PAGE_FRONT;           /* the page the statistics page wa
 #define REPLAYS_LISTED 100
 static replay_info replays[REPLAYS_LISTED];    /* the replays page's list, as it was opened */
 static int replay_count;
-static bool main_menu_after_question;    /* the replay question came from MAIN MENU: the main menu after it */
+static int after_question = MENU_AFTER_RESUME;    /* what follows the replay question */
+static int replay_chosen;                 /* the replays page's: the one chosen (replays[]) */
+static char new_name[REPLAY_NAME_MOST + 1];    /* RENAME's name being written, and where in it */
+static int name_at;
+static unsigned blink;                    /* menu_tick's count: RENAME's cursor blinks with it */
 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
@@ -166,7 +173,8 @@ static void build_items(void)
 
 		/* (a training game's: its place again and its page at the top, no RESET or save states: the training
 		   is its own save state, F5 / F8 still there) */
-		static const int training_game_items[] = { ITEM_RESUME, ITEM_RETRY_TRAINING, ITEM_TRAINING_MENU, ITEM_TIMING,
+		static const int training_game_items[] = { ITEM_RESUME, ITEM_RETRY_TRAINING, ITEM_SAVE_REPLAY, ITEM_TRAINING_MENU,
+			ITEM_TIMING,
 			ITEM_HITBOX, ITEM_VOLUME, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_MAIN_MENU, ITEM_QUIT };
 
 		if (front)
@@ -221,6 +229,18 @@ static void build_items(void)
 	{
 		items[item_count++] = ITEM_YES;
 		items[item_count++] = ITEM_NO;
+	}
+	else if (page == PAGE_REPLAY_MENU)
+	{
+		items[item_count++] = ITEM_WATCH;
+		items[item_count++] = ITEM_RENAME;
+		items[item_count++] = ITEM_DELETE;
+		items[item_count++] = ITEM_BACK;
+	}
+	else if (page == PAGE_DELETE)
+	{
+		items[item_count++] = ITEM_DELETE_NO;
+		items[item_count++] = ITEM_DELETE_YES;
 	}
 	else if (page == PAGE_REPLAYS)
 	{
@@ -482,6 +502,15 @@ static void change(int item, int step, bool wrap)
 	save();
 }
 
+/* the replays page again, its list read again, on the replay 'at' (-1: the first) */
+static void replays_page(int at)
+{
+	replay_count = replay_list(replays, REPLAYS_LISTED);
+	page = PAGE_REPLAYS;
+	build_items();
+	selected = at >= 0 && at < item_count ? at : 0;
+}
+
 static void choose(int item)
 {
 	switch (item)
@@ -521,13 +550,47 @@ static void choose(int item)
 	case ITEM_YES:
 	case ITEM_NO:
 		host.keep_replay(item == ITEM_YES);
-		if (main_menu_after_question)
+		if (after_question == MENU_AFTER_MAIN_MENU)
 		{
 			host.main_menu();
 			menu_open_front();
 		}
+		else if (after_question == MENU_AFTER_TRAINING_PAGE)
+		{
+			host.main_menu();
+			menu_open_training();
+		}
 		else
 			close_menu();
+		break;
+	case ITEM_SAVE_REPLAY:
+		host.save_training_replay();
+		close_menu();
+		break;
+	case ITEM_WATCH:
+		if (host.play_replay(replays[replay_chosen].file))
+		{
+			front = false;
+			close_menu();
+		}
+		break;
+	case ITEM_RENAME:
+		snprintf(new_name, sizeof(new_name), "%s", replays[replay_chosen].name);
+		name_at = (int)strlen(new_name);
+		page = PAGE_RENAME;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_DELETE:
+		page = PAGE_DELETE;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_DELETE_YES:
+	case ITEM_DELETE_NO:
+		if (item == ITEM_DELETE_YES)
+			menu_notice(replay_delete(replays[replay_chosen].file) ? "REPLAY DELETED" : "COULD NOT DELETE IT");
+		replays_page(item == ITEM_DELETE_YES ? -1 : replay_chosen);
 		break;
 	case ITEM_TRAINING_MENU:
 		host.main_menu();
@@ -616,6 +679,11 @@ static void choose(int item)
 		break;
 	}
 	case ITEM_BACK:
+		if (page == PAGE_REPLAY_MENU)
+		{
+			replays_page(replay_chosen);
+			break;
+		}
 		if (page == PAGE_REPLAYS)
 		{
 			page = PAGE_FRONT;
@@ -665,11 +733,10 @@ static void choose(int item)
 			break;    /* (a line to read) */
 		if (is_replay(item))
 		{
-			if (host.play_replay(replays[item - ITEM_REPLAY].file))
-			{
-				front = false;
-				close_menu();
-			}
+			replay_chosen = item - ITEM_REPLAY;
+			page = PAGE_REPLAY_MENU;
+			selected = 0;
+			build_items();
 			break;
 		}
 		if (is_action(item) || is_hotkey_item(item))
@@ -683,9 +750,106 @@ static void choose(int item)
 	}
 }
 
+/* RENAME: the letters a name can have (up and down go through them) */
+static const char name_letters[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
+
+static void name_insert(char letter)
+{
+	const int length = (int)strlen(new_name);
+
+	if (length >= REPLAY_NAME_MOST || !strchr(name_letters, letter) || !letter)
+		return;
+	memmove(new_name + name_at + 1, new_name + name_at, (size_t)(length - name_at + 1));
+	new_name[name_at++] = letter;
+}
+
+static void name_delete(void)
+{
+	if (name_at == 0)
+		return;
+	memmove(new_name + name_at - 1, new_name + name_at, strlen(new_name) - (size_t)name_at + 1u);
+	name_at--;
+}
+
+static void name_done(bool keep)
+{
+	if (keep)
+		menu_notice(replay_rename(replays[replay_chosen].file, new_name) ? "REPLAY RENAMED" : "COULD NOT RENAME IT");
+	if (keep)
+		replays_page(replay_chosen);
+	else
+	{
+		page = PAGE_REPLAY_MENU;
+		build_items();
+		selected = 1;    /* (on RENAME) */
+	}
+}
+
+static void rename_navigate(int nav)
+{
+	const int length = (int)strlen(new_name);
+
+	switch (nav)
+	{
+	case NAV_UP:
+	case NAV_DOWN:
+	{
+		/* the letter at the cursor, one on (a new one at the end) */
+		const char *const at = name_at < length ? strchr(name_letters, new_name[name_at]) : NULL;
+		const int count = (int)sizeof(name_letters) - 1, index = at ? (int)(at - name_letters) : 0;
+
+		if (name_at >= length)
+		{
+			if (length >= REPLAY_NAME_MOST)
+				break;
+			new_name[length] = 'A';
+			new_name[length + 1] = '\0';
+			break;
+		}
+		new_name[name_at] = name_letters[(index + (nav == NAV_UP ? 1 : count - 1)) % count];
+		break;
+	}
+	case NAV_LEFT:
+		if (name_at > 0)
+			name_at--;
+		break;
+	case NAV_RIGHT:
+		if (name_at < length && name_at < REPLAY_NAME_MOST - 1)
+			name_at++;
+		break;
+	case NAV_CHOOSE:
+		name_done(true);
+		break;
+	case NAV_BACK:
+	case NAV_CLOSE:
+		name_done(false);
+		break;
+	}
+	ui_sound_play(nav == NAV_CHOOSE ? UI_SOUND_CHOOSE : nav == NAV_BACK || nav == NAV_CLOSE ? UI_SOUND_BACK
+		: UI_SOUND_MOVE);
+}
+
 static void navigate(int nav)
 {
 	const int item = items[selected];
+
+	if (page == PAGE_RENAME)
+	{
+		rename_navigate(nav);
+		return;
+	}
+	if (page == PAGE_DELETE && (nav == NAV_BACK || nav == NAV_CLOSE))
+	{
+		ui_sound_play(UI_SOUND_BACK);
+		choose(ITEM_DELETE_NO);
+		return;
+	}
+	if (page == PAGE_REPLAY_MENU && nav == NAV_CLOSE)
+	{
+		ui_sound_play(UI_SOUND_BACK);
+		choose(ITEM_BACK);
+		return;
+	}
 
 	switch (nav)
 	{
@@ -820,7 +984,7 @@ void menu_open_front(void)
 		;
 }
 
-void menu_ask_save_replay(bool then_main_menu)
+void menu_ask_save_replay(int after)
 {
 	open = true;
 	front = false;
@@ -828,7 +992,7 @@ void menu_ask_save_replay(bool then_main_menu)
 	selected = 0;
 	capture = -1;
 	held_direction = NAV_NONE;
-	main_menu_after_question = then_main_menu;
+	after_question = after;
 	build_items();
 }
 
@@ -880,6 +1044,41 @@ bool menu_event(const SDL_Event *event)
 		return false;
 	if (capture >= 0)
 		return capture_event(event);
+	if (page == PAGE_RENAME)
+	{
+		/* typed: letters and digits (the text input), Backspace, Enter, Escape, the arrows; a gamepad's X deletes */
+		if (event->type == SDL_TEXTINPUT)
+		{
+			for (const char *c = event->text.text; *c; c++)
+				name_insert((char)toupper((unsigned char)*c));
+			return true;
+		}
+		if (event->type == SDL_KEYDOWN)
+		{
+			const SDL_Scancode key = event->key.keysym.scancode;
+
+			if (key == SDL_SCANCODE_BACKSPACE || key == SDL_SCANCODE_DELETE)
+				name_delete();
+			else if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_KP_ENTER)
+				rename_navigate(NAV_CHOOSE);
+			else if (key == SDL_SCANCODE_ESCAPE)
+				rename_navigate(NAV_CLOSE);
+			else if (key == SDL_SCANCODE_LEFT)
+				rename_navigate(NAV_LEFT);
+			else if (key == SDL_SCANCODE_RIGHT)
+				rename_navigate(NAV_RIGHT);
+			else if (key == SDL_SCANCODE_UP)
+				rename_navigate(NAV_UP);
+			else if (key == SDL_SCANCODE_DOWN)
+				rename_navigate(NAV_DOWN);
+			return true;
+		}
+		if (event->type == SDL_CONTROLLERBUTTONDOWN && event->cbutton.button == SDL_CONTROLLER_BUTTON_X)
+		{
+			name_delete();
+			return true;
+		}
+	}
 	if (event->type == SDL_KEYDOWN)
 	{
 		const SDL_Scancode key = event->key.keysym.scancode;
@@ -949,6 +1148,7 @@ void menu_tick(void)
 
 	if (!open)
 		return;
+	blink++;
 	if (capture >= 0)
 	{
 		if (--capture_frames <= 0)
@@ -1086,7 +1286,8 @@ static const char *item_label(int item)
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
-		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO"
+		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO"
 	};
 
 	if (is_hotkey_item(item))
@@ -1393,9 +1594,38 @@ static void draw_stats(uint32_t *out)
    the chosen one's ship, difficulty, length and end */
 #define REPLAY_ROWS 14
 
-static void draw_replays(uint32_t *out)
+/* a replay's ship, difficulty and length, and its end (or its training place) */
+static void replay_details(uint32_t *out, const replay_info *r, int y)
 {
 	static const char *const difficulties[4] = { "NORMAL", "EASY", "HARD", "V.HARD" };
+	const unsigned long seconds = (unsigned long)((double)r->frames * 17376.0 / 1000000.0);
+	char line[48];
+
+	snprintf(line, sizeof(line), "TYPE %c  %s  %lu:%02lu", 'A' + (r->ship % 3), difficulties[r->difficulty & 3],
+		seconds / 60u, seconds % 60u);
+	put_centre_y(out, y, line, CYAN);
+	if (r->training)
+		snprintf(line, sizeof(line), "TRAINING: %s", r->place);
+	else
+		snprintf(line, sizeof(line), "%s", r->finished ? "TO THE GAME'S END" : "STOPPED PART WAY");
+	put_centre_y(out, y + 12, line, GREY);
+}
+
+/* the page's entries from 'y', 12 apart, the chosen one marked */
+static void draw_item_rows(uint32_t *out, int y)
+{
+	for (int index = 0; index < item_count; index++, y += 12)
+	{
+		const bool chosen = index == selected;
+
+		if (chosen)
+			put_char_y(out, PANEL_LEFT + 1, y, '>', GOLD);
+		put_text_y(out, PANEL_LEFT + 3, y, item_label(items[index]), chosen ? GOLD : WHITE);
+	}
+}
+
+static void draw_replays(uint32_t *out)
+{
 	const int first = item_count <= REPLAY_ROWS || selected < REPLAY_ROWS / 2 ? 0
 		: selected > item_count - REPLAY_ROWS / 2 ? item_count - REPLAY_ROWS : selected - REPLAY_ROWS / 2;
 	char line[48];
@@ -1423,26 +1653,63 @@ static void draw_replays(uint32_t *out)
 		{
 			const replay_info *const r = &replays[item - ITEM_REPLAY];
 
-			/* "11-11 15:20  A3" ... the score */
-			snprintf(line, sizeof(line), "%.5s %.5s A%d", r->date + 5, r->date + 11, r->area);
+			/* "11-11 15:20 A3" (or its name, T3 from training) ... the score */
+			if (r->name[0])
+				snprintf(line, sizeof(line), "%-11.11s %c%d", r->name, r->training ? 'T' : 'A', r->area);
+			else
+				snprintf(line, sizeof(line), "%.5s %.5s %c%d", r->date + 5, r->date + 11, r->training ? 'T' : 'A',
+					r->area);
 			put_text_y(out, PANEL_LEFT + 3, y, line, chosen ? GOLD : WHITE);
 			snprintf(line, sizeof(line), "%u", r->score);
 			put_right_y(out, PANEL_RIGHT, y, line, chosen ? GOLD : CYAN);
 		}
 	}
 	if (selected < item_count && is_replay(items[selected]))
-	{
-		const replay_info *const r = &replays[items[selected] - ITEM_REPLAY];
-		const unsigned long seconds = (unsigned long)((double)r->frames * 17376.0 / 1000000.0);
-		const int y = (PANEL_TOP + 4) * 8 + REPLAY_ROWS * 12 + 6;
+		replay_details(out, &replays[items[selected] - ITEM_REPLAY], (PANEL_TOP + 4) * 8 + REPLAY_ROWS * 12 + 6);
+	put_hints(out, "A: CHOOSE", "B: BACK");
+}
 
-		snprintf(line, sizeof(line), "TYPE %c  %s  %lu:%02lu", 'A' + (r->ship % 3), difficulties[r->difficulty & 3],
-			seconds / 60u, seconds % 60u);
-		put_centre_y(out, y, line, CYAN);
-		snprintf(line, sizeof(line), "%s", r->finished ? "TO THE GAME'S END" : "STOPPED PART WAY");
-		put_centre_y(out, y + 12, line, GREY);
+/* A replay chosen: what it is, then WATCH, RENAME, DELETE, BACK; RENAME's name being written; DELETE's question */
+static void draw_replay_pages(uint32_t *out)
+{
+	const replay_info *const r = &replays[replay_chosen];
+	char line[48];
+	int y = (PANEL_TOP + 3) * 8;
+
+	put_centre(out, PANEL_TOP + 1, page == PAGE_RENAME ? "RENAME REPLAY" : page == PAGE_DELETE ? "DELETE REPLAY"
+		: "REPLAY", GOLD);
+	put_centre_y(out, y, r->date, WHITE);
+	if (r->name[0])
+		put_centre_y(out, y += 12, r->name, GOLD);
+	snprintf(line, sizeof(line), "SCORE %u", r->score);
+	put_centre_y(out, y += 12, line, CYAN);
+	replay_details(out, r, y += 12);
+	y += 36;
+	if (page == PAGE_RENAME)
+	{
+		/* the name in a box, the cursor under its letter */
+		const int width = REPLAY_NAME_MOST * 8, left = (PICTURE_W - width) / 2;
+
+		put_centre_y(out, y, "ITS NAME", GREY);
+		y += 14;
+		fill(out, left - 4, y - 4, left + width + 4, y + 12, 0x2A2A44u);
+		fill(out, left - 3, y - 3, left + width + 3, y + 11, 0x0C0C1Cu);
+		for (int at = 0; new_name[at]; at++)
+			put_glyph(out, left + at * 8, y, new_name[at], WHITE, 1);
+		if ((blink / 16) % 2 == 0)
+			fill(out, left + name_at * 8, y + 9, left + name_at * 8 + 7, y + 10, GOLD);
+		put_centre_y(out, y + 22, "UP / DOWN: A LETTER", GREY);
+		put_centre_y(out, y + 33, "OR TYPE IT", GREY);
+		put_hints(out, "A/ENTER: OK  X/BKSP: DEL", "B/ESC: CANCEL");
+		return;
 	}
-	put_hints(out, "A: WATCH", "B: BACK");
+	if (page == PAGE_DELETE)
+	{
+		put_centre_y(out, y, "DELETE THIS REPLAY?", RED);
+		put_centre_y(out, y + 12, "(ITS FILE IS REMOVED)", GREY);
+	}
+	draw_item_rows(out, y + (page == PAGE_DELETE ? 30 : 6));
+	put_hints(out, "A: CHOOSE", "B: BACK");
 }
 
 void menu_draw(const uint32_t *game, uint32_t *out)
@@ -1495,6 +1762,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_REPLAYS)
 	{
 		draw_replays(out);
+		return;
+	}
+	else if (page == PAGE_REPLAY_MENU || page == PAGE_RENAME || page == PAGE_DELETE)
+	{
+		draw_replay_pages(out);
 		return;
 	}
 	else if (page == PAGE_SAVE_REPLAY)

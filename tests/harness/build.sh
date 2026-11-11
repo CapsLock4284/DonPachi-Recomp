@@ -21,7 +21,7 @@ for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done
 
-for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check}; do
+for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check training_replay_check}; do
 	echo "link $tool"
 	gcc $CFLAGS "$HERE/$tool.c" "$OBJ"/*.o $SDL_LIB -lm -o "$OUT/$tool"
 done

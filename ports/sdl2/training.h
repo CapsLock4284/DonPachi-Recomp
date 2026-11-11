@@ -28,11 +28,15 @@ typedef struct
 	int ship;                   /* 0-2: types A, B, C */
 	bool max_power;
 	bool max_bombs;             /* 7 slots, all full (the game's most: 3 to start, one more each 3 bombs used) */
+	int difficulty;             /* the test mode's: 0 normal, 1 easy, 2 hard, 3 very hard (for this game only) */
 } training_setup;
 
 /* The game run to the place: NULL (the game is there, between frames: the port saves its state), or what went
    wrong. The game is reset first */
 const char *training_prepare(const training_setup *setup);
+
+/* The difficulty's name ("VERY HARD"), for the EEPROM's value 0-3 */
+const char *training_difficulty_name(int difficulty);
 
 /* The HUD's player 1 score and HIGH drawn again from their values (the game draws them as they change: the port
    that changes them, as the high score table is put back, calls this) */

@@ -142,7 +142,31 @@ static int area_now(void)
 	return stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
 }
 
+static const char *run_to_place(const training_setup *setup);
+
+const char *training_difficulty_name(int difficulty)
+{
+	static const char *const names[4] = { "NORMAL", "EASY", "HARD", "VERY HARD" };
+
+	return names[difficulty & 3];
+}
+
+/* The difficulty is the test mode's, in the EEPROM (word 4, bits 8-9): the game reads it as it boots, into
+   $101288 (the rank's base and the bullets from it). The training game boots with the training's, then the
+   EEPROM has the player's own back at once: the file never gets the training's, nor does the save state made at
+   the place (the game keeps what it read) */
 const char *training_prepare(const training_setup *setup)
+{
+	const uint16_t own = cave_board.eeprom.words[4];
+	const char *problem;
+
+	cave_board.eeprom.words[4] = (uint16_t)((own & ~0x0300u) | (unsigned)(setup->difficulty & 3) << 8);
+	problem = run_to_place(setup);
+	cave_board.eeprom.words[4] = own;
+	return problem;
+}
+
+static const char *run_to_place(const training_setup *setup)
 {
 	const unsigned stage = (unsigned)(setup->area % 5), loop = (unsigned)(setup->area / 5);
 	const int point = setup->point == TRAINING_TRUE_BOSS && setup->area != 9 ? TRAINING_BOSS : setup->point;

@@ -73,6 +73,8 @@ typedef struct
 	bool training_max_bombs;
 	bool training_retry;        /* a miss goes back to the place at once */
 	bool training_hitbox;       /* the hitbox shown in a training game (whatever [game] hitbox is) */
+	int training_difficulty;    /* the training game's: 0 normal, 1 easy, 2 hard, 3 very hard (the game options' is
+	                               put back after) */
 	/* [window] */
 	int scale;
 	bool fullscreen;

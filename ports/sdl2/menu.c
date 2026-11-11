@@ -63,6 +63,7 @@ enum
 	ITEM_T_BOMBS, ITEM_TRAINING_MENU,   /* (and the options' way back to it, in a training game) */
 	ITEM_T_HITBOX,
 	ITEM_DIFFICULTY,              /* the game's difficulty: the test mode's, in the EEPROM */
+	ITEM_T_DIFFICULTY,            /* the training game's own */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -139,8 +140,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_TRAINING)
 	{
-		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_BOMBS,
-			ITEM_T_RETRY, ITEM_T_HITBOX, ITEM_T_START, ITEM_BACK };
+		static const int training_items[] = { ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_DIFFICULTY, ITEM_T_POWER,
+			ITEM_T_BOMBS, ITEM_T_RETRY, ITEM_T_HITBOX, ITEM_T_START, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(training_items) / sizeof(training_items[0]); index++)
 			items[item_count++] = training_items[index];
@@ -305,6 +306,17 @@ static void change(int item, int step, bool wrap)
 	case ITEM_T_HITBOX:
 		in_use->training_hitbox = file->training_hitbox = !in_use->training_hitbox;
 		break;
+	case ITEM_T_DIFFICULTY:
+	{
+		static const int order[4] = { 1, 0, 2, 3 };    /* easy, normal, hard, very hard */
+		int at = 0;
+
+		while (order[at] != (in_use->training_difficulty & 3))
+			at++;
+		at = wrap ? (at + 1) % 4 : SDL_clamp(at + step, 0, 3);
+		in_use->training_difficulty = file->training_difficulty = order[at];
+		break;
+	}
 	case ITEM_T_RETRY:
 		in_use->training_retry = file->training_retry = !in_use->training_retry;
 		break;
@@ -863,7 +875,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY"
 	};
 
 	if (is_hotkey_item(item))
@@ -942,6 +954,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_HITBOX:
 		snprintf(out, size, "%s", s->training_hitbox ? "ON" : "OFF");
+		break;
+	case ITEM_T_DIFFICULTY:
+		snprintf(out, size, "%s", training_difficulty_name(s->training_difficulty));
 		break;
 	case ITEM_DIFFICULTY:
 	{

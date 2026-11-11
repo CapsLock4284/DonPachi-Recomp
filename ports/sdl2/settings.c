@@ -83,6 +83,7 @@ void settings_defaults(settings *s)
 	s->training_max_bombs = false;
 	s->training_retry = true;
 	s->training_hitbox = true;
+	s->training_difficulty = 0;
 	s->scale = 3;
 	s->fullscreen = false;
 	s->exclusive = false;
@@ -351,6 +352,18 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->training_retry);
 		if (!SDL_strcasecmp(name, "hitbox"))
 			return parse_bool(value, &s->training_hitbox);
+		if (!SDL_strcasecmp(name, "difficulty"))
+		{
+			static const char *const names[4] = { "normal", "easy", "hard", "very_hard" };
+
+			for (int index = 0; index < 4; index++)
+				if (!SDL_strcasecmp(value, names[index]))
+				{
+					s->training_difficulty = index;
+					return true;
+				}
+			return false;
+		}
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "files"))
@@ -572,7 +585,10 @@ const char *settings_save(const settings *s, const char *path)
 		fprintf(file, "max_bombs = %s\n", bool_text(s->training_max_bombs));
 		fprintf(file, "retry_on_miss = %s\n", bool_text(s->training_retry));
 		fprintf(file, "; the ship's hitbox shown in a training game ([game] hitbox is the normal game's)\n");
-		fprintf(file, "hitbox = %s\n\n", bool_text(s->training_hitbox));
+		fprintf(file, "hitbox = %s\n", bool_text(s->training_hitbox));
+		fprintf(file, "; the training game's difficulty (easy, normal, hard, very_hard); the normal game keeps its own\n");
+		fprintf(file, "difficulty = %s\n\n",
+			(const char *const[]){ "normal", "easy", "hard", "very_hard" }[s->training_difficulty & 3]);
 	}
 
 	fputs("[files]\n", file);

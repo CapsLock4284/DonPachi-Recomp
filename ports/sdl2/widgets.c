@@ -10,6 +10,8 @@
  */
 #include "widgets.h"
 
+#include "stagemap.h"
+
 #include "cave/machine.h"
 #include "cave/rom_set.h"
 
@@ -920,6 +922,99 @@ static void draw_stage(panel *p, int top)
 	put_centre(p, top + 58, "STAGE PROGRESS", known ? GREY : DIM, 1);
 }
 
+/* ---- the stage's map (stagemap.h): the area from its start to its boss, small, the screen's part bright ----
+
+   The window shows the map around the screen (STAGEMAP_SCREEN rows), the screen two thirds of the way down it so more
+   of what is ahead shows; the rest of the map dimmed; the mid-boss's and the boss's places marked. The screen's place
+   follows the stage's scroll, eased a row a frame so it glides */
+
+#define MAP_TOP     18
+#define MAP_ROWS    230
+#define MAP_LEFT    ((WIDGET_W - STAGEMAP_WIDTH) / 2)
+
+/* the scroll each stage's mid-boss appears at (its object made: tests/harness/midboss_find) */
+static const int midboss_at[5] = { 500, 326, 264, 395, 342 };
+
+static struct
+{
+	int stage;
+	int shown_top;              /* the screen's top as shown: eased toward its place */
+} map_view = { -1, 0 };
+
+static uint32_t rgb565(uint16_t pixel, int percent)
+{
+	const uint32_t r = (uint32_t)(pixel >> 11) << 3, g = (uint32_t)(pixel >> 5 & 63u) << 2, b = (uint32_t)(pixel & 31u) << 3;
+
+	return (r * (uint32_t)percent / 100u) << 16 | (g * (uint32_t)percent / 100u) << 8 | b * (uint32_t)percent / 100u;
+}
+
+static void map_mark(panel *p, int window_top, int row, const char *text)
+{
+	const int y = MAP_TOP + row - window_top;
+
+	if (y < MAP_TOP || y >= MAP_TOP + MAP_ROWS - 8)
+		return;
+	box(p, MAP_LEFT, y, MAP_LEFT + STAGEMAP_WIDTH, y + 1, ORANGE);
+	box(p, MAP_LEFT, y + 1, MAP_LEFT + text_width(text, 1) + 3, y + 10, 0x101018u);
+	put_text(p, MAP_LEFT + 2, y + 2, text, ORANGE, 1);
+}
+
+static void draw_map(panel *p)
+{
+	const unsigned stage = word(STAGE), loop = word(LOOP);
+	const bool known = own_game && stage < 5u && loop < 2u;
+	const int height = known ? stagemap_height((int)stage) : 0;
+	const uint16_t *const pixels = known ? stagemap_pixels((int)stage) : NULL;
+	int target, window_top;
+
+	outline(p, MAP_LEFT - 1, MAP_TOP - 1, MAP_LEFT + STAGEMAP_WIDTH + 1, MAP_TOP + MAP_ROWS + 1, FRAME);
+	if (!pixels || height <= 0)
+	{
+		put_centre(p, MAP_TOP + MAP_ROWS / 2 - 8, !stagemap_ready() ? "NO MAPS YET" : own_game ? "NO MAP" : "IN A GAME",
+			DIM, 1);
+		if (!stagemap_ready())
+			put_centre(p, MAP_TOP + MAP_ROWS / 2 + 4, "(NEXT START)", DIM, 1);
+		map_view.stage = -1;
+		return;
+	}
+	/* the screen's place, eased toward (a new area: at once) */
+	target = stagemap_screen_top((int)stage, (int16_t)word(SCROLL));
+	if (map_view.stage != (int)stage)
+	{
+		map_view.stage = (int)stage;
+		map_view.shown_top = target;
+	}
+	else if (map_view.shown_top < target)
+		map_view.shown_top += target - map_view.shown_top > 8 ? (target - map_view.shown_top) / 4 : 1;
+	else if (map_view.shown_top > target)
+		map_view.shown_top -= map_view.shown_top - target > 8 ? (map_view.shown_top - target) / 4 : 1;
+	window_top = map_view.shown_top - (MAP_ROWS - STAGEMAP_SCREEN) * 2 / 3;
+	if (window_top > height - MAP_ROWS)
+		window_top = height - MAP_ROWS;
+	if (window_top < 0)
+		window_top = 0;
+	for (int y = 0; y < MAP_ROWS; y++)
+	{
+		const int row = window_top + y;
+		const bool on_screen = row >= map_view.shown_top && row < map_view.shown_top + STAGEMAP_SCREEN;
+
+		if (row >= height)
+			break;
+		for (int x = 0; x < STAGEMAP_WIDTH; x++)
+			p->pixels[(MAP_TOP + y) * WIDGET_W + MAP_LEFT + x] = rgb565(pixels[row * STAGEMAP_WIDTH + x],
+				on_screen ? 100 : 55);
+	}
+	map_mark(p, window_top, stagemap_screen_top((int)stage, midboss_at[stage]), "MID-BOSS");
+	map_mark(p, window_top, 0, "BOSS");
+	/* the screen: a frame round it */
+	{
+		const int top = MAP_TOP + map_view.shown_top - window_top, bottom = top + STAGEMAP_SCREEN;
+
+		outline(p, MAP_LEFT - 1, top < MAP_TOP ? MAP_TOP : top, MAP_LEFT + STAGEMAP_WIDTH + 1,
+			bottom > MAP_TOP + MAP_ROWS ? MAP_TOP + MAP_ROWS : bottom, WHITE);
+	}
+}
+
 /* ---- the rank: the game's difficulty, 0-63 ---- */
 
 /* $101A33 (the low byte of $101A32), worked out again as the stage scrolls (func at $02D6xx): the area's base, the
@@ -1214,11 +1309,20 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 	}
 
 	p.pixels = right;
-	frame_panel(&p, "SCORE GRAPH");
-	put_centre(&p, 22, "VS #1 SCORE", GREY, 1);
-	draw_graph(&p);
-	draw_stage(&p, 200);
-	draw_status(&p, 268);
+	if (status.stage_map)
+	{
+		frame_panel(&p, "STAGE MAP");
+		draw_map(&p);
+		draw_stage(&p, 252);
+	}
+	else
+	{
+		frame_panel(&p, "SCORE GRAPH");
+		put_centre(&p, 22, "VS #1 SCORE", GREY, 1);
+		draw_graph(&p);
+		draw_stage(&p, 200);
+		draw_status(&p, 268);
+	}
 	if (toast_frames > 0)
 		draw_toast(&p);
 }

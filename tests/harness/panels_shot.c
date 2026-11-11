@@ -1,10 +1,12 @@
 /* panels_shot: a picture of the game as the port shows it on a wide screen: the left panel, the game, the right
    panel (panels.ppm, 480 x 320). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
      panels_shot AREA FRAMES [TOAST]     TOAST: an achievement's name, its pop-up shown (with "+2 MORE")
+   MAP=file: the right panel the stage map, from that maps file (stagemap_check.dat)
    e.g. panels_shot 2 1800 "ONE CREDIT CLEAR"   (the README's area 3 picture is panels_shot 2 1800) */
 #include "common.h"
 #include "training.h"
 #include "widgets.h"
+#include "stagemap.h"
 #include "cave/video.h"
 
 int main(int argc, char **argv)
@@ -18,6 +20,14 @@ int main(int argc, char **argv)
 
 	start_game();
 	training_prepare(&setup);
+	if (getenv("MAP"))
+	{
+		const widgets_status status = { false, false, false, 0, stagemap_load(getenv("MAP")) };
+
+		if (!status.stage_map)
+			printf("%s: no maps\n", getenv("MAP"));
+		widgets_set_status(&status);
+	}
 	widgets_reset();
 	widgets_begin_game();
 	for (long f = 0; f < frames; f++)

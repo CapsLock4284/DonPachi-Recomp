@@ -29,6 +29,10 @@ void video_latch_sprites(void);
 /* The frame, from the board's memories: 0x00RRGGBB pixels, VIDEO_WIDTH x VIDEO_HEIGHT */
 void video_draw(uint32_t *frame);
 
+/* The frame from the tile layers only (bit 0 layer 0, bit 1 layer 1, bit 2 layer 2), no sprites: as video_draw
+   draws them otherwise (the stage mini-map's pictures of the areas) */
+void video_draw_layers(uint32_t *frame, unsigned layers);
+
 /* The frame turned as the cabinet shows it: VIDEO_HEIGHT wide, VIDEO_WIDTH high */
 void video_rotated(const uint32_t *frame, uint32_t *picture);
 

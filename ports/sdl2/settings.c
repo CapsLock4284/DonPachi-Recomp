@@ -95,6 +95,7 @@ void settings_defaults(settings *s)
 	s->vsync = false;
 	s->rotate = ROTATE_NONE;
 	s->panels = true;
+	s->stage_map = true;
 	s->sound = true;
 	s->volume = 100;
 	snprintf(s->rom, sizeof(s->rom), "rom");
@@ -287,6 +288,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->vsync);
 		if (!SDL_strcasecmp(name, "side_panels"))
 			return parse_bool(value, &s->panels);
+		if (!SDL_strcasecmp(name, "stage_map"))
+			return parse_bool(value, &s->stage_map);
 		if (!SDL_strcasecmp(name, "rotate"))
 			return (s->rotate = name_of(value, settings_rotate_names, ROTATIONS)) >= 0
 				|| (s->rotate = ROTATE_NONE, false);
@@ -562,7 +565,10 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "rotate = %s\n", settings_rotate_names[s->rotate]);
 	fputs("; the panels beside the picture: the chain's gauge (left), the score against the #1 high score (right);\n"
 		"; not with the picture rotated\n", file);
-	fprintf(file, "side_panels = %s\n\n", bool_text(s->panels));
+	fprintf(file, "side_panels = %s\n", bool_text(s->panels));
+	fputs("; the right panel: a map of the area, the screen's part bright (made once from the game: donpachi_maps.dat),\n"
+		"; or (off) the score graph against the #1 high score\n", file);
+	fprintf(file, "stage_map = %s\n\n", bool_text(s->stage_map));
 
 	fputs("[sound]\n", file);
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));

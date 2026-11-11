@@ -195,6 +195,49 @@ void video_draw(uint32_t *frame)
 	draw_sprites(frame);
 }
 
+void video_draw_layers(uint32_t *frame, unsigned layers)
+{
+	/* (as video_draw's passes leave it, in one: each pixel the last drawn of the layers' opaque ones, in the order
+	   of the tile's priority, then the layer's, then the layer's number) */
+	const uint32_t background = colour(BACKGROUND_PEN);
+	int sx[3], sy[3], used[3], count = 0;
+
+	for (int layer = 0; layer < 3; layer++)
+	{
+		const uint16_t *const regs = cave_board.layer_regs[layer];
+		const int big = (regs[1] & 0x2000u) != 0 && layer != 2;
+		const int offs_x = LAYER_OFFS_X - (big ? (layer + 1) : (layer + 1 + 8));
+
+		if (!(layers & (1u << layer)) || (regs[2] & 0x10u))
+			continue;
+		sx[count] = (int)(regs[0] & 0x1FFu) - (int)cave_board.video_regs[0] - offs_x;
+		sy[count] = (int)(regs[1] & 0x1FFu) - (int)cave_board.video_regs[1] - LAYER_OFFS_Y;
+		used[count++] = layer;
+	}
+	for (int y = 0; y < VIDEO_HEIGHT; y++)
+		for (int x = 0; x < VIDEO_WIDTH; x++)
+		{
+			uint32_t pixel = background;
+			int best = -1;
+
+			for (int at = 0; at < count; at++)
+			{
+				const int layer = used[at];
+				unsigned palette, tile_pri;
+				const unsigned pen = layer_pixel(layer, (unsigned)(x + sx[at]), (unsigned)(y + sy[at]), &palette,
+					&tile_pri);
+				const int key = (int)(tile_pri * 16u + (cave_board.layer_regs[layer][2] & 3u) * 4u) + layer;
+
+				if (pen && key > best)
+				{
+					best = key;
+					pixel = colour(LAYER_COLOR_BASE + palette * 16u + pen);
+				}
+			}
+			frame[y * VIDEO_WIDTH + x] = pixel;
+		}
+}
+
 void video_rotated(const uint32_t *frame, uint32_t *picture)
 {
 	/* (ROT270: the board's top row is the picture's left column, read from the bottom up) */

@@ -44,8 +44,9 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Low input lag** by default, with the board's own timing as an option
 - **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
   of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
-- **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
-  top score, stage progress and boss and mid-boss health
+- **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, a **stage map** of the
+  whole area with the screen's place lit (or a score graph against the top score), stage progress and boss and
+  mid-boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions
 - **23 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
 - **Replays**: every arcade game (and training run) is recorded; save it as a small file you can share, and watch

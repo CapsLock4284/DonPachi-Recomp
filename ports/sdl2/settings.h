@@ -87,6 +87,7 @@ typedef struct
 	bool vsync;
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
 	bool panels;                /* the side panels (widgets.h) beside the picture */
+	bool stage_map;             /* the right panel: the stage's map (stagemap.h), not the score graph */
 	/* [sound] */
 	bool sound;
 	int volume;                 /* 0-100 */

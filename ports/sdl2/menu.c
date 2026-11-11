@@ -85,6 +85,7 @@ enum
 	ITEM_SAVE_REPLAY,             /* a training game's: the attempt kept as a replay */
 	ITEM_WATCH, ITEM_RENAME, ITEM_DELETE,    /* a replay chosen on the replays page */
 	ITEM_DELETE_YES, ITEM_DELETE_NO,
+	ITEM_STAGE_MAP,               /* the right panel: the stage's map or the score graph */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -265,7 +266,7 @@ static void build_items(void)
 	else if (page == PAGE_GRAPHICS)
 	{
 		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
-			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
+			ITEM_PANELS, ITEM_STAGE_MAP, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
 			items[item_count++] = graphics_items[index];
@@ -473,6 +474,9 @@ static void change(int item, int step, bool wrap)
 	case ITEM_PANELS:
 		in_use->panels = file->panels = !in_use->panels;
 		host.apply_window();    /* (the window widens for them) */
+		break;
+	case ITEM_STAGE_MAP:
+		in_use->stage_map = file->stage_map = !in_use->stage_map;
 		break;
 	case ITEM_DEADZONE:
 		in_use->stick_dead[player] = file->stick_dead[player] =
@@ -973,7 +977,9 @@ static const char *item_help(int item)
 	case ITEM_DEADZONE:
 		return "HOW FAR THE STICK MUST MOVE BEFORE IT COUNTS.";
 	case ITEM_PANELS:
-		return "THESE PANELS AT THE SIDES ON A WIDE SCREEN: CHAIN, RANK, BEES, SCORE GRAPH, STAGE AND BOSS HEALTH.";
+		return "THESE PANELS AT THE SIDES ON A WIDE SCREEN: CHAIN, RANK, BEES, STAGE MAP OR SCORE GRAPH, BOSS HEALTH.";
+	case ITEM_STAGE_MAP:
+		return "THE RIGHT PANEL: A MAP OF THE AREA WITH THE SCREEN'S PART LIT (ON), OR YOUR SCORE AGAINST THE #1 (OFF).";
 	case ITEM_HISCORES:
 		return "KEEPS THE HIGH SCORE TABLE BETWEEN SESSIONS (THE ARCADE FORGETS IT WHEN SWITCHED OFF).";
 	case ITEM_SAVE_STATE:
@@ -1440,7 +1446,7 @@ static const char *item_label(int item)
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
-		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO"
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "STAGE MAP"
 	};
 
 	if (is_hotkey_item(item))
@@ -1550,6 +1556,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_PANELS:
 		snprintf(out, size, "%s", s->panels ? "ON" : "OFF");
+		break;
+	case ITEM_STAGE_MAP:
+		snprintf(out, size, "%s", s->stage_map ? "ON" : "OFF");
 		break;
 	case ITEM_DEADZONE:
 		snprintf(out, size, "%d%%", s->stick_dead[player]);

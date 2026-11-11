@@ -45,8 +45,10 @@ FEATURES
   - Main menu: START GAME, TRAINING (start at any area, mid-boss or boss, with
     your choice of ship, power, bombs and difficulty), SETTINGS
   - Side panels on wide screens: chain gauge, rank, run statistics, bees
-    collected, score graph against the top score, stage progress and boss and
-    mid-boss health
+    collected, a stage map of the whole area with the screen's place lit (or a
+    score graph against the top score), stage progress and boss and mid-boss
+    health. The maps are made from your ROM set the first time the game starts
+    (about 10 seconds: "BUILDING STAGE MAPS")
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)
@@ -83,6 +85,7 @@ High scores aren't saved while a cheat is on.
 FILES THE GAME KEEPS BESIDE donpachi.exe
 ----------------------------------------
   donpachi_usa.dat   the game data taken from your ROM set
+  donpachi_maps.dat  the stage maps, made from it (made again if deleted)
   donpachi.ini       your settings (delete it to go back to the defaults)
   donpachi.eeprom    the arcade board's own settings (the test menu's)
   donpachi.hiscore   the high score table
@@ -92,7 +95,7 @@ FILES THE GAME KEEPS BESIDE donpachi.exe
                      ones you don't want)
 
 Keep these if you move the game to another folder or computer. Don't share
-donpachi_usa.dat: it is the contents of the ROM set.
+donpachi_usa.dat or donpachi_maps.dat: they are made from the ROM set.
 
 
 LICENSES

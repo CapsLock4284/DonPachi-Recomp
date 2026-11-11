@@ -8,7 +8,10 @@
 
     Run it from the project's folder after a Release build:
         cmake --build build/msvc --config Release
-        powershell -ExecutionPolicy Bypass -File tools\make_release.ps1 -Version 0.1.0
+        powershell -ExecutionPolicy Bypass -File tools\make_release.ps1
+
+    The version is CMakeLists.txt's (project(donpachi VERSION x.y.z)), the one the game shows on its main menu: change
+    it there, build, then package. -Version, if given, must be the same.
 
     It copies only the files named below (an allow list: nothing else can get in), then checks the folder: no ROM
     set, no extracted game data, no EEPROM, high scores or settings of yours, and an .exe that needs nothing but
@@ -18,12 +21,21 @@
     the game asks for on its first run (graphics, sound and the program's data come from it).
 #>
 param(
-    [string]$Version = "0.1.0"
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+
+# the version: CMakeLists.txt's, so the package and the game's main menu agree
+$cmake = Get-Content "CMakeLists.txt" -Raw
+if ($cmake -notmatch 'project\(donpachi\s+VERSION\s+(\d+\.\d+\.\d+)') { throw "No 'project(donpachi VERSION x.y.z' in CMakeLists.txt" }
+$built = $Matches[1]
+if ($Version -eq "") { $Version = $built }
+elseif ($Version -ne $built) {
+    throw "-Version $Version, but CMakeLists.txt says $built (the game would show $built): change it there and build again"
+}
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "The version is three numbers, as 0.1.0 (not '$Version')" }
 
@@ -74,7 +86,7 @@ $allowed = @($files.Values)
 foreach ($file in Get-ChildItem $out -Recurse -File) {
     $relative = $file.FullName.Substring($out.Length + 1)
     if ($allowed -notcontains $relative) { $problems += "not on the list: $relative" }
-    if ($file.Extension -in ".zip", ".7z", ".dat", ".part", ".eeprom", ".hiscore", ".ini", ".bin", ".rom", ".xml") {
+    if ($file.Extension -in ".zip", ".7z", ".dat", ".part", ".eeprom", ".hiscore", ".achievements", ".ini", ".bin", ".rom", ".xml") {
         $problems += "a ROM set, game data, save or settings file: $relative"
     }
 }

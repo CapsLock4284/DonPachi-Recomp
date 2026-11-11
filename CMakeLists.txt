@@ -13,7 +13,8 @@
 # its development package, SDL2-devel-2.x.x-VC.zip, unpacked in build/downloads/sdl2). Both read the player's own
 # ROM set, MAME's donpachi.zip (--rom PATH, default rom: the folder holding it).
 cmake_minimum_required(VERSION 3.20)
-project(donpachi C)
+# The version: the one place it is set (the main menu shows it; tools/make_release.ps1 names the package from it)
+project(donpachi VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -78,8 +79,10 @@ if(SDL2_FOUND)
 		list(APPEND DONPACHI_SDL2 SDL2::SDL2main)
 	endif()
 	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/menu.c ports/sdl2/hitbox.c
-		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c)
+		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c
+		ports/sdl2/achievements.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
+	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}")
 	if(WIN32)
 		target_sources(donpachi PRIVATE ports/sdl2/icon/donpachi.rc)    # (the .exe's icon)
 		add_custom_command(TARGET donpachi POST_BUILD

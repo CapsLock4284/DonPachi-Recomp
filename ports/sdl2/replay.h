@@ -11,7 +11,8 @@
  *    program read them (after the port's autofire and free play), the port's own writes to the game's memory (the
  *    high score table put back from its file; the big HIT display's flags, a bit with the inputs), and a check of the
  *    board every so often to tell a replay gone out of step. Recorded from each reset; a game in it (from its ship
- *    select to the attract mode) is saved as it ends, from the reset (playback runs the frames before it unseen).
+ *    select to the attract mode) is saved as it ends if the player says yes, from the reset (playback runs the
+ *    frames before it unseen).
  *    Not recorded: a run with training, a cheat or a loaded save state in it since the reset.
  */
 #ifndef DONPACHI_REPLAY_H
@@ -39,12 +40,18 @@ void replay_input(uint16_t in0, uint16_t in1, unsigned flags);
 /* The port wrote the game's memory after the frame (the high score table put back): 'size' bytes at 'address' */
 void replay_patch(uint32_t address, unsigned size);
 
-/* After each frame: the checks, and a game begun or ended (saved as it ends). The name of a replay just saved (for
-   a notice), or NULL */
-const char *replay_after_frame(void);
+/* After each frame: the checks, and a game begun or ended. True: a game just ended, its replay waiting for the
+   player's yes or no (replay_keep) */
+bool replay_after_frame(void);
 
-/* A game being recorded is saved as it is (the game reset, the main menu, the program closing); its name, or NULL */
-const char *replay_save_unfinished(void);
+/* A game is being recorded (its play begun), and a game stopped part way kept waiting for replay_keep (the options'
+   MAIN MENU in the middle of one) */
+bool replay_in_game(void);
+void replay_hold_unfinished(void);
+
+/* A replay waits for the player's answer; then saved (true) or let go: the file's name, or NULL */
+bool replay_waiting(void);
+const char *replay_keep(bool keep);
 
 /* ---- the list ---- */
 

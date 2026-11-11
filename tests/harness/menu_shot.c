@@ -1,6 +1,6 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game). Keys are sent as the player would press them. */
+   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. */
 #include "common.h"
 #include "menu.h"
 #include "settings.h"
@@ -58,6 +58,9 @@ int main(void)
 	host.in_training = host.training = no;
 	host.in_replay = no;
 	host.play_replay = no_replay;
+	host.keep_replay = quiet;
+	host.replay_in_game = no;
+	host.hold_replay = nothing;
 	host.retry_training = nothing;
 	menu_init(&host);
 
@@ -96,5 +99,7 @@ int main(void)
 	menu_init(&host);
 	menu_open();
 	shot("menu_training_game.ppm");
+	menu_ask_save_replay(false);
+	shot("menu_save_replay.ppm");
 	return 0;
 }

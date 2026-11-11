@@ -39,6 +39,9 @@ typedef struct
 	void (*retry_training)(void);   /* the training game back to its place, as it began */
 	bool (*play_replay)(const char *file);    /* a replay played (its file in the replays folder): false if not */
 	bool (*in_replay)(void);    /* a replay is playing (the options then have STOP REPLAY) */
+	void (*keep_replay)(bool keep);    /* the answer to "save the replay?" */
+	bool (*replay_in_game)(void);      /* an arcade game is being recorded (MAIN MENU asks about its replay) */
+	void (*hold_replay)(void);         /* that game, stopped there, to keep or not */
 } menu_host;
 
 void menu_init(const menu_host *host);
@@ -50,6 +53,10 @@ void menu_open(void);
    the options' MAIN MENU: the game is not run while it is up (menu_is_open); START GAME closes it */
 void menu_open_front(void);
 bool menu_in_front(void);
+
+/* "DO YOU WANT TO SAVE THE REPLAY?" YES / NO, as a game ends (the game paused until it is answered); after it, the
+   game goes on, or the main menu ('then_main_menu': the question came from MAIN MENU) */
+void menu_ask_save_replay(bool then_main_menu);
 
 /* The replays page (the game reset first by the port: a replay's end, or STOP REPLAY) */
 void menu_open_replays(void);

@@ -53,9 +53,9 @@ FEATURES
   - 23 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
     clears, all 13 bees, long chains, scores and more. Earned in the arcade game
     only: not in training, or in a game with a cheat or a loaded save state
-  - Replays (main menu > REPLAYS): every arcade game is recorded and saved in
-    the replays folder as it ends; watch them from the menu, or share the
-    .dpreplay files (they play on the same version of the game)
+  - Replays (main menu > REPLAYS): every arcade game is recorded; when it ends
+    you're asked whether to save it (in the replays folder). Watch them from
+    the menu, or share the .dpreplay files
   - Lifetime statistics (main menu > STATISTICS): games, play time, clears,
     bosses, deaths, bombs, bees, best chain and scores, per ship and per area
     (arcade games only, as the achievements)

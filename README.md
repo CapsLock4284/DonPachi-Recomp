@@ -48,8 +48,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
   top score, stage progress and boss and mid-boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions
 - **23 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
-- **Replays**: every arcade game is recorded and saved as a small file you can share; watch them from the main
-  menu's REPLAYS
+- **Replays**: every arcade game is recorded; save it when it ends as a small file you can share, and watch them
+  from the main menu's REPLAYS
 - **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and
   per area (arcade games only)
 - **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen

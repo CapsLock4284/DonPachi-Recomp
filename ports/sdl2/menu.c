@@ -52,7 +52,7 @@
 #define STICK_DEAD   16000
 
 enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS,
-	PAGE_STATS, PAGE_REPLAYS };
+	PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -81,6 +81,7 @@ enum
 	ITEM_STATISTICS,              /* the lifetime statistics page (the main menu's, the game options') */
 	ITEM_REPLAYS,                 /* the main menu's replays page */
 	ITEM_STOP_REPLAY,             /* a replay playing: back to the replays page */
+	ITEM_YES, ITEM_NO,            /* the question as a game ends: save its replay? */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -121,6 +122,7 @@ static int stats_from = PAGE_FRONT;           /* the page the statistics page wa
 #define REPLAYS_LISTED 100
 static replay_info replays[REPLAYS_LISTED];    /* the replays page's list, as it was opened */
 static int replay_count;
+static bool main_menu_after_question;    /* the replay question came from MAIN MENU: the main menu after it */
 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
@@ -214,6 +216,11 @@ static void build_items(void)
 		for (int index = 0; index < achievements_count(); index++)
 			items[item_count++] = ITEM_ACHIEVEMENT + index;
 		items[item_count++] = ITEM_BACK;
+	}
+	else if (page == PAGE_SAVE_REPLAY)
+	{
+		items[item_count++] = ITEM_YES;
+		items[item_count++] = ITEM_NO;
 	}
 	else if (page == PAGE_REPLAYS)
 	{
@@ -501,8 +508,26 @@ static void choose(int item)
 		build_items();
 		break;
 	case ITEM_MAIN_MENU:
+		if (!front && host.replay_in_game && host.replay_in_game())
+		{
+			/* (a game left part way: its replay kept or not, first) */
+			host.hold_replay();
+			menu_ask_save_replay(true);
+			break;
+		}
 		host.main_menu();
 		menu_open_front();
+		break;
+	case ITEM_YES:
+	case ITEM_NO:
+		host.keep_replay(item == ITEM_YES);
+		if (main_menu_after_question)
+		{
+			host.main_menu();
+			menu_open_front();
+		}
+		else
+			close_menu();
 		break;
 	case ITEM_TRAINING_MENU:
 		host.main_menu();
@@ -687,6 +712,12 @@ static void navigate(int nav)
 	case NAV_BACK:
 		if (page == PAGE_FRONT)
 			break;    /* (the main menu stays until a game starts) */
+		if (page == PAGE_SAVE_REPLAY)
+		{
+			ui_sound_play(UI_SOUND_BACK);
+			choose(ITEM_NO);
+			break;
+		}
 		ui_sound_play(UI_SOUND_BACK);
 		if (page != PAGE_MAIN || front)
 			choose(ITEM_BACK);
@@ -694,6 +725,12 @@ static void navigate(int nav)
 			close_menu();
 		break;
 	case NAV_CLOSE:
+		if (page == PAGE_SAVE_REPLAY)
+		{
+			ui_sound_play(UI_SOUND_BACK);
+			choose(ITEM_NO);
+			break;
+		}
 		if (front)
 		{
 			if (page != PAGE_FRONT)
@@ -781,6 +818,18 @@ void menu_open_front(void)
 	build_items();
 	for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_START_GAME; selected++)
 		;
+}
+
+void menu_ask_save_replay(bool then_main_menu)
+{
+	open = true;
+	front = false;
+	page = PAGE_SAVE_REPLAY;
+	selected = 0;
+	capture = -1;
+	held_direction = NAV_NONE;
+	main_menu_after_question = then_main_menu;
+	build_items();
 }
 
 void menu_open_replays(void)
@@ -1037,7 +1086,7 @@ static const char *item_label(int item)
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
-		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY"
+		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO"
 	};
 
 	if (is_hotkey_item(item))
@@ -1448,6 +1497,12 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		draw_replays(out);
 		return;
 	}
+	else if (page == PAGE_SAVE_REPLAY)
+	{
+		put_centre(out, PANEL_TOP + 1, "REPLAY", GOLD);
+		put_centre_y(out, (PANEL_TOP + 3) * 8, "DO YOU WANT TO SAVE", WHITE);
+		put_centre_y(out, (PANEL_TOP + 3) * 8 + 12, "THE REPLAY?", WHITE);
+	}
 	else if (page == PAGE_CHEATS)
 	{
 		put_centre(out, PANEL_TOP + 1, "CHEATS", GOLD);
@@ -1464,7 +1519,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
 		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15) : 16;
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
-		int y = (PANEL_TOP + 4) * 8;
+		int y = (PANEL_TOP + 4) * 8 + (page == PAGE_SAVE_REPLAY ? 32 : 0);    /* (the question above) */
 
 		for (int index = 0; index < item_count; index++)
 		{
@@ -1524,6 +1579,10 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS || page == PAGE_TRAINING)
 	{
 		put_hints(out, "A: CHOOSE   <>: CHANGE", "B: BACK");
+	}
+	else if (page == PAGE_SAVE_REPLAY)
+	{
+		put_hints(out, "A: CHOOSE", "B: NO");
 	}
 	else
 	{

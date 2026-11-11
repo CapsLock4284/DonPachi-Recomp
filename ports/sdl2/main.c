@@ -186,7 +186,7 @@ static void hotkeys(void)
 
 		if (down && !hotkey_was_down[hotkey])
 		{
-			replay_save_unfinished();
+			replay_keep(false);    /* (a game reset part way: not kept) */
 			program_reset();
 			replay_reset();
 			free_play_reset();
@@ -628,8 +628,7 @@ static void menu_reset(bool service_menu)
 {
 	if (replay_playing())
 		replay_stop();    /* (the player's own EEPROM back) */
-	else
-		replay_save_unfinished();
+	replay_keep(false);    /* (one waiting was answered before this: see the menu's MAIN MENU) */
 	program_reset();
 	replay_reset();
 	free_play_reset();
@@ -780,7 +779,6 @@ static bool menu_training(void)
 	hiscore_reset();
 	free_play_reset();
 	service_held = 0;
-	replay_save_unfinished();
 	replay_taint();    /* (training: run to the place by the port, not a replay) */
 	if ((problem = training_prepare(&setup)) != NULL)
 	{
@@ -893,6 +891,13 @@ static bool menu_play_replay(const char *file)
 static bool in_replay(void)
 {
 	return replay_playing();
+}
+
+/* The menu's answer to "SAVE THE REPLAY?" */
+static void menu_keep_replay(bool keep)
+{
+	if (replay_keep(keep))
+		menu_notice("REPLAY SAVED");
 }
 
 /* A frame of the replay being played: false at its end (the replays page up again) */
@@ -1073,6 +1078,9 @@ int main(int argc, char **argv)
 		menu.retry_training = menu_retry_training;
 		menu.play_replay = menu_play_replay;
 		menu.in_replay = in_replay;
+		menu.keep_replay = menu_keep_replay;
+		menu.replay_in_game = replay_in_game;
+		menu.hold_replay = replay_hold_unfinished;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -1198,8 +1206,6 @@ int main(int argc, char **argv)
 					replay_patch(0x101846u, 0x5Au);    /* (the table) */
 					replay_patch(0x101782u, 4u);       /* (the HUD's HIGH) */
 				}
-				if (replay_after_frame())
-					menu_notice("REPLAY SAVED");
 				if (training_frame())
 					break;    /* (the training page is up: the game paused) */
 				/* (a new game: its scores are kept again) */
@@ -1221,6 +1227,12 @@ int main(int argc, char **argv)
 						widgets_toast(earned, achievements_waiting());
 						ui_sound_play(UI_SOUND_ACHIEVEMENT);
 					}
+				}
+				/* a game over: its replay kept or not, as the player says (the game paused meanwhile) */
+				if (replay_after_frame())
+				{
+					menu_ask_save_replay(false);
+					break;
 				}
 			}
 		}
@@ -1245,8 +1257,6 @@ int main(int argc, char **argv)
 	}
 	if (replay_playing())
 		replay_stop();
-	else
-		replay_save_unfinished();
 	eeprom_keep(true);
 	stats_save();
 	if (audio)

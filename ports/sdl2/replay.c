@@ -129,7 +129,7 @@ static track rec;
 static bool tainted;
 
 /* the game being recorded */
-static struct
+typedef struct
 {
 	bool on;                    /* from its ship select */
 	bool played;                /* its play began */
@@ -137,7 +137,18 @@ static struct
 	uint32_t score;
 	int area, ship, difficulty;
 	unsigned last_mode;
-} game;
+} game_record;
+
+static game_record game;
+
+/* a game ended, its replay waiting for the player's yes or no (replay_keep) */
+static struct
+{
+	bool on;
+	game_record game;
+	uint32_t end;               /* its last frame (the recording's frames then) */
+	bool finished;
+} pending;
 
 void replay_reset(void)
 {
@@ -145,6 +156,7 @@ void replay_reset(void)
 	memcpy(rec.eeprom, cave_board.eeprom.words, sizeof(rec.eeprom));
 	tainted = false;
 	memset(&game, 0, sizeof(game));
+	pending.on = false;
 }
 
 void replay_taint(void)
@@ -202,8 +214,10 @@ static void make_folder(void)
 #endif
 }
 
-/* the recording, to the end of the game, saved: the file's name, or NULL */
-static const char *save(bool finished)
+static void write_events(FILE *file, uint32_t patches, uint32_t checks);
+
+/* the recording, to the game's end ('end' frames), saved: the file's name, or NULL */
+static const char *save(const game_record *g, uint32_t end, bool finished)
 {
 	static char name[64];
 	char path[1400], date[20];
@@ -235,38 +249,33 @@ static const char *save(bool finished)
 		memcpy(padded, date, strlen(date));
 		fwrite(padded, 1, sizeof(padded), file);
 	}
-	put(file, game.score, 4);
-	put(file, (uint64_t)game.area, 1);
-	put(file, (uint64_t)game.ship, 1);
-	put(file, (uint64_t)game.difficulty, 1);
+	put(file, g->score, 4);
+	put(file, (uint64_t)g->area, 1);
+	put(file, (uint64_t)g->ship, 1);
+	put(file, (uint64_t)g->difficulty, 1);
 	put(file, finished ? 1u : 0u, 1);
-	put(file, rec.count, 4);
-	put(file, game.begin, 4);
+	put(file, end, 4);
+	put(file, g->begin, 4);
 	for (unsigned at = 0; at < CAVE_EEPROM_WORDS; at++)
 		put(file, rec.eeprom[at], 2);
-	put(file, rec.patch_count, 4);
-	for (uint32_t at = 0; at < rec.patch_count; at++)
 	{
-		put(file, rec.patches[at].frame, 4);
-		put(file, rec.patches[at].address, 4);
-		put(file, rec.patches[at].size, 2);
-		fwrite(rec.patches[at].bytes, 1, rec.patches[at].size, file);
+		uint32_t patches = 0, checks = 0;
+
+		while (patches < rec.patch_count && rec.patches[patches].frame <= end)
+			patches++;
+		while (checks < rec.check_count && rec.checks[checks].frame <= end)
+			checks++;
+		write_events(file, patches, checks);
 	}
-	put(file, rec.check_count, 4);
-	for (uint32_t at = 0; at < rec.check_count; at++)
-	{
-		put(file, rec.checks[at].frame, 4);
-		put(file, rec.checks[at].hash, 8);
-	}
-	for (uint32_t at = 0; at < rec.count; at++)
+	for (uint32_t at = 0; at < end; at++)
 		if (at == 0 || memcmp(&rec.inputs[at], &rec.inputs[at - 1u], sizeof(frame_input)))
 			runs++;
 	put(file, runs, 4);
-	for (uint32_t at = 0; at < rec.count;)
+	for (uint32_t at = 0; at < end;)
 	{
 		uint32_t length = 1;
 
-		while (at + length < rec.count && !memcmp(&rec.inputs[at + length], &rec.inputs[at], sizeof(frame_input)))
+		while (at + length < end && !memcmp(&rec.inputs[at + length], &rec.inputs[at], sizeof(frame_input)))
 			length++;
 		put(file, length, 4);
 		put(file, rec.inputs[at].in0, 2);
@@ -279,6 +288,24 @@ static const char *save(bool finished)
 	return name;
 }
 
+static void write_events(FILE *file, uint32_t patches, uint32_t checks)
+{
+	put(file, patches, 4);
+	for (uint32_t at = 0; at < patches; at++)
+	{
+		put(file, rec.patches[at].frame, 4);
+		put(file, rec.patches[at].address, 4);
+		put(file, rec.patches[at].size, 2);
+		fwrite(rec.patches[at].bytes, 1, rec.patches[at].size, file);
+	}
+	put(file, checks, 4);
+	for (uint32_t at = 0; at < checks; at++)
+	{
+		put(file, rec.checks[at].frame, 4);
+		put(file, rec.checks[at].hash, 8);
+	}
+}
+
 static void add_check(track *t)
 {
 	if (!grow((void **)&t->checks, &t->check_capacity, t->check_count, sizeof(check)))
@@ -288,38 +315,67 @@ static void add_check(track *t)
 	t->check_count++;
 }
 
-const char *replay_save_unfinished(void)
+/* the game as it is now, waiting for replay_keep */
+static void hold(bool finished)
+{
+	pending.on = true;
+	pending.game = game;
+	pending.end = rec.count;
+	pending.finished = finished;
+	game.on = false;
+}
+
+bool replay_in_game(void)
+{
+	return !tainted && game.on && game.played;
+}
+
+void replay_hold_unfinished(void)
+{
+	if (replay_in_game())
+		hold(false);
+}
+
+bool replay_waiting(void)
+{
+	return pending.on;
+}
+
+const char *replay_keep(bool keep)
 {
 	const char *name = NULL;
 
-	if (!tainted && game.on && game.played)
-		name = save(false);
-	game.on = false;
+	if (pending.on && keep)
+		name = save(&pending.game, pending.end, pending.finished);
+	pending.on = false;
 	return name;
 }
 
-const char *replay_after_frame(void)
+bool replay_after_frame(void)
 {
 	const unsigned mode = word(GAME_MODE);
-	const char *saved = NULL;
+	bool ended = false;
 
 	if (tainted)
-		return NULL;
+		return false;
 	if (rec.count % CHECK_EVERY == 0u && rec.count)
 		add_check(&rec);
 	if (mode == 0xBu && game.last_mode != 0xBu)
 	{
 		/* a ship select: a game begins (one being recorded ends: a new one without the attract mode between) */
 		if (game.on && game.played)
-			saved = save(true);
+		{
+			hold(true);
+			ended = true;
+		}
 		memset(&game, 0, sizeof(game));
 		game.on = true;
 		game.begin = rec.count ? rec.count - 1u : 0u;
 	}
 	else if (game.on && game.played && (mode == 0u || mode == 1u || mode == 5u))
 	{
-		saved = save(true);    /* (the attract mode again: the game over) */
-		game.on = false;
+		hold(true);    /* (the attract mode again: the game over) */
+		ended = true;
 	}
 	if (game.on && mode == 7u)
 	{
@@ -338,7 +394,7 @@ const char *replay_after_frame(void)
 			game.score = score;
 	}
 	game.last_mode = mode;
-	return saved;
+	return ended;
 }
 
 /* ---- reading a file ---- */

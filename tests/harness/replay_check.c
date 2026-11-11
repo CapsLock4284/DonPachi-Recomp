@@ -20,7 +20,6 @@ int main(int argc, char **argv)
 	replay_reset();
 	for (long f = 0; f < frames; f++)
 	{
-		const char *name;
 
 		cave_board.in0 = (uint16_t)~autoplayer(f, 0);
 		cave_board.in1 = 0xFFFFu;
@@ -35,14 +34,19 @@ int main(int argc, char **argv)
 			replay_patch(0x101846u, 0x5Au);
 			replay_patch(0x101782u, 4u);
 		}
-		if ((name = replay_after_frame()) != NULL)
+		if (replay_after_frame())
 		{
-			printf("frame %ld: saved %s\n", f, name);
-			saved = name;
+			saved = replay_keep(true);    /* (the player's yes) */
+			printf("frame %ld: the game over, saved %s\n", f, saved ? saved : "(nothing)");
 			break;
 		}
 	}
-	if (!saved && !(saved = replay_save_unfinished()))
+	if (!saved && replay_in_game())
+	{
+		replay_hold_unfinished();
+		saved = replay_keep(true);
+	}
+	if (!saved)
 	{
 		printf("nothing saved (no game played?)\n");
 		return 1;

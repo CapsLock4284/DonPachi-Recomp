@@ -226,6 +226,10 @@ static struct
 #define BOMBS       0x10217Au   /* player 1's bombs (the ship's record +$22; $1021BA player 2's) */
 #define BOMB_ON     0x106E14u   /* bit 15: a bomb going off (set as one is let go) */
 #define AREAS       10
+/* the bees: 13 in each area, a count of those taken in the area so far for each player (`func_008162` adds 1 as
+   one is taken; set back to 0 by a miss and at the area's end: the panel counts the rises itself) */
+#define BEES_TAKEN  0x10379Au   /* ($10379E player 2's) */
+#define BEES        13
 
 static const uint32_t lives_at[2] = { LIVES, LIVES + 2u }, bombs_at[2] = { BOMBS, BOMBS + 0x40u };
 
@@ -237,9 +241,14 @@ static struct
 	bool reached[AREAS];
 	unsigned last_lives[2], last_bombs[2];
 	bool last_bomb_on;
+	unsigned bees[AREAS];           /* the bees taken in each area (by either player: the panel shows them with one) */
+	unsigned last_bees[2];
+	int bee_area;                   /* the area the bees panel shows (the last played: between the loops too) */
 } run;
 
 static uint32_t session_best;       /* the best score since the program started: a reset keeps it */
+
+static int area_now(void);
 
 static void run_reset(void)
 {
@@ -248,7 +257,9 @@ static void run_reset(void)
 	{
 		run.last_lives[player] = word(lives_at[player]);
 		run.last_bombs[player] = word(bombs_at[player]);
+		run.last_bees[player] = word(BEES_TAKEN + 4u * (unsigned)player);
 	}
+	run.bee_area = area_now();
 	run.last_bomb_on = (word(BOMB_ON) & 0x8000u) != 0;
 }
 
@@ -268,7 +279,10 @@ static void run_frame(void)
 	if (word(GAME_MODE) == 7u)
 		run.frames++;
 	if (area >= 0)
+	{
 		run.reached[area] = true;
+		run.bee_area = area;
+	}
 	for (int player = 0; player < 2; player++)
 	{
 		const unsigned lives = word(lives_at[player]), bombs = word(bombs_at[player]);
@@ -280,6 +294,13 @@ static void run_frame(void)
 		/* a miss: a life gone while the ship is down (the final tally takes the lives left with the ship flying) */
 		if (lives < run.last_lives[player] && (word(records[player]) & 0x8000u) == 0 && area >= 0)
 			run.misses[player][area]++;
+		{
+			const unsigned bees = word(BEES_TAKEN + 4u * (unsigned)player);
+
+			if (bees > run.last_bees[player] && area >= 0 && word(GAME_MODE) == 7u)
+				run.bees[area] += bees - run.last_bees[player];
+			run.last_bees[player] = bees;
+		}
 		run.last_lives[player] = lives;
 		run.last_bombs[player] = bombs;
 		if (bcd_long(scores[player]) > session_best)
@@ -777,6 +798,85 @@ static void draw_run(panel *p, int top, bool two)
 	put_right(p, WIDGET_W - 8, y, text, GOLD);
 }
 
+/* ---- the bees: the area's 13, each greyed until it is taken ---- */
+
+#define BEE_CODE    0x0C2Eu     /* the bee's sprite (its first frame: 32 x 32, at the code's 256 pixels on) */
+#define BEE_COLOUR  0x3Bu       /* its palette (the sprite's attribute as shown, $3B30) */
+#define BEE_SIZE    32
+#define BEE_ICON    13          /* drawn at half size, from (3, 3) of the sprite: the bee lies in 26 x 26 of it */
+
+static unsigned bee_pen(int x, int y)
+{
+	const uint32_t pixel = (BEE_CODE << 8) + (uint32_t)(y * BEE_SIZE + x);
+	const uint8_t byte = rom_set.sprites[(pixel >> 1) & (DONPACHI_SPRITES_SIZE - 1u)];
+
+	return (pixel & 1u) ? (byte & 15u) : (byte >> 4);
+}
+
+/* xGRB 555, as the board's palette has it, to 0x00RRGGBB */
+static uint32_t palette_colour(unsigned pen)
+{
+	const uint16_t value = cave_board.palette[pen & (CAVE_PALETTE_WORDS - 1u)];
+	const uint32_t g = value >> 10 & 31u, r = value >> 5 & 31u, b = value & 31u;
+
+	return (r << 3 | r >> 2) << 16 | (g << 3 | g >> 2) << 8 | (b << 3 | b >> 2);
+}
+
+/* a bee at (x, y): 2 x 2 of the sprite's pixels to each of the icon's, their colours averaged; one with none of the
+   bee's pixels left clear. Taken: its own colours; not yet: grey, dim */
+static void draw_bee(panel *p, int x, int y, bool taken)
+{
+	for (int row = 0; row < BEE_ICON; row++)
+		for (int column = 0; column < BEE_ICON; column++)
+		{
+			unsigned r = 0, g = 0, b = 0, count = 0;
+
+			for (int sy = 0; sy < 2; sy++)
+				for (int sx = 0; sx < 2; sx++)
+				{
+					const unsigned pen = bee_pen(3 + (BEE_ICON - 1 - row) * 2 + sx, 3 + column * 2 + sy);    /* (turned, as the picture is) */
+
+					if (pen)
+					{
+						const uint32_t colour = palette_colour(BEE_COLOUR * 16u + pen);
+
+						r += colour >> 16 & 255u;
+						g += colour >> 8 & 255u;
+						b += colour & 255u;
+						count++;
+					}
+				}
+			if (count < 2)
+				continue;    /* (the outline's lone pixels: the shape stays clean at half size) */
+			r /= count;
+			g /= count;
+			b /= count;
+			if (!taken)
+			{
+				const unsigned grey = (r * 30u + g * 59u + b * 11u) / 100u * 45u / 100u + 18u;
+
+				r = g = b = grey;
+			}
+			if (x + column >= 0 && x + column < WIDGET_W && y + row >= 0 && y + row < WIDGET_H)
+				p->pixels[(y + row) * WIDGET_W + x + column] = r << 16 | g << 8 | b;
+		}
+}
+
+#define BEES_HEIGHT 33
+
+static void draw_bees(panel *p, int top)
+{
+	const unsigned taken = own_game && run.bee_area >= 0 ? run.bees[run.bee_area] : 0u;
+
+	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	for (int bee = 0; bee < BEES; bee++)
+	{
+		const int row = bee / 7, column = bee % 7;
+
+		draw_bee(p, 8 + column * 15 + row * 7, top + 5 + row * 14, (unsigned)bee < taken);    /* (the 6 of the second row centred) */
+	}
+}
+
 /* ---- the controls: what the board is given (the stick and the three buttons) ---- */
 
 static void draw_input(panel *p, int top, int player)
@@ -870,9 +970,12 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 		top -= 2;
 		draw_rank(&p, top);
 		draw_run(&p, top + RANK_HEIGHT, in_play(0) && in_play(1));
-		/* the controls, with one player (two leave no room) */
+		/* the area's bees, then the controls, with one player (two leave no room) */
 		if (!(in_play(0) && in_play(1)))
-			draw_input(&p, 248, in_play(1) && !in_play(0) ? 1 : 0);
+		{
+			draw_bees(&p, 248);
+			draw_input(&p, 248 + BEES_HEIGHT, in_play(1) && !in_play(0) ? 1 : 0);
+		}
 	}
 
 	p.pixels = right;

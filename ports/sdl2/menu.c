@@ -14,6 +14,7 @@
 #include "training.h"
 
 #include "cave/cheats.h"
+#include "cave/machine.h"
 #include "cave/rom_set.h"
 #include "cave/video.h"
 
@@ -61,6 +62,7 @@ enum
 	ITEM_T_AREA, ITEM_T_POINT, ITEM_T_SHIP, ITEM_T_POWER, ITEM_T_RETRY, ITEM_T_START,    /* the training page */
 	ITEM_T_BOMBS, ITEM_TRAINING_MENU,   /* (and the options' way back to it, in a training game) */
 	ITEM_T_HITBOX,
+	ITEM_DIFFICULTY,              /* the game's difficulty: the test mode's, in the EEPROM */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -96,7 +98,11 @@ static int item_hotkey(int item)
 static bool open, just_closed;
 static bool front;                      /* the main menu is up (the game not started): the options are its settings */
 static int front_message;               /* frames "coming soon" is still shown */
-static int training_pending;            /* START TRAINING: the frames until it starts (LOADING... shown meanwhile) */
+static int training_pending;
+/* the test mode's settings, as the game keeps them in the EEPROM: word 4's high byte, its 2 low bits the difficulty
+   (0 normal, 1 easy, 2 hard, 3 very hard; read into $101288 at boot, the game's at its start: the rank's base,
+   $10121E, and the bullets' speed from it) */
+#define DIFFICULTY_WORD 4            /* START TRAINING: the frames until it starts (LOADING... shown meanwhile) */
 
 void menu_open_front(void);
 static int page, selected, player;
@@ -148,7 +154,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHEATS, ITEM_BACK };
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHEATS,
+			ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -258,6 +265,20 @@ static void change(int item, int step, bool wrap)
 	}
 	switch (item)
 	{
+	case ITEM_DIFFICULTY:
+	{
+		/* in the order the menu goes through them: easy, normal, hard, very hard (the EEPROM's 1, 0, 2, 3) */
+		static const unsigned order[4] = { 1u, 0u, 2u, 3u };
+		const unsigned now = cave_board.eeprom.words[DIFFICULTY_WORD] >> 8 & 3u;
+		int at = 0;
+
+		while (order[at] != now)
+			at++;
+		at = (at + step + 4) % 4;
+		cave_board.eeprom.words[DIFFICULTY_WORD] =
+			(uint16_t)((cave_board.eeprom.words[DIFFICULTY_WORD] & ~0x0300u) | order[at] << 8);
+		return;    /* (the EEPROM: the port keeps it in its file) */
+	}
 	case ITEM_T_AREA:
 		in_use->training_area = (in_use->training_area + step + 10) % 10;
 		if (in_use->training_area != 9 && in_use->training_point == TRAINING_TRUE_BOSS)
@@ -834,7 +855,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY"
 	};
 
 	if (is_hotkey_item(item))
@@ -914,6 +935,13 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_T_HITBOX:
 		snprintf(out, size, "%s", s->training_hitbox ? "ON" : "OFF");
 		break;
+	case ITEM_DIFFICULTY:
+	{
+		static const char *const names[4] = { "NORMAL", "EASY", "HARD", "VERY HARD" };
+
+		snprintf(out, size, "%s", names[cave_board.eeprom.words[DIFFICULTY_WORD] >> 8 & 3u]);
+		break;
+	}
 	case ITEM_T_RETRY:
 		snprintf(out, size, "%s", s->training_retry ? "ON" : "OFF");
 		break;
@@ -1076,6 +1104,13 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 				snprintf(value, sizeof(value), "PRESS...");
 			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
 			y += step;
+		}
+		if (page == PAGE_GAME)
+		{
+			static const char *const note[2] = { "DIFFICULTY CHANGES ON", "F3 RESET OR RESTART" };
+
+			for (int line = 0; line < 2; line++)
+				put_text_y(out, (COLUMNS - (int)strlen(note[line])) / 2, y + 2 + line * 10, note[line], GOLD);
 		}
 		if (page == PAGE_TRAINING && training_pending > 0)
 			put_text_y(out, (COLUMNS - 10) / 2, y + 2, "LOADING...", GOLD);

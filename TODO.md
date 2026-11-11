@@ -31,7 +31,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Player features (the owner's ideas)
 
-- [ ] **Difficulty in the options** (GAME OPTIONS): the service menu's difficulty setting, the same value in the EEPROM, changed from the menu
+- [x] **Difficulty in the options** (GAME OPTIONS): EASY / NORMAL / HARD / VERY HARD, the service menu's own setting (EEPROM word 4, bits 8-9); applies on an F3 reset or a restart
 - [ ] **Achievements** (low priority): goals kept in a file (clear an area with no miss, a chain of N, the true boss, ...), shown as they are earned
 - [ ] **Online leaderboard** (low priority; only with free hosting): scores sent from unassisted games (no cheats, save states or training), with the run's details
 

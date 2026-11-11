@@ -75,6 +75,7 @@ void settings_defaults(settings *s)
 	s->fast_forward_speed = 4;
 	s->hitbox = false;
 	s->save_high_scores = true;
+	s->big_hit = false;
 	s->main_menu = true;
 	s->training_area = 0;
 	s->training_point = 0;
@@ -249,6 +250,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->hitbox);
 		if (!SDL_strcasecmp(name, "save_high_scores"))
 			return parse_bool(value, &s->save_high_scores);
+		if (!SDL_strcasecmp(name, "big_hit_display"))
+			return parse_bool(value, &s->big_hit);
 		if (!SDL_strcasecmp(name, "main_menu"))
 			return parse_bool(value, &s->main_menu);
 		return false;
@@ -508,6 +511,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; the high score table kept in donpachi.hiscore beside the program (the arcade board forgets it when it is\n"
 		"; switched off). Not saved while cheats are on\n", file);
 	fprintf(file, "save_high_scores = %s\n", bool_text(s->save_high_scores));
+	fputs("; the game's own hidden display (Up + Left, then A + Start in a game): the GP window's HIT count in the\n"
+		"; large font all the time, and the best chain shown between chains. Cosmetic only; set without any input\n", file);
+	fprintf(file, "big_hit_display = %s\n", bool_text(s->big_hit));
 	fputs("; the main menu (START GAME, TRAINING, SETTINGS) as the game starts; false: straight into the arcade game\n", file);
 	fprintf(file, "main_menu = %s\n\n", bool_text(s->main_menu));
 

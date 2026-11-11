@@ -64,6 +64,7 @@ enum
 	ITEM_T_HITBOX,
 	ITEM_DIFFICULTY,              /* the game's difficulty: the test mode's, in the EEPROM */
 	ITEM_T_DIFFICULTY,            /* the training game's own */
+	ITEM_BIG_HIT,                 /* the GP window's large HIT display, always on */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -155,8 +156,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHEATS,
-			ITEM_BACK };
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES,
+			ITEM_CHEATS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -328,6 +329,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_HISCORES:
 		in_use->save_high_scores = file->save_high_scores = !in_use->save_high_scores;
+		break;
+	case ITEM_BIG_HIT:
+		in_use->big_hit = file->big_hit = !in_use->big_hit;
 		break;
 	case ITEM_TIMING:
 		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
@@ -875,7 +879,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY"
 	};
 
 	if (is_hotkey_item(item))
@@ -911,6 +915,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_HISCORES:
 		snprintf(out, size, "%s", s->save_high_scores ? "ON" : "OFF");
+		break;
+	case ITEM_BIG_HIT:
+		snprintf(out, size, "%s", s->big_hit ? "ON" : "OFF");
 		break;
 	case ITEM_TIMING:
 		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");

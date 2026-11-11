@@ -64,6 +64,7 @@ typedef struct
 	int fast_forward_speed;     /* 2-16 */
 	bool hitbox;                /* the ships' hitboxes shown */
 	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
+	bool big_hit;               /* the GP window's large HIT count always on, the best chain shown between chains */
 	bool main_menu;             /* the main menu (START GAME, TRAINING, SETTINGS) as the program starts */
 	/* [training] (training.h) */
 	int training_area;          /* 0-9 */

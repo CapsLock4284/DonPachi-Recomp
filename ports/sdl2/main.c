@@ -521,6 +521,32 @@ static void show_picture(const uint32_t *pixels)
 	SDL_RenderPresent(renderer);
 }
 
+/* ---- the big HIT display: the game's own hidden option, set without its stick command ---- */
+
+/* $101738 (a byte): bit 0 player 1's, bit 1 player 2's, set by Up + Left then A + Start during a game (Down + Right then A +
+   Start clears it; the game clears both as a game starts): the GP window's HIT count in the large font all the time,
+   and the best chain shown between chains (func_006D06). Cosmetic only. With the option on the bits are kept set
+   while a game is played; turned off, they are cleared once, and the command works as on the board again */
+#define BIG_HIT_FLAGS 0x101738u
+
+static bool big_hit_set;
+
+static void big_hit_frame(void)
+{
+	uint8_t *const flags = cave_work_ram_byte(BIG_HIT_FLAGS);    /* (a byte) */
+
+	if (options.big_hit && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 7u)
+	{
+		*flags |= 3u;
+		big_hit_set = true;
+	}
+	else if (!options.big_hit && big_hit_set)
+	{
+		*flags &= (uint8_t)~3u;
+		big_hit_set = false;
+	}
+}
+
 /* ---- what the options menu does (menu.h's menu_host) ---- */
 
 static void menu_reset(bool service_menu)
@@ -953,6 +979,7 @@ int main(int argc, char **argv)
 				if (options.free_play)
 					free_play_inputs();
 				program_run_frame();
+				big_hit_frame();
 				cheats_apply();
 				if (fast)
 					cave_sound_drop();

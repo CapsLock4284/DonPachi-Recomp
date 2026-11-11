@@ -9,6 +9,17 @@ runs natively, frame for frame the same as the arcade original.
 **This repository contains no game data.** You need your own copy of the arcade ROM set (MAME's `donpachi.zip`).
 The game reads its graphics, sound and data from it.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/area3.png" width="49%" alt="Area 3, with the side panels: chain gauge, rank, run statistics, bees, score graph and stage progress">
+  <img src="docs/screenshots/boss.png" width="49%" alt="Area 1's boss, with its health bar in the right panel">
+</p>
+<p align="center">
+  <img src="docs/screenshots/area4.png" width="49%" alt="Area 4">
+  <img src="docs/screenshots/menus.png" width="49%" alt="The main menu and the training page">
+</p>
+
 ## Download and play
 
 1. Get the latest `DonPachi-x.y.z-win64.zip` from [**Releases**](https://github.com/CapsLock4284/DonPachi-Recomp/releases/latest).

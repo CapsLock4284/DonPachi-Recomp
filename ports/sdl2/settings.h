@@ -76,6 +76,7 @@ typedef struct
 	/* [window] */
 	int scale;
 	bool fullscreen;
+	bool exclusive;             /* full screen as exclusive (the display the game's alone); false: borderless */
 	/* [video] */
 	int scaling;                /* VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH */
 	bool smooth;                /* a soft filter instead of sharp pixels */

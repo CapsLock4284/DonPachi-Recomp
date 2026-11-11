@@ -532,10 +532,36 @@ static void menu_reset(bool service_menu)
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
 }
 
+/* full screen as the settings have it: borderless (a window over the desktop) or exclusive */
+static Uint32 fullscreen_flag(void)
+{
+	return options.exclusive ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_FULLSCREEN_DESKTOP;
+}
+
+static void set_fullscreen(void)
+{
+	const Uint32 now = SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+	if (now == fullscreen_flag())
+		return;
+	if (now)
+		SDL_SetWindowFullscreen(window, 0);    /* (from one kind to the other: out of it first) */
+	if (options.exclusive)
+	{
+		/* the desktop's own mode: no change of resolution or refresh rate */
+		SDL_DisplayMode desktop;
+		const int display = SDL_GetWindowDisplayIndex(window);
+
+		if (display >= 0 && SDL_GetDesktopDisplayMode(display, &desktop) == 0)
+			SDL_SetWindowDisplayMode(window, &desktop);
+	}
+	SDL_SetWindowFullscreen(window, fullscreen_flag());
+}
+
 static void menu_apply_window(void)
 {
 	if (options.fullscreen)
-		SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		set_fullscreen();
 	else
 	{
 		SDL_SetWindowFullscreen(window, 0);
@@ -796,7 +822,9 @@ int main(int argc, char **argv)
 		}
 	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		shown_width() * options.scale, shown_height() * options.scale,
-		SDL_WINDOW_RESIZABLE | (options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+		SDL_WINDOW_RESIZABLE | (options.fullscreen && !options.exclusive ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+	if (window && options.fullscreen && options.exclusive)
+		set_fullscreen();    /* (exclusive: at the desktop's mode, not the window's size) */
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
 	if (!renderer)
 		renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE) : NULL;
@@ -864,7 +892,10 @@ int main(int argc, char **argv)
 						|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
 			{
 				options.fullscreen = !(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP);
-				SDL_SetWindowFullscreen(window, options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+				if (options.fullscreen)
+					set_fullscreen();
+				else
+					SDL_SetWindowFullscreen(window, 0);
 			}
 			else if (menu_is_open())
 				menu_event(&event);

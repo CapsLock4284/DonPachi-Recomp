@@ -347,8 +347,16 @@ static void change(int item, int step, bool wrap)
 		host.apply_window();
 		break;
 	case ITEM_FULLSCREEN:
-		in_use->fullscreen = file->fullscreen = !in_use->fullscreen;
+	{
+		/* OFF, BORDERLESS, EXCLUSIVE */
+		int at = !in_use->fullscreen ? 0 : in_use->exclusive ? 2 : 1;
+
+		at = wrap ? (at + 1) % 3 : SDL_clamp(at + step, 0, 2);
+		in_use->fullscreen = file->fullscreen = at != 0;
+		if (at != 0)
+			in_use->exclusive = file->exclusive = at == 2;
 		host.apply_window();
+	}
 		break;
 	case ITEM_PANELS:
 		in_use->panels = file->panels = !in_use->panels;
@@ -905,7 +913,7 @@ static void item_value(int item, char *out, size_t size)
 		snprintf(out, size, "%dX", s->scale);
 		break;
 	case ITEM_FULLSCREEN:
-		snprintf(out, size, "%s", s->fullscreen ? "ON" : "OFF");
+		snprintf(out, size, "%s", !s->fullscreen ? "OFF" : s->exclusive ? "EXCLUSIVE" : "BORDERLESS");
 		break;
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:

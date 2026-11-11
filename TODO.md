@@ -72,6 +72,8 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Graphics
 
+- [x] **Borderless or exclusive full screen** (GRAPHICS > FULL SCREEN: OFF / BORDERLESS / EXCLUSIVE; `[window] fullscreen`, `fullscreen_type`): borderless is a window covering the desktop (it was already this, SDL's FULLSCREEN_DESKTOP); exclusive takes the display at the desktop's own mode (no resolution or refresh change). F11 / Alt+Enter switches between the window and the chosen kind
+
 - [x] The options menu's GRAPHICS page and `[video]` (`ports/sdl2/main.c` show_picture):
   - [x] Scaling: fit (as large as the window allows), integer (whole times only, every game pixel the same size), stretch
   - [x] Smoothing: a soft filter, or sharp pixels
@@ -80,7 +82,6 @@ The sections below: graphics options, the player features, accuracy checks, poli
   - [x] Rotate (TATE): the picture turned right or left for a monitor on its side
   - [x] Window size and full screen moved to the page
 - [ ] A CRT shader (curvature, glow, a shadow mask), beyond the scanlines
-- [ ] **Borderless fullscreen** in the GRAPHICS page (the desktop's resolution, no mode change: quick to switch to and from), beside the exclusive fullscreen
 
 ## Other versions
 

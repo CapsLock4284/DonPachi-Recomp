@@ -85,6 +85,7 @@ void settings_defaults(settings *s)
 	s->training_hitbox = true;
 	s->scale = 3;
 	s->fullscreen = false;
+	s->exclusive = false;
 	s->scaling = VIDEO_FIT;
 	s->smooth = false;
 	s->scanlines = 0;
@@ -257,6 +258,15 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_int(value, 1, 16, &s->scale);
 		if (!SDL_strcasecmp(name, "fullscreen"))
 			return parse_bool(value, &s->fullscreen);
+		if (!SDL_strcasecmp(name, "fullscreen_type"))
+		{
+			if (!SDL_strcasecmp(value, "borderless") || !SDL_strcasecmp(value, "exclusive"))
+			{
+				s->exclusive = !SDL_strcasecmp(value, "exclusive");
+				return true;
+			}
+			return false;
+		}
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "video"))
@@ -492,7 +502,10 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; the window's size, in times the game's 240 x 320\n", file);
 	fprintf(file, "scale = %d\n", s->scale);
 	fputs("; start in full screen (F11 or Alt+Enter switches while playing)\n", file);
-	fprintf(file, "fullscreen = %s\n\n", bool_text(s->fullscreen));
+	fprintf(file, "fullscreen = %s\n", bool_text(s->fullscreen));
+	fputs("; borderless (a window over the whole screen, at the desktop's resolution: quick to switch away from)\n", file);
+	fputs("; or exclusive (the display the game's alone, at the desktop's resolution: may lag a little less)\n", file);
+	fprintf(file, "fullscreen_type = %s\n\n", s->exclusive ? "exclusive" : "borderless");
 
 	fputs("[video]\n", file);
 	fputs("; fit: as large as the window allows; integer: whole times the game's pixels only (all the same size);\n"

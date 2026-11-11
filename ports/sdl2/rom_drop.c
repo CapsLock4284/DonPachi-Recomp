@@ -10,6 +10,7 @@
 #include "rom_drop.h"
 
 #include "cave/rom_set.h"
+#include "window_icon.h"
 
 #include <SDL.h>
 #include <ctype.h>
@@ -164,6 +165,7 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 	*saved = false;
 	if (!window)
 		return false;
+	window_icon_set(window);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer)
 		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);

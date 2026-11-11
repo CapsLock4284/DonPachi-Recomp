@@ -79,6 +79,7 @@ if(SDL2_FOUND)
 		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
 	if(WIN32)
+		target_sources(donpachi PRIVATE ports/sdl2/icon/donpachi.rc)    # (the .exe's icon)
 		add_custom_command(TARGET donpachi POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:donpachi>)
 	endif()

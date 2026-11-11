@@ -65,6 +65,7 @@
 #include "training.h"
 #include "menu.h"
 #include "widgets.h"
+#include "window_icon.h"
 #include "settings.h"
 
 #include <SDL.h>
@@ -897,6 +898,8 @@ int main(int argc, char **argv)
 	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		shown_width() * options.scale, shown_height() * options.scale,
 		SDL_WINDOW_RESIZABLE | (options.fullscreen && !options.exclusive ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+	if (window)
+		window_icon_set(window);
 	if (window && options.fullscreen && options.exclusive)
 		set_fullscreen();    /* (exclusive: at the desktop's mode, not the window's size) */
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;

@@ -110,8 +110,9 @@ The last step: once the US version plays and works the way it should.
 
 ## Clean-up and polish
 
+- [x] **App icon** (the program's own pixel art: a gold fighter with twin shots and engine flames on a dark rounded square, gold rim): `tools/make_icon.py` writes `ports/sdl2/icon/donpachi.ico` (16-256 px; the .exe's, through `icon/donpachi.rc` on Windows), `icon/donpachi.png` and `icon_pixels.h` (32 x 32: the window's and the drop window's, `window_icon.h`)
+
 - [x] Debug keys removed (V autofire, Tab toggle): C is the arcade's own rapid fire
-- [ ] App icon and window title
 - [ ] Volume control (in the settings file and the options menu)
 - [ ] Release build: the exe plus `SDL2.dll`, a short README for players (bring your own `donpachi.zip`)
 - [ ] Name more functions and RAM in `symbols.txt` (sound driver, enemy scripts, player state)

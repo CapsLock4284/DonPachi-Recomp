@@ -1,0 +1,2 @@
+// The program's icon, for Windows' Explorer and the taskbar (made by tools/make_icon.py)
+1 ICON "donpachi.ico"

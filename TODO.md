@@ -27,6 +27,7 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
 - [x] **Training: the hitbox shown by default** in a training game: the Training page's HITBOX (`[training] hitbox`, on); the normal game keeps the options' HITBOX
 - [x] **Training bug: area 6** (the picture wobbling, the ship flying from the start though the dropship comes in): area 6 was entered as a mere next area from area 1's end, the loop set by hand. Now area 1's end is made area 5's (the stage set to 4, loop 0), so the game goes through the first loop's end, its story between the loops, and starts area 6 itself, from the dropship
 
+- [ ] **Before making the repository public: clean the git history** (owner): the early commits carry an email address with the owner's real name, one commit message names him, and older versions of `TODO.md` do too. Rewrite the history (e.g. `git filter-repo` with a mailmap and a text replacement), check it, then force-push. It cannot be undone, so make a backup clone first
 The sections below: graphics options, the player features, accuracy checks, polish.
 
 ## Player features (the owner's ideas)

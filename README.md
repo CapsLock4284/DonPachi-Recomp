@@ -42,6 +42,7 @@ The release's `README.txt` has the controls, hotkeys and the list of files the g
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
   top score, stage progress and boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions
+- **23 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
 - **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
 - **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu, MAME cheats
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`

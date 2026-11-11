@@ -49,6 +49,9 @@ FEATURES
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)
+  - 23 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
+    clears, all 13 bees, long chains, scores and more. Earned in the arcade game
+    only: not in training, or in a game with a cheat or a loaded save state
 
 
 CHEATS (optional)
@@ -68,6 +71,7 @@ FILES THE GAME KEEPS BESIDE donpachi.exe
   donpachi.ini       your settings (delete it to go back to the defaults)
   donpachi.eeprom    the arcade board's own settings (the test menu's)
   donpachi.hiscore   the high score table
+  donpachi.achievements   the achievements you've earned, and when
 
 Keep these if you move the game to another folder or computer. Don't share
 donpachi_usa.dat: it is the contents of the ROM set.

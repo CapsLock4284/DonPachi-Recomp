@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.2.0 (2026-11-11)
+
 ### New
 - **Achievements:** 23 goals, from area clears and one-credit clears to no-miss and no-bomb areas, all 13 bees, long
   chains, big scores, max rank and more. An "ACHIEVEMENT UNLOCKED" pop-up with a trophy appears on the right side

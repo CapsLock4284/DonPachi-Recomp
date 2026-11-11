@@ -114,7 +114,7 @@ The last step: once the US version plays and works the way it should.
 
 - [x] Debug keys removed (V autofire, Tab toggle): C is the arcade's own rapid fire
 - [ ] Volume control (in the settings file and the options menu)
-- [ ] Release build: the exe plus `SDL2.dll`, a short README for players (bring your own `donpachi.zip`)
+- [x] **Release package** (`tools/make_release.ps1 -Version 0.1.0`, after a Release build): `release\DonPachi-<version>-win64.zip` with `donpachi.exe`, `SDL2.dll`, `README.txt` (players: getting started, the ROM drop, SmartScreen, controls, files kept) and `licenses\` (NOTICES, SDL2, tmntarcade runtime). Only files on its allow list go in; it stops on any ROM set, game data, EEPROM, high score, settings or cheat file, a 32-bit or oversized .exe, or one needing the Visual C++ runtime (the build now uses the static runtime), and on an .exe older than the sources. `/release/` is in .gitignore. Players just unzip and run donpachi.exe
 - [ ] Name more functions and RAM in `symbols.txt` (sound driver, enemy scripts, player state)
 - [ ] Startup message box listing what the ROM set is missing, when it is incomplete
 

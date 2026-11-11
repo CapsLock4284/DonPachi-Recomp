@@ -1,0 +1,26 @@
+Notices for this program and the parts it is made from
+======================================================
+
+The program (donpachi.exe)
+  The game's program, rebuilt as C from the arcade program, on a model of the
+  arcade board written for this project. The project's own code is under the
+  BSD 3-Clause license. The game itself (its program, graphics, sound and data)
+  is (c) 1995 Cave / Atlus and is not part of this package: the player supplies
+  the ROM set.
+
+Parts made after MAME (BSD 3-Clause)
+  The board model follows MAME's description of the Cave hardware
+  (src/mame/cave: cave.cpp, cave_v.cpp; sprite013.cpp, tmap038.cpp; and the
+  OKIM6295 and NMK112 sound devices), by Luca Elia and the MAME team.
+  MAME is licensed under the BSD 3-Clause license (the files used) and GPL-2.0+
+  as a whole: https://github.com/mamedev/mame
+
+tmntarcade-decomp's runtime (BSD 3-Clause)
+  The .zip reader, the program's task stack and the build are modelled on it:
+  see tmntarcade-runtime.txt in this folder.
+
+SDL2 (zlib license)
+  SDL2.dll, Simple DirectMedia Layer: see SDL2.txt in this folder.
+  https://www.libsdl.org/
+
+The program's icon and the ROM window's font are this project's own.

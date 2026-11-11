@@ -100,7 +100,10 @@ if ($problems.Count -gt 0) {
     exit 1
 }
 
-Compress-Archive -Path $out -DestinationPath $zip
+# (.NET's ZipFile, not Compress-Archive: Windows PowerShell's Compress-Archive writes the folders with "\", which
+# other systems' unzip tools take as part of the file names)
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($out, $zip, [System.IO.Compression.CompressionLevel]::Optimal, $true)
 Write-Host "Made $zip" -ForegroundColor Green
 Get-ChildItem $out -Recurse -File | ForEach-Object {
     "  {0,-36} {1,10:N0} bytes" -f $_.FullName.Substring($out.Length + 1), $_.Length

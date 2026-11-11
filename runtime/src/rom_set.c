@@ -245,3 +245,156 @@ const char *rom_set_load(const char *source)
 	free(chips[U10]);
 	return NULL;
 }
+
+/* ---- the extracted data: a header, then the regions one after the other ----
+   0  "DONPACHI-DATA" and 3 zero bytes
+   16 the format (1), little endian 32-bit; the version (0: the US set, 'donpachi'); the size of the regions;
+      their CRC32 */
+
+#define DATA_MAGIC      "DONPACHI-DATA"
+#define DATA_HEADER     32u
+#define DATA_FORMAT     1u
+#define DATA_VERSION    0u    /* the US set (1 will be the Japanese, 'donpachij') */
+
+static const uint32_t region_sizes[] = {
+	DONPACHI_PROGRAM_SIZE, DONPACHI_SPRITES_SIZE, DONPACHI_LAYER01_SIZE, DONPACHI_LAYER01_SIZE, DONPACHI_LAYER2_SIZE,
+	DONPACHI_OKI1_SIZE, DONPACHI_OKI2_SIZE, 128u
+};
+#define REGIONS ((int)(sizeof(region_sizes) / sizeof(region_sizes[0])))
+
+static uint8_t **region_of(donpachi_rom_set *set, int region)
+{
+	switch (region)
+	{
+	case 0: return &set->program;
+	case 1: return &set->sprites;
+	case 2: case 3: case 4: return &set->layer[region - 2];
+	case 5: case 6: return &set->oki[region - 5];
+	default: return NULL;    /* (the EEPROM: its words) */
+	}
+}
+
+static uint32_t data_size(void)
+{
+	uint32_t size = 0;
+
+	for (int region = 0; region < REGIONS; region++)
+		size += region_sizes[region];
+	return size;
+}
+
+static void put_little32(uint8_t *at, uint32_t value)
+{
+	for (int byte = 0; byte < 4; byte++)
+		at[byte] = (uint8_t)(value >> (8 * byte));
+}
+
+const char *rom_set_save_data(const char *path)
+{
+	static char problem[1100];
+	const uint32_t size = data_size();
+	uint8_t *const whole = malloc(DATA_HEADER + size);
+	uint8_t *at;
+	char partial[1040];
+	FILE *output;
+	size_t written;
+
+	if (!rom_set.program)
+		return "no ROM set read";
+	if (!whole)
+		return "no memory for the data";
+	memset(whole, 0, DATA_HEADER);
+	memcpy(whole, DATA_MAGIC, sizeof(DATA_MAGIC) - 1u);
+	at = whole + DATA_HEADER;
+	for (int region = 0; region < REGIONS; region++)
+	{
+		uint8_t **const source = region_of(&rom_set, region);
+
+		if (source)
+			memcpy(at, *source, region_sizes[region]);
+		else
+			for (int word = 0; word < 64; word++)
+			{
+				at[2 * word] = (uint8_t)(rom_set.eeprom[word] >> 8);
+				at[2 * word + 1] = (uint8_t)rom_set.eeprom[word];
+			}
+		at += region_sizes[region];
+	}
+	put_little32(whole + 16, DATA_FORMAT);
+	put_little32(whole + 20, DATA_VERSION);
+	put_little32(whole + 24, size);
+	put_little32(whole + 28, crc32_of(whole + DATA_HEADER, size));
+	/* written beside it first, then put in its place: a program stopped half way leaves no damaged file */
+	snprintf(partial, sizeof(partial), "%s.part", path);
+	output = fopen(partial, "wb");
+	if (!output)
+	{
+		free(whole);
+		snprintf(problem, sizeof(problem), "cannot write %s", partial);
+		return problem;
+	}
+	written = fwrite(whole, 1, DATA_HEADER + size, output);
+	free(whole);
+	if (fclose(output) != 0 || written != DATA_HEADER + size)
+	{
+		remove(partial);
+		snprintf(problem, sizeof(problem), "cannot write %s (is the disk full?)", partial);
+		return problem;
+	}
+	remove(path);    /* (Windows' rename will not replace a file) */
+	if (rename(partial, path) != 0)
+	{
+		remove(partial);
+		snprintf(problem, sizeof(problem), "cannot write %s", path);
+		return problem;
+	}
+	return NULL;
+}
+
+const char *rom_set_load_data(const char *path)
+{
+	static char problem[1100];
+	const uint32_t size = data_size();
+	size_t length = 0;
+	uint8_t *const whole = read_whole(path, &length);
+	donpachi_rom_set set;
+	const uint8_t *at;
+
+	if (!whole)
+	{
+		snprintf(problem, sizeof(problem), "no %s", path);
+		return problem;
+	}
+	if (length != DATA_HEADER + size || memcmp(whole, DATA_MAGIC, sizeof(DATA_MAGIC) - 1u) != 0
+			|| little32(whole + 16) != DATA_FORMAT || little32(whole + 20) != DATA_VERSION
+			|| little32(whole + 24) != size || little32(whole + 28) != crc32_of(whole + DATA_HEADER, size))
+	{
+		free(whole);
+		snprintf(problem, sizeof(problem), "%s is damaged, or from another version", path);
+		return problem;
+	}
+	memset(&set, 0, sizeof(set));
+	at = whole + DATA_HEADER;
+	for (int region = 0; region < REGIONS; region++)
+	{
+		uint8_t **const target = region_of(&set, region);
+
+		if (!target)
+			for (int word = 0; word < 64; word++)
+				set.eeprom[word] = (uint16_t)(at[2 * word] << 8 | at[2 * word + 1]);
+		else if ((*target = malloc(region_sizes[region])) != NULL)
+			memcpy(*target, at, region_sizes[region]);
+		else
+		{
+			for (int other = 0; other < region; other++)
+				if (region_of(&set, other))
+					free(*region_of(&set, other));
+			free(whole);
+			return "no memory for the data";
+		}
+		at += region_sizes[region];
+	}
+	free(whole);
+	rom_set = set;
+	return NULL;
+}

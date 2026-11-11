@@ -5,3 +5,6 @@
 /src/
 __pycache__/
 symbols - Copy*.txt
+# the game data extracted from the ROM set (donpachi_usa.dat): the ROMs contents
+*.dat
+*.dat.part

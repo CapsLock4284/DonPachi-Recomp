@@ -598,7 +598,8 @@ const char *settings_save(const settings *s, const char *path)
 	}
 
 	fputs("[files]\n", file);
-	fputs("; the ROM set: MAME's donpachi.zip, or the folder that holds it (from the folder the game is started in)\n", file);
+	fputs("; the ROM set: MAME's donpachi.zip, or the folder that holds it (from the folder the game is started in).\n"
+		"; Read on the first run only: the game's data is kept in donpachi_usa.dat beside the program from then on\n", file);
 	fprintf(file, "rom = %s\n", s->rom);
 	fputs("; the test mode's settings (empty: donpachi.eeprom beside the program)\n", file);
 	fprintf(file, "eeprom = %s\n", s->eeprom);

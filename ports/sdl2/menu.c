@@ -65,6 +65,7 @@ enum
 	ITEM_DIFFICULTY,              /* the game's difficulty: the test mode's, in the EEPROM */
 	ITEM_T_DIFFICULTY,            /* the training game's own */
 	ITEM_BIG_HIT,                 /* the GP window's large HIT display, always on */
+	ITEM_VERSION,                 /* the main menu's version of the game (the US one only, so far) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -149,7 +150,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_FRONT)
 	{
-		static const int front_items[] = { ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS, ITEM_QUIT };
+		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_SETTINGS, ITEM_QUIT };
 
 		for (size_t index = 0; index < sizeof(front_items) / sizeof(front_items[0]); index++)
 			items[item_count++] = front_items[index];
@@ -267,6 +268,10 @@ static void change(int item, int step, bool wrap)
 	}
 	switch (item)
 	{
+	case ITEM_VERSION:
+		/* (one version so far: the Japanese one comes with its own decompile, from donpachij's program ROM) */
+		menu_notice("JAPAN VERSION: NOT YET");
+		return;
 	case ITEM_DIFFICULTY:
 	{
 		/* in the order the menu goes through them: easy, normal, hard, very hard (the EEPROM's 1, 0, 2, 3) */
@@ -640,6 +645,8 @@ void menu_open_front(void)
 	front_message = 0;
 	page = PAGE_FRONT;
 	build_items();
+	for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_START_GAME; selected++)
+		;
 }
 
 void menu_open_training(void)
@@ -879,7 +886,7 @@ static const char *item_label(int item)
 		"GRAPHICS", "SCALING", "SMOOTHING", "SCANLINES", "VSYNC", "ROTATE", "STICK DEADZONE", "SIDE PANELS",
 		"SAVE HIGH SCORES", "SAVE STATE", "LOAD STATE", "GAME OPTIONS", "CHEATS",
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
-		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY"
+		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA"
 	};
 
 	if (is_hotkey_item(item))
@@ -1043,7 +1050,7 @@ static void draw_front(uint32_t *out)
 	{
 		const bool chosen = index == selected;
 		const char *const label = item_label(items[index]);
-		const int column = (COLUMNS - (int)strlen(label)) / 2, y = 152 + index * 24;
+		const int column = (COLUMNS - (int)strlen(label)) / 2, y = 146 + index * 22;
 
 		if (chosen)
 		{
@@ -1056,6 +1063,11 @@ static void draw_front(uint32_t *out)
 	{
 		front_message--;
 		put_centre(out, 32, "TRAINING MODE: COMING SOON", CYAN);
+	}
+	if (notice_frames > 0)
+	{
+		notice_frames--;
+		put_centre(out, 34, notice, CYAN);
 	}
 	put_centre(out, 37, "A: CHOOSE", GREY);
 }

@@ -10,7 +10,9 @@
  *      --settings PATH the settings file (default: donpachi.ini beside the program; settings.h): the options below
  *                      and the keys and gamepad buttons of both players. Written with the defaults when it is not
  *                      there; the options below go over it for the run
- *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom)
+ *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom). Read on the
+ *               first run only: its contents are kept in donpachi_usa.dat beside the program, read from then on;
+ *               given on the command line, the set is read and extracted again
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
  *      --no-sound      plays no sound
  *      --no-free-play  the coins as on the board (5, 6). By default Start drops in a coin first when the game has no
@@ -243,6 +245,44 @@ static void show_problem(const char *problem)
 {
 	fprintf(stderr, "The game does not start: %s\n", problem);
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DonPachi", problem, NULL);
+}
+
+/* ---- the game's data: extracted from the ROM set on the first run, read from then on (no .zip needed) ---- */
+
+#define DATA_FILE "donpachi_usa.dat"    /* beside the program: the US set's contents (never in the repository) */
+
+static bool data_extracted;
+
+/* The extracted data beside the program; without it (the first run, or a damaged file), the ROM set ('rom' in the
+   settings), then its contents saved as the data for next time. 'rom_given': the command line's --rom, read
+   (and extracted) whatever data there is */
+static const char *game_data_open(bool rom_given)
+{
+	static char problem[1600];
+	char path[1024];
+	char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
+	const char *data_problem = "--rom given", *rom_problem, *save_problem;
+
+	snprintf(path, sizeof(path), "%s%s", base ? base : "", DATA_FILE);
+	SDL_free(base);
+	if (!rom_given && (data_problem = rom_set_load_data(path)) == NULL)
+		return NULL;
+	if ((rom_problem = rom_set_load(options.rom)) != NULL)
+	{
+		snprintf(problem, sizeof(problem), "%s.\n\nThe game's data is extracted from MAME's DonPachi ROM set "
+			"(donpachi.zip, the US version) on the first run; after that the .zip is no longer needed.\n"
+			"Put donpachi.zip in the 'rom' folder (or set 'rom' in donpachi.ini).\n\n(%s)",
+			rom_problem, data_problem);
+		return problem;
+	}
+	if ((save_problem = rom_set_save_data(path)) != NULL)
+		fprintf(stderr, "the game's data was not saved: %s (the ROM set is read again next time)\n", save_problem);
+	else
+	{
+		data_extracted = true;
+		fprintf(stderr, "the game's data extracted from %s into %s\n", options.rom, path);
+	}
+	return NULL;
 }
 
 /* ---- the sound: the board's samples (cave/sound.h), queued to SDL's audio device a frame at a time ---- */
@@ -762,6 +802,7 @@ static void menu_quit(void)
 int main(int argc, char **argv)
 {
 	const char *cheat_names[CHEATS_MAX];
+	bool rom_given = false;
 	int cheat_count = 0, list_cheats = 0;
 	bool settings_written;
 	const char *problem;
@@ -797,7 +838,10 @@ int main(int argc, char **argv)
 		if (!strcmp(argv[index], "--settings") && value)
 			index++;
 		else if (!strcmp(argv[index], "--rom") && value)
+		{
 			snprintf(options.rom, sizeof(options.rom), "%s", argv[++index]);
+			rom_given = true;    /* (the set read again, and extracted again) */
+		}
 		else if (!strcmp(argv[index], "--cheat") && value && cheat_count < CHEATS_MAX)
 			cheat_names[cheat_count++] = argv[++index];
 		else if (!strcmp(argv[index], "--cheats") && value)
@@ -822,7 +866,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
 		return 1;
 	}
-	if ((problem = rom_set_load(options.rom)) != NULL || (problem = program_start()) != NULL)
+	if ((problem = game_data_open(rom_given)) != NULL || (problem = program_start()) != NULL)
 	{
 		show_problem(problem);
 		SDL_Quit();
@@ -888,6 +932,8 @@ int main(int argc, char **argv)
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
+		if (data_extracted)
+			menu_notice("ROM DATA EXTRACTED");    /* (the .zip not needed from now on) */
 	}
 	if (options.sound)
 		audio_open();

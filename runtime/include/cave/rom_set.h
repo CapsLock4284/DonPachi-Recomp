@@ -38,6 +38,13 @@ extern donpachi_rom_set rom_set;
    has them): NULL, or what is wrong */
 const char *rom_set_load(const char *source);
 
+/* The game's data, extracted: the set as read (its regions, in the order above), kept in one file the program
+   reads instead of the ROM set from then on. Never part of the repository (it is the ROMs' contents).
+   rom_set_save_data writes it (after rom_set_load); rom_set_load_data reads it, checked by its CRC32: NULL, or
+   what is wrong (no file, another program's, damaged) */
+const char *rom_set_save_data(const char *path);
+const char *rom_set_load_data(const char *path);
+
 #ifdef __cplusplus
 }
 #endif

@@ -8,7 +8,8 @@
  *    The file (little endian):
  *      "DPREPLAY", format (16 bits: 2; 1 is read too), the game ("donpachi", 8 bytes), the port's version (16 bytes)
  *      the date (20 bytes, "2026-11-11 15:20"), player 1's best score (32), the area reached (8), the ship (8), the
- *      difficulty (8), finished (8), the frames in all (32), the game's first frame (32: its ship select)
+ *      difficulty (8), its end (8: 0 stopped part way, 1 the game over, 2 all clear: area 10 cleared), the frames in
+ *      all (32), the game's first frame (32: its ship select)
  *      format 2: the start (8: 0 the board's reset, 1 a training place), the training setup (6 bytes: the area,
  *      the place, the ship, the power, the bombs (1: 7), the difficulty)
  *      the EEPROM's words (CAVE_EEPROM_WORDS of 16)
@@ -92,6 +93,8 @@ typedef struct
 	uint32_t score;
 	int area, ship, difficulty;
 	unsigned last_mode;
+	int last_area;              /* (area 10 cleared: the stage moving on from it during play) */
+	bool all_clear;
 } game_record;
 
 /* a recording, or a replay loaded: what the file holds */
@@ -339,7 +342,7 @@ static const char *save(const track *t, const game_record *g, uint32_t end, bool
 	put(file, (uint64_t)g->area, 1);
 	put(file, (uint64_t)g->ship, 1);
 	put(file, (uint64_t)g->difficulty, 1);
-	put(file, finished ? 1u : 0u, 1);
+	put(file, !finished ? 0u : g->all_clear ? 2u : 1u, 1);
 	put(file, end, 4);
 	put(file, g->begin, 4);
 	put(file, t->start.training ? 1u : 0u, 1);
@@ -493,6 +496,14 @@ bool replay_after_frame(void)
 		if (score > game->score)
 			game->score = score;
 	}
+	{
+		const unsigned stage = word(0x101A40u), loop = word(0x101A42u);
+		const int area = stage < 5u && loop < 2u ? (int)(loop * 5u + stage) : -1;
+
+		if (game->on && game->last_area == 9 && area == -1 && game->last_mode == 7u)
+			game->all_clear = true;    /* (area 10 cleared, as the achievements and statistics see it) */
+		game->last_area = area;
+	}
 	game->last_mode = mode;
 	return ended;
 }
@@ -533,7 +544,12 @@ static bool read_header(FILE *file, replay_info *info, uint32_t *begin, start_in
 	info->area = (int)get(file, 1, &ok);
 	info->ship = (int)get(file, 1, &ok);
 	info->difficulty = (int)get(file, 1, &ok);
-	info->finished = get(file, 1, &ok) != 0;
+	{
+		const unsigned end = (unsigned)get(file, 1, &ok);
+
+		info->finished = end != 0u;
+		info->all_clear = end == 2u;
+	}
 	{
 		const uint32_t all = (uint32_t)get(file, 4, &ok);
 

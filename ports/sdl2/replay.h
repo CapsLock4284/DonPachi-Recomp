@@ -82,7 +82,8 @@ typedef struct
 	int area;                   /* the furthest area reached, 1-10 */
 	int ship;                   /* 0-2 */
 	int difficulty;             /* the EEPROM's: 0 normal, 1 easy, 2 hard, 3 very hard */
-	bool finished;              /* played to the game's end (not stopped part way) */
+	bool finished;              /* played to the game's end: a game over (not quit part way) */
+	bool all_clear;             /* ... with area 10 cleared */
 	uint32_t frames;            /* the game's frames, from its ship select */
 } replay_info;
 

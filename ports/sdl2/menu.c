@@ -1607,7 +1607,7 @@ static void replay_details(uint32_t *out, const replay_info *r, int y)
 	if (r->training)
 		snprintf(line, sizeof(line), "TRAINING: %s", r->place);
 	else
-		snprintf(line, sizeof(line), "%s", r->finished ? "TO THE GAME'S END" : "STOPPED PART WAY");
+		snprintf(line, sizeof(line), "%s", r->all_clear ? "ALL CLEAR" : r->finished ? "GAME OVER" : "QUIT");
 	put_centre_y(out, y + 12, line, GREY);
 }
 

@@ -63,7 +63,7 @@ FEATURES
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)
-  - 23 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
+  - 26 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
     clears, all 13 bees, long chains, scores and more. Earned in the arcade game
     only: not in training, or in a game with a cheat or a loaded save state
   - Replays (main menu > REPLAYS): every arcade game is recorded; when it ends

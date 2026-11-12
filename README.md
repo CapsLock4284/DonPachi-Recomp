@@ -51,7 +51,7 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
   top score, stage progress and boss and mid-boss health
 - **Save states**, fast forward, hitbox display, high scores saved between sessions
-- **23 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
+- **26 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
 - **Replays**: every arcade game (and training run) is recorded; save it as a small file you can share, and watch
   them from the main menu's REPLAYS, with pause and frame-by-frame stepping; rename or delete them there
 - **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and

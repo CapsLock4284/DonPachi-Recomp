@@ -12,7 +12,13 @@
  *      most; +$22 the bombs); $101A8A / $101A8C the bomb slots (3-7); $106E14 bit 15 a bomb going off
  *      $10379A / $10379E the bees taken in the area; $10174E / $10176C the chain's hits; $10177A / $10177E the
  *      scores (BCD); $101A32 the rank (its low byte, 0-63); $101284 the difficulty (its low 2 bits)
- *      $100102 the objects (64 of $40 bytes: +0 bit 15 in use, +C's high byte the type; $7C the true last boss)
+ *      $100102 the objects (64 of $40 bytes: +0 bit 15 in use, +C's high byte the type; $7C the true last boss;
+ *      +6 its hit records, the first its main one: $20 bytes each, +0 bits 15 and 13 shootable, bit 8 destroyed)
+ *      $106114 the items (16 of $20 bytes: +0 bit 15 in use, +4 the sprite: $0379 a bomb, $0391 a 1-Up)
+ *    The area targets (the shmups wiki's enemy list; found with tests/harness/targets_find and targets_hunt): area 2's
+ *    three heavy planes (type $13, the mid-boss trio), area 3's hover boat (type $14: a bomb item only when shot after
+ *    it has come to a halt), area 4's extend building (type $70: a 1-Up item when shot without a bomb, first loop
+ *    only; the 1-Up's item is the sign)
  */
 #include "achievements.h"
 
@@ -26,7 +32,8 @@
 enum {
 	A_AREA1, A_LOOP1, A_ALL, A_TRUE_BOSS, A_ONE_CREDIT, A_ONE_CREDIT_ALL, A_NO_MISS_AREA, A_NO_MISS_LOOP,
 	A_NO_BOMB_AREA, A_BEES_AREA, A_BEES_LOOP, A_CHAIN30, A_CHAIN100, A_CHAIN200, A_SCORE1M, A_SCORE5M,
-	A_SCORE10M, A_MAX_RANK, A_FULL_POWER, A_BOMB_SLOTS, A_EXTEND, A_TEAM, A_HARD, ACHIEVEMENTS
+	A_SCORE10M, A_MAX_RANK, A_FULL_POWER, A_BOMB_SLOTS, A_EXTEND, A_TEAM, A_HARD, A_HEAVY_PLANES, A_HOVER_BOAT,
+	A_EXTEND_BUILDING, ACHIEVEMENTS
 };
 
 static const struct { const char *id, *name, *text; } list[ACHIEVEMENTS] = {
@@ -53,6 +60,9 @@ static const struct { const char *id, *name, *text; } list[ACHIEVEMENTS] = {
 	{ "extend",         "EXTRA LIFE",       "EARN AN EXTRA LIFE" },
 	{ "team",           "TEAM WORK",        "CLEAR AN AREA WITH 2 PLAYERS" },
 	{ "hard",           "HARD WAY",         "CLEAR AREA 5 ON HARD OR UP" },
+	{ "heavy_planes",   "HEAVY METAL",      "3 HEAVY PLANES WITHOUT BOMBS" },
+	{ "hover_boat",     "PATIENCE",         "SHOOT A STOPPED HOVER BOAT" },
+	{ "extend_building", "HIDDEN EXTEND",   "THE AREA 4 BUILDING'S 1-UP" },
 };
 
 static char dates[ACHIEVEMENTS][16];    /* when each was earned ("" not yet) */
@@ -175,6 +185,12 @@ static struct
 	unsigned play_frames;       /* frames of play in a row (the ship select leaves its own values a moment) */
 	unsigned last_mode, last_lives[2], last_bees[2], last_bombs[2];
 	bool last_bomb_on;
+	/* the area targets */
+	unsigned planes_down;       /* area 2's heavy planes shot down */
+	bool planes_seen, planes_bombed;    /* (a bomb going off from the first one's coming to the third's end) */
+	int boat_frames;            /* frames left for the hover boat's bomb item to come, after it was shot down */
+	uint16_t last_main[64];     /* each object's main hit record's word (0: none) */
+	uint16_t last_item[16];     /* each item's sprite (0: none) */
 } game;
 
 static void game_begin(void)
@@ -190,6 +206,56 @@ static void area_begin(int area)
 	game.area = area;
 	game.misses = game.bombs = game.bees = 0;
 	game.two_players = false;
+	game.planes_down = 0;
+	game.planes_seen = game.planes_bombed = false;
+	game.boat_frames = 0;
+}
+
+/* The area targets, after each frame of play: area 2's heavy planes all shot down without a bomb; area 3's hover
+   boat shot after it stopped (the game gives a bomb item for it); area 4's building shot without a bomb (the game
+   gives a 1-Up: first loop only) */
+static void area_targets(int area, bool bomb_on)
+{
+	const int stage = area % 5;
+
+	for (int slot = 0; slot < 64; slot++)
+	{
+		const uint32_t object = 0x100102u + 0x40u * (uint32_t)slot;
+		const unsigned type = word(object) & 0x8000u ? word(object + 0xCu) >> 8 : 0u;
+		const uint32_t main = (uint32_t)word(object + 6u) << 16 | word(object + 8u);
+		const uint16_t now = (type == 0x13u || type == 0x14u) && main >= 0x103814u && main < 0x105000u
+			? (uint16_t)word(main) : 0u;
+		const bool destroyed = (game.last_main[slot] & 0xA000u) == 0xA000u && (now & 0x8000u) && !(now & 0x2000u)
+			&& (now & 0x0100u);
+
+		if (stage == 1 && type == 0x13u && (now & 0xA000u) == 0xA000u)
+			game.planes_seen = true;
+		if (destroyed && stage == 1 && type == 0x13u)
+			game.planes_down++;
+		if (destroyed && stage == 2 && type == 0x14u)
+			game.boat_frames = 4;
+		game.last_main[slot] = now;
+	}
+	if (game.planes_seen && game.planes_down < 3u && bomb_on)
+		game.planes_bombed = true;
+	if (stage == 1 && game.planes_down >= 3u && !game.planes_bombed)
+		earn(A_HEAVY_PLANES);
+	for (int item = 0; item < 16; item++)
+	{
+		const uint32_t at = 0x106114u + 0x20u * (uint32_t)item;
+		const uint16_t sprite = word(at) & 0x8000u ? (uint16_t)word(at + 4u) : 0u;
+
+		if (sprite && !game.last_item[item])
+		{
+			if (game.boat_frames > 0 && sprite >= 0x0379u && sprite <= 0x0384u)
+				earn(A_HOVER_BOAT);
+			if (area == 3 && (sprite & 0xFFF0u) == 0x0390u)
+				earn(A_EXTEND_BUILDING);
+		}
+		game.last_item[item] = sprite;
+	}
+	if (game.boat_frames > 0)
+		game.boat_frames--;
 }
 
 /* the area 'area' cleared (the stage moved on from it as it was played) */
@@ -322,6 +388,8 @@ void achievements_frame(bool counts)
 			earn(A_MAX_RANK);
 		if (object_up(0x7Cu))
 			earn(A_TRUE_BOSS);
+		if (area >= 0)
+			area_targets(area, bomb_on);
 	}
 	game.last_bomb_on = bomb_on;
 	game.last_mode = mode;

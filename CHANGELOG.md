@@ -9,6 +9,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 ### New
 - **Linux version:** `DonPachi-x.y.z-linux-x64.tar.gz`, for 64-bit Linux. Unpack it and run `./donpachi`; it uses
   the system's SDL2. Everything works as on Windows, and the first-run window takes the ROM set the same way.
+- **3 new achievements** (26 in all), for the game's hidden rewards: **HEAVY METAL**, shoot down all three of area 2's
+  heavy planes without bombing; **PATIENCE**, shoot area 3's hover boat after it stops (the game gives a bomb item
+  for it); **HIDDEN EXTEND**, shoot down area 4's extend building without a bomb for its 1-Up (first loop only).
 
 ### Changed
 - If the game's folder can't be written to (installed somewhere read-only), its settings, saves, replays and data

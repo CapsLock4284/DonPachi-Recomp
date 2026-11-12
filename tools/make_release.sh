@@ -91,7 +91,9 @@ fi
 tar -C release -czf "$tarball" --owner=0 --group=0 "$name"
 glibc=$(objdump -T "$out/donpachi" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1)
 echo "Made $tarball"
-echo "  (it needs ${glibc:-glibc} or newer: a Linux at least as recent as the one it was built on)"
+# (the newest glibc version the program's calls need: it runs on any Linux with that glibc or a later one, whatever
+# the system it was built on has. glibc 2.34 is 2021's: Ubuntu 22.04, Debian 12, Fedora 35 and later)
+echo "  It runs on Linux with glibc ${glibc#GLIBC_} or newer (2.34 is 2021's: Ubuntu 22.04, Debian 12, Fedora 35 and later)"
 (cd "$out" && find . -type f | sed 's|^\./||' | sort | while read -r file; do
 	printf '  %-36s %10s bytes\n' "$file" "$(wc -c < "$file")"
 done)

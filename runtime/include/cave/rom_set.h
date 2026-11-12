@@ -10,6 +10,7 @@
 #ifndef CAVE_ROM_SET_H
 #define CAVE_ROM_SET_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -37,6 +38,14 @@ extern donpachi_rom_set rom_set;
 /* Reads the set from 'source', a .zip or a folder (its files by MAME's names, or the first .zip in it that
    has them): NULL, or what is wrong */
 const char *rom_set_load(const char *source);
+
+#define ROM_SET_FILES 9    /* the files of the set (MAME's names) */
+
+/* After rom_set_load: how many of the set's files it found, and the names of those it did not (at most 'most' in
+   'names'; 'different': a file of that name was there, but not the right one: another version, or damaged): how
+   many it did not find */
+int rom_set_files_found(void);
+int rom_set_files_missing(const char **names, bool *different, int most);
 
 /* The game's data, extracted: the set as read (its regions, in the order above), kept in one file the program
    reads instead of the ROM set from then on. Never part of the repository (it is the ROMs' contents).

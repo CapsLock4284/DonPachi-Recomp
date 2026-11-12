@@ -6,7 +6,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+- **Incomplete ROM sets:** when the ROM set you give the game (dropped on the first-run window, or in the `rom`
+  folder) is missing files, the window now lists which ones, e.g. "THE SET IS MISSING 2 OF ITS 9 FILES: TEXT.U58,
+  ATDP.U33", and marks a file that is there but is a different version or a bad copy as "(WRONG VERSION)". A file
+  that isn't the DonPachi set at all still says so.
 
 ## v0.2.0 (2026-11-11)
 

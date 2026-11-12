@@ -137,6 +137,46 @@ static void text_fitted(SDL_Renderer *renderer, int y, const char *text, int sca
 	text_centred(renderer, y, line, scale, colour);
 }
 
+/* What is wrong with a set that was read but is not whole, as up to four lines ('\n' between them): the files it
+   lacks (or has another version of). No file of the set at all: not the DonPachi set */
+static void describe_missing(char *out, size_t size)
+{
+	const size_t most = (size_t)((WINDOW_W - 32) / 12);    /* (the letters a line has at scale 2) */
+	const char *names[ROM_SET_FILES];
+	bool different[ROM_SET_FILES];
+	const int missing = rom_set_files_missing(names, different, ROM_SET_FILES);
+	char list[2][64] = { "", "" };
+	int line = 0, shown = 0;
+
+	if (rom_set_files_found() == 0 || missing == 0)
+	{
+		snprintf(out, size, "NOT THE DONPACHI SET (US VERSION). TRY ANOTHER.");
+		return;
+	}
+	/* the names on up to two lines, each "NAME" or "NAME (WRONG ONE)", a comma between */
+	for (; shown < missing; shown++)
+	{
+		char name[40];
+
+		snprintf(name, sizeof(name), "%s%s", names[shown], different[shown] ? " (WRONG VERSION)" : "");
+		if (list[line][0] && strlen(list[line]) + 2 + strlen(name) > most - 9)    /* (room kept for ", +9 MORE") */
+		{
+			if (line == 1)
+				break;
+			strcat(list[line], ",");
+			line++;
+		}
+		if (list[line][0])
+			strcat(list[line], ", ");
+		strcat(list[line], name);
+	}
+	if (shown < missing)
+		snprintf(list[line] + strlen(list[line]), sizeof(list[line]) - strlen(list[line]), ", +%d MORE",
+			missing - shown);
+	snprintf(out, size, "THE SET IS MISSING %d OF ITS %d FILES:\n%s%s%s\nA COMPLETE DONPACHI.ZIP FROM MAME HAS THEM ALL.",
+		missing, ROM_SET_FILES, list[0], line ? "\n" : "", line ? list[1] : "");
+}
+
 static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_colour, const char *why)
 {
 	set_colour(renderer, BACKGROUND);
@@ -147,7 +187,20 @@ static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_col
 	text_centred(renderer, 210, "DONPACHI.ZIP: MAME'S SET, US VERSION", 2, GREY);
 	text_centred(renderer, 232, "THE GAME TAKES ITS DATA FROM IT, ONCE.", 2, GREY);
 	if (status)
-		text_fitted(renderer, 290, status, 2, status_colour);
+	{
+		/* (its lines: the first in the status's colour, the next ones white, a last hint grey) */
+		char copy[400];
+		int y = 270, line = 0;
+
+		snprintf(copy, sizeof(copy), "%s", status);
+		for (char *at = copy, *next; at; at = next, line++, y += 24)
+		{
+			if ((next = strchr(at, '\n')) != NULL)
+				*next++ = '\0';
+			text_fitted(renderer, line == 0 && !next ? 290 : y, at, 2,
+				line == 0 ? status_colour : next ? WHITE : GREY);
+		}
+	}
 	else if (why)
 		text_fitted(renderer, 360, why, 1, 0x606078u);
 	SDL_RenderPresent(renderer);
@@ -158,7 +211,7 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 	SDL_Window *const window = SDL_CreateWindow("DonPachi: the ROM set", SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, 0);
 	SDL_Renderer *renderer;
-	char status[200] = "";
+	char status[400] = "";
 	uint32_t status_colour = WHITE;
 	bool loaded = false, running = true;
 
@@ -175,6 +228,12 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 		return false;
 	}
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+	if (rom_set_files_found() > 0)
+	{
+		/* (the set the settings point to was read, but is not whole: what it lacks, from the start) */
+		describe_missing(status, sizeof(status));
+		status_colour = RED;
+	}
 	while (running && !loaded)
 	{
 		SDL_Event event;
@@ -206,8 +265,10 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 			{
 				fprintf(stderr, "%s: %s\n", event.drop.file, problem);
 				/* the files the set needs are matched by their CRC32: another game's, or another version's */
-				snprintf(status, sizeof(status), "%s", strstr(problem, " has no ")
-					? "NOT THE DONPACHI SET (US VERSION). TRY ANOTHER." : "THAT ISN'T A .ZIP OR A FOLDER OF THE SET.");
+				if (strstr(problem, " has no "))
+					describe_missing(status, sizeof(status));
+				else
+					snprintf(status, sizeof(status), "THAT ISN'T A .ZIP OR A FOLDER OF THE SET.");
 				status_colour = RED;
 			}
 			SDL_free(event.drop.file);

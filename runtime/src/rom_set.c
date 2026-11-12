@@ -13,6 +13,8 @@
 
 #include "inflate.h"
 
+#include <ctype.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +36,12 @@ typedef struct
 } rom_file;
 
 enum { U29, U44, U45, U54, U57, U58, U32, U33, U10, FILES };
+
+/* what the last rom_set_load found of each file */
+enum { FILE_MISSING, FILE_FOUND, FILE_DIFFERENT };
+static int file_state[FILES];
+typedef char files_counted[ROM_SET_FILES == FILES ? 1 : -1];    /* (rom_set.h's count, kept right) */
+static bool name_seen[FILES];    /* (a file of its name, right or not) */
 
 static const rom_file files[FILES] = {
 	{ "prgu.u29", 0x89c36802u, 0x080000u },
@@ -95,6 +103,22 @@ static uint8_t *read_whole(const char *path, size_t *size)
 	return data;
 }
 
+/* a .zip entry's name ('length' bytes, maybe in a folder) is the set's file 'file' (in any case) */
+static bool same_name(const uint8_t *name, size_t length, int file)
+{
+	const size_t want = strlen(files[file].name);
+	size_t start = length;
+
+	while (start > 0 && name[start - 1] != '/' && name[start - 1] != '\\')
+		start--;
+	if (length - start != want)
+		return false;
+	for (size_t at = 0; at < want; at++)
+		if (tolower(name[start + at]) != files[file].name[at])
+			return false;
+	return true;
+}
+
 /* The set's files in the .zip 'zip' into 'chips', by their CRC32: 0 when it is no .zip */
 static int read_zip(const uint8_t *zip, size_t size, uint8_t **chips)
 {
@@ -124,6 +148,10 @@ static int read_zip(const uint8_t *zip, size_t size, uint8_t **chips)
 		packed = little32(zip + entry + 20);
 		unpacked = little32(zip + entry + 24);
 		local = little32(zip + entry + 42);
+		for (file = 0; file < FILES; file++)
+			if (size - entry >= 46u + little16(zip + entry + 28)
+					&& same_name(zip + entry + 46, little16(zip + entry + 28), file))
+				name_seen[file] = true;
 		entry += 46 + little16(zip + entry + 28) + little16(zip + entry + 30) + little16(zip + entry + 32);
 		for (file = 0; file < FILES; file++)
 			if (!chips[file] && files[file].crc == crc && files[file].size == unpacked)
@@ -154,6 +182,8 @@ static void read_folder(const char *folder, uint8_t **chips)
 
 		snprintf(path, sizeof(path), "%s/%s", folder, files[file].name);
 		chips[file] = read_whole(path, &size);
+		if (chips[file])
+			name_seen[file] = true;
 		if (chips[file] && (size != files[file].size || crc32_of(chips[file], files[file].size) != files[file].crc))
 		{
 			free(chips[file]);
@@ -176,6 +206,32 @@ static uint8_t *swapped(const uint8_t *data, uint32_t size)
 	return out;
 }
 
+int rom_set_files_found(void)
+{
+	int found = 0;
+
+	for (int file = 0; file < FILES; file++)
+		found += file_state[file] == FILE_FOUND;
+	return found;
+}
+
+int rom_set_files_missing(const char **names, bool *different, int most)
+{
+	int count = 0;
+
+	for (int file = 0; file < FILES; file++)
+		if (file_state[file] != FILE_FOUND)
+		{
+			if (count < most)
+			{
+				names[count] = files[file].name;
+				different[count] = file_state[file] == FILE_DIFFERENT;
+			}
+			count++;
+		}
+	return count;
+}
+
 const char *rom_set_load(const char *source)
 {
 	static char problem[256];
@@ -183,6 +239,8 @@ const char *rom_set_load(const char *source)
 	size_t size = 0;
 	uint8_t *whole = read_whole(source, &size);
 
+	memset(file_state, 0, sizeof(file_state));
+	memset(name_seen, 0, sizeof(name_seen));
 	if (whole)
 	{
 		if (!read_zip(whole, size, chips))
@@ -206,10 +264,14 @@ const char *rom_set_load(const char *source)
 		}
 	}
 	for (int file = 0; file < FILES; file++)
+		file_state[file] = chips[file] ? FILE_FOUND : name_seen[file] ? FILE_DIFFERENT : FILE_MISSING;
+	for (int file = 0; file < FILES; file++)
 		if (!chips[file])
 		{
 			snprintf(problem, sizeof(problem), "the ROM set in %s has no %s (CRC32 %08x), or a different one",
 				source, files[file].name, (unsigned)files[file].crc);
+			for (int other = 0; other < FILES; other++)
+				free(chips[other]);
 			return problem;
 		}
 

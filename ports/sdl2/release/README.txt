@@ -16,7 +16,8 @@ GETTING STARTED
 3. A window asks for the ROM set. Drag MAME's donpachi.zip (the US version) onto
    it. The game takes what it needs from it once and saves it as donpachi_usa.dat
    beside the program; after that the .zip isn't needed. Merged and non-merged MAME
-   sets both work.
+   sets both work. If your set is incomplete, the window lists the files it is
+   missing.
 
 
 CONTROLS (change them in SETTINGS > CONTROLS)

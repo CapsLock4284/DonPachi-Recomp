@@ -16,7 +16,7 @@ mkdir -p "$OBJ"
 for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
          "$ROOT"/ports/sdl2/settings.c "$ROOT"/ports/sdl2/menu.c "$ROOT"/ports/sdl2/widgets.c \
          "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c \
-         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/replay.c; do
+         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/replay.c "$ROOT"/ports/sdl2/paths.c; do
 	o="$OBJ/$(echo "$f" | sed "s|$ROOT/||;s|/|_|g;s|\.c$|.o|")"
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done

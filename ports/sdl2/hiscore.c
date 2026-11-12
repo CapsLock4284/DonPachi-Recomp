@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "hiscore.h"
+#include "paths.h"
 
 #include "cave/machine.h"
 
@@ -64,12 +65,7 @@ const char *hiscore_open(const char *file_path)
 	if (file_path)
 		snprintf(path, sizeof(path), "%s", file_path);
 	else
-	{
-		char *const base = SDL_GetBasePath();
-
-		snprintf(path, sizeof(path), "%sdonpachi.hiscore", base ? base : "");
-		SDL_free(base);
-	}
+		snprintf(path, sizeof(path), "%sdonpachi.hiscore", paths_folder());
 	have_file = false;
 	if (!(file = fopen(path, "rb")))
 		return NULL;

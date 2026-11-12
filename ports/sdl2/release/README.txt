@@ -1,18 +1,30 @@
-DonPachi (arcade, US version) for Windows - version {VERSION}
-=============================================================
+DonPachi (arcade, US version) for Windows and Linux - version {VERSION}
+=======================================================================
 
-A native Windows version of Cave's 1995 arcade shooter DonPachi, rebuilt from the
-arcade program. It does not come with the game's graphics, sound or data: you need
-your own copy of the arcade ROM set.
+A native Windows and Linux version of Cave's 1995 arcade shooter DonPachi,
+rebuilt from the arcade program. It does not come with the game's graphics, sound
+or data: you need your own copy of the arcade ROM set.
 
 
 GETTING STARTED
 ---------------
+On Windows (DonPachi-{VERSION}-win64.zip):
 1. Unzip this folder somewhere you can write to (your Documents or Desktop, for
    example; not inside "Program Files").
 2. Double-click donpachi.exe.
    Windows may say "Windows protected your PC" the first time, because the program
    is not signed. Click "More info", then "Run anyway".
+
+On Linux (DonPachi-{VERSION}-linux-x64.tar.gz; a 64-bit Linux):
+1. Unpack it somewhere in your home folder:
+       tar xzf DonPachi-{VERSION}-linux-x64.tar.gz
+2. Run ./donpachi in that folder (or double-click it in your file manager).
+   It uses your system's SDL2. If it says libSDL2-2.0.so.0 is missing, install it:
+       Debian / Ubuntu / Mint:  sudo apt install libsdl2-2.0-0
+       Fedora:                  sudo dnf install SDL2
+       Arch:                    sudo pacman -S sdl2
+
+Then, on both:
 3. A window asks for the ROM set. Drag MAME's donpachi.zip (the US version) onto
    it. The game takes what it needs from it once and saves it as donpachi_usa.dat
    beside the program; after that the .zip isn't needed. Merged and non-merged MAME
@@ -73,16 +85,15 @@ DonPachi, which isn't included here. To add it:
   1. Download MAME's cheat collection, cheat.7z (from Pugsy's Cheats,
      https://www.mamecheat.co.uk).
   2. Open it with 7-Zip and take out donpachi.xml.
-  3. Make a folder called "cheats" beside donpachi.exe and put donpachi.xml in it,
-     so you have:   cheats\donpachi.xml   in the same folder as donpachi.exe.
-     (The game looks there when started by double-clicking donpachi.exe. Started
-     from a shortcut, it looks in the shortcut's "Start in" folder instead; or set
-     the full path as "cheats =" under [files] in donpachi.ini.)
+  3. Make a folder called "cheats" beside the program (donpachi.exe on Windows,
+     donpachi on Linux) and put donpachi.xml in it, so you have
+     cheats/donpachi.xml in the same folder as the program. (Or set the full path
+     as "cheats =" under [files] in donpachi.ini.)
 High scores aren't saved while a cheat is on.
 
 
-FILES THE GAME KEEPS BESIDE donpachi.exe
-----------------------------------------
+FILES THE GAME KEEPS BESIDE THE PROGRAM
+---------------------------------------
   donpachi_usa.dat   the game data taken from your ROM set
   donpachi.ini       your settings (delete it to go back to the defaults)
   donpachi.eeprom    the arcade board's own settings (the test menu's)
@@ -95,9 +106,13 @@ FILES THE GAME KEEPS BESIDE donpachi.exe
 Keep these if you move the game to another folder or computer. Don't share
 donpachi_usa.dat: it is the contents of the ROM set.
 
+If the game's folder can't be written to (installed somewhere read-only), it
+keeps them in your own folder instead: ~/.local/share/DonPachi/ on Linux,
+%APPDATA%\DonPachi\ on Windows.
+
 
 LICENSES
 --------
-See the licenses folder: this program's notices, and SDL2's license (SDL2.dll).
+See the licenses folder: this program's notices, and SDL2's license.
 DonPachi is (c) 1995 Cave / Atlus. This is an unofficial fan project, not
 connected with or endorsed by them.

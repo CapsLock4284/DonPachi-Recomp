@@ -6,7 +6,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+### New
+- **Linux version:** `DonPachi-x.y.z-linux-x64.tar.gz`, for 64-bit Linux. Unpack it and run `./donpachi`; it uses
+  the system's SDL2. Everything works as on Windows, and the first-run window takes the ROM set the same way.
+
 ### Changed
+- If the game's folder can't be written to (installed somewhere read-only), its settings, saves, replays and data
+  are kept in your own folder instead: `~/.local/share/DonPachi/` on Linux, `%APPDATA%\DonPachi\` on Windows.
+- The `rom` folder and the cheat file are now also looked for beside the program, so the game finds them however
+  it is started (from a shortcut, a launcher or another folder).
 - **Incomplete ROM sets:** when the ROM set you give the game (dropped on the first-run window, or in the `rom`
   folder) is missing files, the window now lists which ones, e.g. "THE SET IS MISSING 2 OF ITS 9 FILES: TEXT.U58,
   ATDP.U33", and marks a file that is there but is a different version or a bad copy as "(WRONG VERSION)". A file

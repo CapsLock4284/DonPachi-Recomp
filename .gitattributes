@@ -1,0 +1,2 @@
+# shell scripts keep Unix line ends, whatever git does on Windows (they run on Linux and WSL)
+*.sh text eol=lf

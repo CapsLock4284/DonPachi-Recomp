@@ -7,7 +7,7 @@
  *    license:BSD-3-Clause
  *    Usage: donpachi [--settings PATH] [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH]
  *                    [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats]
- *      --settings PATH the settings file (default: donpachi.ini beside the program; settings.h): the options below
+ *      --settings PATH the settings file (default: donpachi.ini beside the program (paths.h); settings.h): the options below
  *                      and the keys and gamepad buttons of both players. Written with the defaults when it is not
  *                      there; the options below go over it for the run
  *      --rom    the ROM set: MAME's donpachi.zip, or a folder holding it or its files (default: rom). Read on the
@@ -71,6 +71,7 @@
 #include "widgets.h"
 #include "window_icon.h"
 #include "settings.h"
+#include "paths.h"
 
 #include <SDL.h>
 
@@ -270,11 +271,9 @@ static bool data_extracted;
 static const char *game_data_open(bool rom_given)
 {
 	char path[1024];
-	char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
 	const char *data_problem = "--rom given", *rom_problem, *save_problem;
 
-	snprintf(path, sizeof(path), "%s%s", base ? base : "", DATA_FILE);
-	SDL_free(base);
+	snprintf(path, sizeof(path), "%s%s", paths_folder(), DATA_FILE);
 	if (!rom_given && (data_problem = rom_set_load_data(path)) == NULL)
 		return NULL;
 	if ((rom_problem = rom_set_load(options.rom)) != NULL)
@@ -413,12 +412,7 @@ static void eeprom_open(const char *path)
 	if (path)
 		snprintf(eeprom_path, sizeof(eeprom_path), "%s", path);
 	else
-	{
-		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
-
-		snprintf(eeprom_path, sizeof(eeprom_path), "%sdonpachi.eeprom", base ? base : "");
-		SDL_free(base);
-	}
+		snprintf(eeprom_path, sizeof(eeprom_path), "%sdonpachi.eeprom", paths_folder());
 	switch (cave_eeprom_load(eeprom_path))
 	{
 	case 1:
@@ -980,12 +974,7 @@ int main(int argc, char **argv)
 		if (!strcmp(argv[index], "--settings"))
 			snprintf(settings_path, sizeof(settings_path), "%s", argv[index + 1]);
 	if (!settings_path[0])
-	{
-		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
-
-		snprintf(settings_path, sizeof(settings_path), "%sdonpachi.ini", base ? base : "");
-		SDL_free(base);
-	}
+		snprintf(settings_path, sizeof(settings_path), "%sdonpachi.ini", paths_folder());
 	problem = settings_load(&options, settings_path, &settings_written);
 	file_options = options;    /* (before the command line's options) */
 	if (problem)
@@ -1026,6 +1015,16 @@ int main(int argc, char **argv)
 	}
 	if (options.scale < 1)
 		options.scale = 1;
+	{
+		/* (the ROM set and the cheat file as the settings name them: from the working folder, else beside the
+		   program, as a game started from a desktop's file manager or a launcher may not be started in its folder) */
+		char found[sizeof(options.rom)];
+
+		paths_find(options.rom, found, sizeof(found));
+		snprintf(options.rom, sizeof(options.rom), "%s", found);
+		paths_find(options.cheats, found, sizeof(found));
+		snprintf(options.cheats, sizeof(options.cheats), "%s", found);
+	}
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0)
 	{
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
@@ -1050,15 +1049,13 @@ int main(int argc, char **argv)
 		fprintf(stderr, "donpachi.hiscore: %s\n", problem);
 	{
 		char path[1024];
-		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
 
-		snprintf(path, sizeof(path), "%sdonpachi.achievements", base ? base : "");
+		snprintf(path, sizeof(path), "%sdonpachi.achievements", paths_folder());
 		achievements_load(path);
-		snprintf(path, sizeof(path), "%sdonpachi.stats", base ? base : "");
+		snprintf(path, sizeof(path), "%sdonpachi.stats", paths_folder());
 		stats_load(path);
-		snprintf(path, sizeof(path), "%sreplays/", base ? base : "");
+		snprintf(path, sizeof(path), "%sreplays/", paths_folder());
 		replay_folder(path);
-		SDL_free(base);
 	}
 	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
 	for (int cheat = 0; cheat < cheat_count; cheat++)

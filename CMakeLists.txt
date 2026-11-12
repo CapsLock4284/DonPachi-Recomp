@@ -6,12 +6,15 @@
 #
 # Modelled on tmntarcade-decomp's CMakeLists.txt (BSD-3-Clause, Sebastian Toyos).
 #
-#   cmake -S . -B build/msvc
+#   cmake -S . -B build/msvc                          (Windows)
 #   cmake --build build/msvc --config Release
+#   cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release     (Linux)
+#   cmake --build build/linux -j
 #
-# The executables go to build/bin: donpachi_headless (no window), and donpachi (a window, with SDL2: on Windows
-# its development package, SDL2-devel-2.x.x-VC.zip, unpacked in build/downloads/sdl2). Both read the player's own
-# ROM set, MAME's donpachi.zip (--rom PATH, default rom: the folder holding it).
+# The executables go to build/bin (Windows) or build/bin-linux (Linux, so both can be built in one folder):
+# donpachi_headless (no window), and donpachi (a window, with SDL2: on Windows its development package,
+# SDL2-devel-2.x.x-VC.zip, unpacked in build/downloads/sdl2; on Linux the system's, e.g. libsdl2-dev). Both read
+# the player's own ROM set, MAME's donpachi.zip (--rom PATH, default rom: the folder holding it).
 cmake_minimum_required(VERSION 3.20)
 # The version: the one place it is set (the main menu shows it; tools/make_release.ps1 names the package from it)
 project(donpachi VERSION 0.2.0 LANGUAGES C)
@@ -19,7 +22,16 @@ project(donpachi VERSION 0.2.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-set(DONPACHI_BIN_DIR ${CMAKE_SOURCE_DIR}/build/bin CACHE PATH "Where the executables go")
+if(WIN32)
+	set(DONPACHI_BIN_DEFAULT ${CMAKE_SOURCE_DIR}/build/bin)
+else()
+	string(TOLOWER "${CMAKE_SYSTEM_NAME}" DONPACHI_SYSTEM)
+	set(DONPACHI_BIN_DEFAULT ${CMAKE_SOURCE_DIR}/build/bin-${DONPACHI_SYSTEM})
+endif()
+set(DONPACHI_BIN_DIR ${DONPACHI_BIN_DEFAULT} CACHE PATH "Where the executables go")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Release)    # (a single-configuration build, as on Linux: optimised unless asked otherwise)
+endif()
 foreach(config IN ITEMS "" _DEBUG _RELEASE _RELWITHDEBINFO _MINSIZEREL)
 	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY${config} ${DONPACHI_BIN_DIR})
 endforeach()
@@ -78,15 +90,29 @@ if(SDL2_FOUND)
 	if(TARGET SDL2::SDL2main)
 		list(APPEND DONPACHI_SDL2 SDL2::SDL2main)
 	endif()
+elseif(NOT WIN32)
+	find_package(PkgConfig QUIET)    # (a system with SDL2's pkg-config file but no CMake one)
+	if(PKG_CONFIG_FOUND)
+		pkg_check_modules(SDL2 QUIET IMPORTED_TARGET sdl2)
+		if(SDL2_FOUND)
+			set(DONPACHI_SDL2 PkgConfig::SDL2)
+		endif()
+	endif()
+endif()
+if(SDL2_FOUND)
 	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/menu.c ports/sdl2/hitbox.c
 		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c
-		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c)
+		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c ports/sdl2/paths.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
 	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}")
 	if(WIN32)
 		target_sources(donpachi PRIVATE ports/sdl2/icon/donpachi.rc)    # (the .exe's icon)
 		add_custom_command(TARGET donpachi POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:donpachi>)
+	elseif(UNIX AND NOT APPLE)
+		# SDL2 is the system's (tools/make_release.sh: a distribution's libSDL2 needs many of its other libraries,
+		# so it isn't carried); one put beside the program is used first
+		set_target_properties(donpachi PROPERTIES BUILD_RPATH "\$ORIGIN" INSTALL_RPATH "\$ORIGIN")
 	endif()
 else()
 	message(STATUS "No SDL2: the window port (donpachi) is not built")

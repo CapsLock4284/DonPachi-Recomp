@@ -21,6 +21,7 @@ On Linux (DonPachi-{VERSION}-linux-x64.tar.gz; a 64-bit Linux):
 2. Run ./donpachi in that folder (or double-click it in your file manager).
    It uses your system's SDL2. If it says libSDL2-2.0.so.0 is missing, install it:
        Debian / Ubuntu / Mint:  sudo apt install libsdl2-2.0-0
+       Ubuntu 25.10 and later:  sudo apt install libsdl2-compat
        Fedora:                  sudo dnf install SDL2
        Arch:                    sudo pacman -S sdl2
 

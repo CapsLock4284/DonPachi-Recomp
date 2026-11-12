@@ -28,6 +28,9 @@ if [ -n "$1" ] && [ "$1" != "$version" ]; then
 	fail "version $1 given, but CMakeLists.txt says $version (the game would show $version)"
 fi
 grep -q "^## v$version\b" CHANGELOG.md || fail "CHANGELOG.md has no '## v$version' section: rename its '## Unreleased' to '## v$version (date)' first"
+# nothing waiting under Unreleased: changes there aren't in this version's notes, but would be in its package
+unreleased=$(tr -d '\r' < CHANGELOG.md | sed -n '/^## Unreleased/,/^## v/{/^## /d;/^[[:space:]]*$/d;/^Nothing yet\.$/d;p}')
+[ -z "$unreleased" ] || fail "CHANGELOG.md lists changes under '## Unreleased' that v$version doesn't have: make them a new version first (or move them into v$version's section)"
 
 name="DonPachi-$version-linux-x64"
 out="release/$name"

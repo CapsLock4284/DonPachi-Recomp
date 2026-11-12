@@ -30,8 +30,8 @@ The game reads its graphics, sound and data from it.
 2. **Windows:** unzip it somewhere you can write to (not inside *Program Files*) and run `donpachi.exe`.
    Windows may show *"Windows protected your PC"* because the program isn't signed: click **More info → Run anyway**.<br>
    **Linux:** unpack it (`tar xzf DonPachi-x.y.z-linux-x64.tar.gz`) and run `./donpachi`. It uses the system's SDL2
-   (`sudo apt install libsdl2-2.0-0` on Debian/Ubuntu, `dnf install SDL2` on Fedora, `pacman -S sdl2` on Arch, if
-   it isn't there already).
+   (`sudo apt install libsdl2-2.0-0` on Debian/Ubuntu, `libsdl2-compat` on Ubuntu 25.10 and later, `dnf install SDL2`
+   on Fedora, `pacman -S sdl2` on Arch, if it isn't there already).
 3. On the first run a window asks for the ROM set: drag `donpachi.zip` onto it. The game extracts what it needs once
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
@@ -81,7 +81,7 @@ cmake --build build/msvc --config Release      # build\bin\donpachi.exe
 **Linux needs:** Git, Python 3, CMake 3.20+, gcc or clang, and SDL2's development files (WSL's Ubuntu works too):
 
 ```sh
-sudo apt install git python3 cmake build-essential libsdl2-dev     # (Debian / Ubuntu)
+sudo apt install git python3 cmake build-essential libsdl2-dev     # (Debian / Ubuntu; on Ubuntu 25.10 and later: libsdl2-compat-dev)
 git clone --recursive https://github.com/CapsLock4284/DonPachi-Recomp.git
 cd DonPachi-Recomp
 # your ROM set: rom/donpachi.zip

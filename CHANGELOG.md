@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.3.0 (2026-11-11)
+
 ### New
 - **Linux version:** `DonPachi-x.y.z-linux-x64.tar.gz`, for 64-bit Linux. Unpack it and run `./donpachi`; it uses
   the system's SDL2. Everything works as on Windows, and the first-run window takes the ROM set the same way.
@@ -22,6 +26,13 @@ notes). The release zip carries this file as `CHANGES.txt`.
   folder) is missing files, the window now lists which ones, e.g. "THE SET IS MISSING 2 OF ITS 9 FILES: TEXT.U58,
   ATDP.U33", and marks a file that is there but is a different version or a bad copy as "(WRONG VERSION)". A file
   that isn't the DonPachi set at all still says so.
+
+### Behind the scenes
+- `tools/make_release.sh` packages the Linux release, with the same allow list and checks as the Windows script.
+- Both release scripts now refuse to package while this changelog's Unreleased section lists changes, so a package
+  can't carry changes its version number doesn't.
+- New test tools for finding enemies and their rewards in the game's memory (`targets_find`, `targets_hunt`) and for
+  checking the new achievements both ways (`achievement_targets`).
 
 ## v0.2.0 (2026-11-11)
 

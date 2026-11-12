@@ -64,6 +64,13 @@ foreach ($from in $files.Keys) {
 if ((Get-Content "CHANGELOG.md" -Raw) -notmatch "(?m)^## v$([regex]::Escape($Version))\b") {
     throw "CHANGELOG.md has no '## v$Version' section: rename its '## Unreleased' to '## v$Version (date)' first"
 }
+# nothing waiting under Unreleased: changes there aren't in this version's notes, but would be in its package
+if ((Get-Content "CHANGELOG.md" -Raw) -match "(?ms)^## Unreleased\s*(.*?)^## v") {
+    $waiting = $Matches[1].Trim()
+    if ($waiting -ne "" -and $waiting -ne "Nothing yet.") {
+        throw "CHANGELOG.md lists changes under '## Unreleased' that v$Version doesn't have: make them a new version first (or move them into v$Version's section)"
+    }
+}
 
 # the .exe newer than the program's sources: a build made after the last change
 $exe = Get-Item "build\bin\donpachi.exe"

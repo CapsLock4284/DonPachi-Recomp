@@ -143,6 +143,24 @@ The last step: once the US version plays and works the way it should.
   - the hitbox dot needs nothing: it reads the box the game sets up
   - later, perhaps the other versions the same way: Korea (`donpachikr`), Hong Kong (`donpachihk`, the largest hitboxes), Japan Satsuei (`donpachijs`)
 
+## Other platforms
+
+The game is C with SDL2 (no Windows-only code in the game or the runtime), and the test tools already build and run on Linux with gcc: most of the work is building, packaging and the folders the files are kept in.
+
+- [ ] **Linux** (owner): a native build with gcc or clang (CMake already drives it; SDL2 from the system's packages). Release as a tar.gz with the binary, or an AppImage (SDL2 inside, runs on most distributions). Check: the files kept beside the program (`SDL_GetBasePath`) when installed somewhere read-only (then `~/.local/share/`, via `SDL_GetPrefPath`); `make_release` as a shell script
+- [ ] **macOS** (owner): a universal build (Apple silicon and Intel) as a `.app` bundle with SDL2.framework inside, and the icon as `.icns`. A bundle is read-only once signed, so the data, settings, saves and replays go to `~/Library/Application Support/DonPachi/` (`SDL_GetPrefPath`), and the ROM drop window works the same. Unsigned apps need right-click > Open the first time (signing and notarizing need a paid Apple developer account). No Mac at hand: build and test it with GitHub Actions' macOS runners
+
+## Steam Deck
+
+Worked on separately, after the Linux build (which it runs).
+
+- [ ] **Steam Deck version** (owner): the Linux build (an AppImage, or a Flatpak), added to Steam as a non-Steam game
+  - [ ] Full screen at 1280 x 800 by default (the side panels fit: the picture plus two panels is 16:10 at that height)
+  - [ ] The Deck's controls through SDL's game controller: the d-pad and A/B/X in the game, every menu with the gamepad, a button for the options menu
+  - [ ] Getting the ROM set in: no drag and drop in Game Mode, so a file picker, or a `rom` folder the README points to
+  - [ ] Suspend and resume (the game's timing and the sound picking up again)
+  - [ ] Installing and adding it to Steam explained in the README, with the controller layout
+
 ## Accuracy, to check later
 
 - [ ] Fast timing: sprites are a frame ahead of the background scroll compared with the board (at most ~1 pixel against the ground); arcade timing is exact

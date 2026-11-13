@@ -86,6 +86,7 @@ enum
 	ITEM_WATCH, ITEM_RENAME, ITEM_DELETE,    /* a replay chosen on the replays page */
 	ITEM_DELETE_YES, ITEM_DELETE_NO,
 	ITEM_SLOWDOWN,                /* the arcade's slowdown */
+	ITEM_CRT,                     /* the arcade monitor's look (crt.h) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -265,7 +266,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
-		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_VSYNC, ITEM_ROTATE,
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_ROTATE,
 			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
@@ -491,6 +492,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_SCANLINES:
 		in_use->scanlines = file->scanlines = cycle(in_use->scanlines, 4, step, wrap);
+		break;
+	case ITEM_CRT:
+		in_use->crt = file->crt = cycle(in_use->crt, 3, step, wrap);
 		break;
 	case ITEM_VSYNC:
 		in_use->vsync = file->vsync = !in_use->vsync;
@@ -977,6 +981,9 @@ static const char *item_help(int item)
 		return "SOFTENS THE PIXELS' EDGES WHEN SCALED.";
 	case ITEM_SCANLINES:
 		return "DARK LINES ACROSS THE PICTURE, AS ON AN ARCADE SCREEN.";
+	case ITEM_CRT:
+		return "THE ARCADE MONITOR'S LOOK: A CURVED SCREEN, ITS LINES, PHOSPHOR STRIPES AND GLOW. LIGHT OR FULL. "
+			"IT HAS ITS OWN LINES (SCANLINES IS LEFT ASIDE). BEST IN FULL SCREEN.";
 	case ITEM_VSYNC:
 		return "SHOWS EACH PICTURE IN STEP WITH YOUR SCREEN: NO TEARING, MAYBE A LITTLE MORE LAG.";
 	case ITEM_ROTATE:
@@ -1454,7 +1461,7 @@ static const char *item_label(int item)
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
-		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN"
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT"
 	};
 
 	if (is_hotkey_item(item))
@@ -1579,6 +1586,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_SCANLINES:
 		snprintf(out, size, "%s", settings_scanline_names[s->scanlines]);
+		break;
+	case ITEM_CRT:
+		snprintf(out, size, "%s", settings_crt_names[s->crt]);
 		break;
 	case ITEM_VSYNC:
 		snprintf(out, size, "%s", s->vsync ? "ON" : "OFF");

@@ -103,7 +103,7 @@ if(SDL2_FOUND)
 	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/menu.c ports/sdl2/hitbox.c
 		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c
 		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c ports/sdl2/paths.c
-		ports/sdl2/own_cheats.c)
+		ports/sdl2/own_cheats.c ports/sdl2/crt.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
 	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}")
 	if(WIN32)

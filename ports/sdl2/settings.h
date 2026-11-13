@@ -48,6 +48,7 @@ enum { ROTATE_NONE, ROTATE_RIGHT, ROTATE_LEFT, ROTATIONS };
 /* the names of the [video] values, as the file and the menu have them (lower case in the file) */
 extern const char *const settings_scaling_names[VIDEO_SCALINGS];
 extern const char *const settings_scanline_names[4];
+extern const char *const settings_crt_names[3];
 extern const char *const settings_rotate_names[ROTATIONS];
 
 typedef struct
@@ -85,6 +86,7 @@ typedef struct
 	int scaling;                /* VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH */
 	bool smooth;                /* a soft filter instead of sharp pixels */
 	int scanlines;              /* 0 off, 1 light, 2 medium, 3 heavy */
+	int crt;                    /* the arcade monitor's look (crt.h): 0 off, 1 light, 2 full (its own lines then) */
 	bool vsync;
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
 	bool panels;                /* the side panels (widgets.h) beside the picture */

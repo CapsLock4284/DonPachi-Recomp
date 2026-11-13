@@ -79,7 +79,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and
   per area (arcade games only)
 - **Menu tooltips** on the side panel, explaining each option
-- **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
+- **Graphics:** a CRT look (a curved screen with scanlines, phosphor stripes and glow), scaling modes, smoothing,
+  scanlines, vsync, TATE rotation, borderless or exclusive full screen
 - **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu,
   cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`

@@ -6,7 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### New
+- **CRT look:** Settings > Graphics > CRT makes the picture look like the arcade's monitor: a gently curved screen,
+  its scanlines, the red, green and blue phosphor stripes, a soft glow and darker corners. LIGHT or FULL; it works
+  with the side panels and with the picture turned (TATE). Best in full screen.
 
 ## v0.5.0 (2026-11-12)
 

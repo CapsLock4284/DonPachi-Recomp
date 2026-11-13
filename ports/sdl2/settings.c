@@ -27,6 +27,7 @@ static const char *const action_names[ACTIONS] = {
 
 const char *const settings_scaling_names[VIDEO_SCALINGS] = { "fit", "integer", "stretch" };
 const char *const settings_scanline_names[4] = { "off", "light", "medium", "heavy" };
+const char *const settings_crt_names[3] = { "off", "light", "full" };
 const char *const settings_rotate_names[ROTATIONS] = { "none", "right", "left" };
 
 static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu", "fast_forward", "save_state",
@@ -93,6 +94,7 @@ void settings_defaults(settings *s)
 	s->scaling = VIDEO_FIT;
 	s->smooth = false;
 	s->scanlines = 0;
+	s->crt = 0;
 	s->vsync = false;
 	s->rotate = ROTATE_NONE;
 	s->panels = true;
@@ -286,6 +288,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->smooth);
 		if (!SDL_strcasecmp(name, "scanlines"))
 			return (s->scanlines = name_of(value, settings_scanline_names, 4)) >= 0 || (s->scanlines = 0, false);
+		if (!SDL_strcasecmp(name, "crt"))
+			return (s->crt = name_of(value, settings_crt_names, 3)) >= 0 || (s->crt = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
 			return parse_bool(value, &s->vsync);
 		if (!SDL_strcasecmp(name, "side_panels"))
@@ -562,6 +566,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; off, light, medium or heavy: the arcade monitor's lines (it stands on its side in the cabinet, so they run\n"
 		"; up and down the picture)\n", file);
 	fprintf(file, "scanlines = %s\n", settings_scanline_names[s->scanlines]);
+	fputs("; off, light or full: the arcade monitor's look, a curved tube with its lines, phosphor stripes and glow (it\n"
+		"; has its own lines: the scanlines setting is left aside while it is on)\n", file);
+	fprintf(file, "crt = %s\n", settings_crt_names[s->crt]);
 	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
 	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);

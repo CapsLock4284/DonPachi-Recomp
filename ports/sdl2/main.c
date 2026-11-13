@@ -55,6 +55,7 @@
  */
 #include "cave/cheats.h"
 #include "own_cheats.h"
+#include "crt.h"
 #include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -469,7 +470,7 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
 	return marked;
 }
 
-/* ---- the picture in the window ([video]: scaling, smoothing, scanlines, rotation) ---- */
+/* ---- the picture in the window ([video]: scaling, smoothing, scanlines or the CRT look, rotation) ---- */
 
 /* the side panels beside the picture (widgets.h): when they are on, and the picture is not turned */
 static bool panels_shown(void)
@@ -572,6 +573,13 @@ static void show_picture(const uint32_t *pixels)
 	unturned.h = options.rotate == ROTATE_NONE ? h : w;
 	unturned.x = cx - unturned.w / 2.0f;
 	unturned.y = cy - unturned.h / 2.0f;
+	/* the arcade monitor's look (crt.c), when it is on and the renderer can: its own lines, not the scanlines */
+	if (options.crt != CRT_OFF && crt_draw(renderer, texture, pixels, unturned,
+			options.rotate == ROTATE_RIGHT ? 90 : options.rotate == ROTATE_LEFT ? 270 : 0, options.crt))
+	{
+		SDL_RenderPresent(renderer);
+		return;
+	}
 	SDL_RenderCopyExF(renderer, texture, NULL, &unturned,
 		options.rotate == ROTATE_RIGHT ? 90.0 : options.rotate == ROTATE_LEFT ? 270.0 : 0.0, NULL, SDL_FLIP_NONE);
 
@@ -1142,6 +1150,8 @@ int main(int argc, char **argv)
 
 		while (SDL_PollEvent(&event))
 		{
+			if (event.type == SDL_RENDER_TARGETS_RESET || event.type == SDL_RENDER_DEVICE_RESET)
+				crt_reset();    /* (its textures lost: made again) */
 			if (event.type == SDL_QUIT)
 				running = 0;
 			else if (event.type == SDL_CONTROLLERDEVICEADDED)

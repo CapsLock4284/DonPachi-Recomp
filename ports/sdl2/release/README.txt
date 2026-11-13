@@ -64,6 +64,8 @@ FEATURES
   - Side panels on wide screens: chain gauge, rank, run statistics, bees
     collected, score graph against the top score, stage progress and boss and
     mid-boss health
+  - A CRT look (SETTINGS > GRAPHICS > CRT): a curved arcade screen with its
+    scanlines, phosphor stripes and glow
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)

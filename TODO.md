@@ -154,10 +154,11 @@ The last step: once the US version plays and works the way it should.
 
 The game is C with SDL2 (no Windows-only code in the game or the runtime), and the test tools already build and run on Linux with gcc: most of the work is building, packaging and the folders the files are kept in.
 
+The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): they come back if someone asks for them.
+
 - [x] **Linux** (owner): built with CMake as on Windows (`cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release`; SDL2 from the system: its CMake files, or pkg-config), into `build/bin-linux` so it and the Windows build share the project folder. `tools/make_release.sh` packs `DonPachi-x.y.z-linux-x64.tar.gz` (an allow list and the same checks as the Windows script; the program needs only libc, libm and SDL2). SDL2 isn't carried: a distribution's libSDL2 needs many of its other libraries; the README says how to install it. The player's files beside the program, or in `~/.local/share/DonPachi/` when that folder can't be written (`ports/sdl2/paths.c`, `SDL_GetPrefPath`); the `rom` folder and the cheat file looked for beside the program too (a game started from a file manager isn't started in its folder)
-  - [ ] An AppImage (SDL2 inside, built on an old distribution so it runs on most): for the Steam Deck and distributions without SDL2
+  - [ ] An AppImage (SDL2 inside, built on an old distribution so it runs on most): for distributions without SDL2
   - [ ] Only if needed: built on an older distribution for the releases. A build on Ubuntu 25.10 (WSL) needs only glibc 2.34 (2021: Ubuntu 22.04, Debian 12, Fedora 35 and later), as `make_release.sh` reports; check that number each release, and build on an older Ubuntu if it ever climbs
-- [ ] **macOS** (owner): a universal build (Apple silicon and Intel) as a `.app` bundle with SDL2.framework inside, and the icon as `.icns`. A bundle is read-only once signed, so the data, settings, saves and replays go to `~/Library/Application Support/DonPachi/` (`SDL_GetPrefPath`), and the ROM drop window works the same. Unsigned apps need right-click > Open the first time (signing and notarizing need a paid Apple developer account). No Mac at hand: build and test it with GitHub Actions' macOS runners
 
 ## Accuracy, to check later
 
@@ -199,16 +200,3 @@ Separate projects that would grow out of this one (owner).
 
 - [ ] **An SDK for the other games on this arcade board** (owner): the board model (`runtime/`: memory map, the tile layers and sprites, the two OKI M6295s and the NMK112, the EEPROM, the 68000's timing and slowdown), the decompiler's setup (`tools/core`, the game profile) and the port's frame (`ports/sdl2`: window, menus, settings, save states, replays, CRT look) made into a kit, so another game on the same Cave board can be decompiled and ported the same way, with only its own profile and game-specific parts to write. (Goes further than "a shared runtime / launcher" under Future ideas.)
 - [ ] **An AI-only run for the highest score** (owner): the computer plays the whole game by itself, aiming for the best score it can get with no cheats at all: no invincibility, save states, slowdown off or other help, the arcade game exactly as it is (it could be recorded as a replay to watch). A much stronger player than AI PLAYER 2: dodging, the GET POINT chains, bees, ranks and bombs planned for score
-
-## Steam Deck
-
-Worked on separately, after the Linux build (which it runs). Left till last (owner: not a priority): after everything
-else here but online multiplayer.
-
-- [ ] **Steam Deck version** (owner): the Linux build (an AppImage, or a Flatpak), added to Steam as a non-Steam game
-  - [ ] Full screen at 1280 x 800 by default (the side panels fit: the picture plus two panels is 16:10 at that height)
-  - [ ] The Deck's controls through SDL's game controller: the d-pad and A/B/X in the game, every menu with the gamepad, a button for the options menu
-  - [ ] Getting the ROM set in: no drag and drop in Game Mode, so a file picker, or a `rom` folder the README points to
-  - [ ] Suspend and resume (the game's timing and the sound picking up again)
-  - [ ] Installing and adding it to Steam explained in the README, with the controller layout
-  - [ ] Check the speed on the Steam Deck (the C has a time check after every instruction: about 1,200 frames a second on a desktop, plenty)

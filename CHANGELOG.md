@@ -12,6 +12,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
   you and hands over with the enemy bullets cleared, as it does for a mid-boss. Training replays keep the place.
 
 ### Changed
+- **No more black screen at the start:** the arcade board's power-on self-test (about 4 seconds of black while it
+  checks its memory and adds up its program ROM) now runs in an instant, so the first logo appears straight away
+  after START GAME or a reset. The game itself is the same, replays too.
 - **Closer to the arcade, checked against MAME:**
   - **Sound effects and music land where the arcade plays them.** Before, every sound started at the beginning of its
     frame, up to 17 ms early. Now each one starts at the moment in the frame that the game asks for it. The sound is

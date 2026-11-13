@@ -187,6 +187,18 @@ static bool hotkey_down(int hotkey)
 
 static bool big_hit_set;    /* (the big HIT display's flags set by the port, to clear when the option goes off) */
 
+/* The board's power-on self-test, after each reset: the program clears and checks its work RAM, sets up the video
+   chips and adds up the whole program ROM byte by byte against its checksum (reset, 03425A), about 247 frames of a
+   black screen (4.3 seconds) with its interrupts off. The port checked the ROM set as it loaded it, so the test can't
+   fail: its frames are run unseen, at once (all of them, as the board runs them: the game the same, replays too).
+   Over once the vblank interrupt counts its first frame (frame_counter, $101260) */
+#define BOOT_FRAMES_MOST 400
+
+static bool booting(void)
+{
+	return program_frames() < BOOT_FRAMES_MOST && *(const uint16_t *)cave_work_ram_at(0x101260u, 2) == 0u;
+}
+
 /* A hotkey pressed (not held from before): the reset, or the reset into the test mode (fast forward is held: the
    main loop asks hotkey_down) */
 static void hotkeys(void)
@@ -1291,8 +1303,8 @@ int main(int argc, char **argv)
 		{
 			/* fast forward, while its key or button is held: fast_forward_speed of the game's frames in this one,
 			   the last one shown, no sound */
-			const bool fast = hotkey_down(HOTKEY_FAST_FORWARD);
-			const int frames = fast ? options.fast_forward_speed : 1;
+			const bool fast = hotkey_down(HOTKEY_FAST_FORWARD), boot = booting();
+			const int frames = boot ? BOOT_FRAMES_MOST : fast ? options.fast_forward_speed : 1;
 
 			if (fast != fast_forwarding)
 			{
@@ -1303,12 +1315,14 @@ int main(int argc, char **argv)
 			}
 			{
 				const widgets_status status = { options.arcade_timing, options.free_play, cheats_any_on(),
-					fast ? frames : 0, program_slowdown() };
+					fast ? options.fast_forward_speed : 0, program_slowdown() };
 
 				widgets_set_status(&status);
 			}
 			for (int frame = 0; frame < frames; frame++)
 			{
+				if (boot && !booting())
+					break;    /* (the self-test over: the game's first picture from the next frame on) */
 				if (replay_playing())
 				{
 					if (replay_paused && !replay_step)
@@ -1334,7 +1348,7 @@ int main(int argc, char **argv)
 				cheats_apply();
 				if (cheats_any_on())
 					replay_taint();
-				if (fast)
+				if (fast || boot)
 					cave_sound_drop();
 				else
 					audio_queue();

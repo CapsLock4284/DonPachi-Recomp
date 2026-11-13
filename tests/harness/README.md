@@ -39,6 +39,9 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `targets_hunt AREA [MINHP MAXHP]` | Hunts each tough enemy as it comes (left at 1 hit point, shot from under it, no bombs) and logs what each kill gives (`DELAY=n`: n frames on screen first; `STILL=n`: standing still n frames; `LOOP=1`: the second loop's area): how the extend building's 1-Up and the hover boat's bomb were found |
 | `achievement_targets CASE` | Plays one of the area-target achievements both ways and checks it is earned only when it should be (`planes`, `planes_bomb`, `boat`, `boat_early`, `building`, `building_bomb`): prints PASS or FAIL |
 | `midboss_fight AREA` | From an area's mid-boss place, a bot shooting it: its hit records every 30 frames, until it is gone (`RESERVE=frame`: its object and records then, in full) |
+| `eeprom_check` | The EEPROM's file: MAME's `nvram/donpachi/eeprom` (little endian words) read as is, the port's older files (big endian) still read right, a file saved in MAME's order; and the game reading a MAME file's C BUTTON FULL-AUTO |
+| `sound_timing_check` | A command to the sound chips takes effect where it falls in the frame (by the 68000's clock, as MAME's stream update), not from the frame's start; and the attract mode's sound as `sound_timing_new.wav` and `sound_timing_frame.wav` (the old way) to listen to |
+| `fast_timing_check [FRAMES]` | The picture with fast timing (drawn as the program's frame ends, the scroll and palette put in as the coming vblank interrupt sets them: `ports/sdl2/fast_timing.c`) against arcade timing's, frame by frame (default 6000 frames): the same in every one |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |
 | `drop_window_test` | The first run's drop window, with a wrong file then the ROM set dropped on it (run with a desktop, or `xvfb-run -a`) |
 

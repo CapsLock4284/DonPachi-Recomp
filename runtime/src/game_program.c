@@ -417,6 +417,12 @@ static void run_program(void)
 	stopped("the program came to its end, after", 0);
 }
 
+/* the 68000's time for the sound: where the program's commands to the chips fall in the frame (cave/sound.h) */
+static uint64_t cycles_now(void)
+{
+	return m68k_time;
+}
+
 const char *program_start(void)
 {
 	const char *problem = load_tables();
@@ -426,6 +432,7 @@ const char *program_start(void)
 	cave_board.program = rom_set.program;
 	memcpy(cave_board.eeprom.words, rom_set.eeprom, sizeof(cave_board.eeprom.words));
 	cave_reset();
+	cave_sound_clock(cycles_now, FRAME_CYCLES);
 	status = 0x2700u;
 	depth = 0;
 	interrupts = 0;

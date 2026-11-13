@@ -61,6 +61,7 @@
 #include "crt.h"
 #include "ai_player.h"
 #include "game_mode.h"
+#include "fast_timing.h"
 #include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -1379,7 +1380,13 @@ int main(int argc, char **argv)
 			}
 		}
 		if (!options.arcade_timing)
-			draw_picture();       /* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank) */
+		{
+			/* (--arcade-timing drew it as the vblank interrupt returned: program_after_vblank. Here the scroll and
+			   the palette as the coming interrupt sets them: fast_timing.h) */
+			fast_timing_begin();
+			draw_picture();
+			fast_timing_end();
+		}
 		show_picture(menu_with_notice(with_hitboxes(picture)));
 
 	pace:

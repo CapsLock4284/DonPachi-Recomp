@@ -6,7 +6,16 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+- **Closer to the arcade, checked against MAME:**
+  - **Sound effects and music land where the arcade plays them.** Before, every sound started at the beginning of its
+    frame, up to 17 ms early. Now each one starts at the moment in the frame that the game asks for it. The sound is
+    also made the way MAME makes it, smoothed between samples and through the speaker's filter, instead of the
+    simpler way before.
+  - **Fast timing's picture matches the arcade's frame.** The background scroll and colour changes now line up with
+    the sprites. Before, the ground was a frame behind the ships (about a pixel), and fades were a frame late.
+  - **The board's settings file (donpachi.eeprom) is now MAME's format.** A copy of MAME's nvram/donpachi/eeprom can
+    be dropped in as is, and the port's file works in MAME. Older files from the port are still read correctly.
 
 ## v0.6.0 (2026-11-12)
 

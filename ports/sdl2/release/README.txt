@@ -118,6 +118,10 @@ FILES THE GAME KEEPS BESIDE THE PROGRAM
 Keep these if you move the game to another folder or computer. Don't share
 donpachi_usa.dat: it is the contents of the ROM set.
 
+donpachi.eeprom is in MAME's format: to bring your settings over from MAME,
+copy MAME's nvram\donpachi\eeprom beside the program as donpachi.eeprom (and
+the other way round).
+
 If the game's folder can't be written to (installed somewhere read-only), it
 keeps them in your own folder instead: ~/.local/share/DonPachi/ on Linux,
 %APPDATA%\DonPachi\ on Windows.

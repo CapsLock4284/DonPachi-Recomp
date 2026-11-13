@@ -113,9 +113,10 @@ int cave_irq_level(void);
 /* The screen's VBLANK begins: the interrupt, and the frame's sound (cave_sound_frame) */
 void cave_vblank_start(void);
 
-/* The EEPROM's 64 words to and from a file: 128 bytes, each word big endian, as MAME's nvram/donpachi/eeprom and
-   the ROM set's eeprom-donpachi.u10. cave_eeprom_load: 1 loaded, 0 no such file (the EEPROM stays as it is),
-   -1 a file of another size (left alone). cave_eeprom_save: NULL, or what went wrong */
+/* The EEPROM's 64 words to and from a file: 128 bytes, each word little endian, as MAME's nvram/donpachi/eeprom
+   (eeprom.cpp; the ROM set's eeprom-donpachi.u10 is big endian). cave_eeprom_load reads the port's older files too
+   (big endian, before 0.7.0): whichever order is nearer the ROM set's. 1 loaded, 0 no such file (the EEPROM stays as
+   it is), -1 a file of another size (left alone). cave_eeprom_save: NULL, or what went wrong */
 int cave_eeprom_load(const char *path);
 const char *cave_eeprom_save(const char *path);
 

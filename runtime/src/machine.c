@@ -12,6 +12,7 @@
  *    (MAME's umask16(0x00ff)).
  */
 #include "cave/machine.h"
+#include "cave/rom_set.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -214,7 +215,7 @@ uint16_t cave_read16(uint32_t address, uint16_t mem_mask)
 		return (uint16_t)((cave_board.in1 & ~CAVE_EEPROM_DO) | (cave_board.eeprom.out ? CAVE_EEPROM_DO : 0u));
 	cave_board.unmapped_reads++;
 	cave_board.last_unmapped_read = address;
-	return 0xFFFFu;
+	return 0u;    /* (as MAME's: the address space's unmapped value, 0 for this board) */
 }
 
 void cave_write16(uint32_t address, uint16_t data, uint16_t mem_mask)
@@ -293,11 +294,29 @@ void cave_reset(void)
 
 /* ---- the EEPROM's file ---- */
 
+/* how many of the bytes differ from the ROM set's EEPROM, the file's words read as little endian (MAME's) or big
+   endian (the port's files before 0.7.0) */
+static int eeprom_changed_bytes(const uint8_t *bytes, bool little)
+{
+	int changed = 0;
+
+	for (int word = 0; word < CAVE_EEPROM_WORDS; word++)
+	{
+		const uint16_t value = little ? (uint16_t)(bytes[2 * word] | bytes[2 * word + 1] << 8)
+			: (uint16_t)(bytes[2 * word] << 8 | bytes[2 * word + 1]);
+
+		changed += (value >> 8) != (rom_set.eeprom[word] >> 8);
+		changed += (value & 0xFFu) != (rom_set.eeprom[word] & 0xFFu);
+	}
+	return changed;
+}
+
 int cave_eeprom_load(const char *path)
 {
 	uint8_t bytes[2 * CAVE_EEPROM_WORDS + 1];
 	FILE *file = fopen(path, "rb");
 	size_t size;
+	bool little;
 
 	if (!file)
 		return 0;
@@ -305,8 +324,13 @@ int cave_eeprom_load(const char *path)
 	fclose(file);
 	if (size != 2 * CAVE_EEPROM_WORDS)
 		return -1;
+	/* MAME's order, unless the other is plainly the one: the test mode changes a few of the ROM set's bytes, so read
+	   the wrong way round a file has more of them changed (the ROM set's first words, 000C FFFB, are not the same
+	   swapped). A tie (both of a word's bytes changed, the same way round): MAME's */
+	little = eeprom_changed_bytes(bytes, true) <= eeprom_changed_bytes(bytes, false);
 	for (int word = 0; word < CAVE_EEPROM_WORDS; word++)
-		cave_board.eeprom.words[word] = (uint16_t)(bytes[2 * word] << 8 | bytes[2 * word + 1]);
+		cave_board.eeprom.words[word] = little ? (uint16_t)(bytes[2 * word] | bytes[2 * word + 1] << 8)
+			: (uint16_t)(bytes[2 * word] << 8 | bytes[2 * word + 1]);
 	return 1;
 }
 
@@ -318,8 +342,8 @@ const char *cave_eeprom_save(const char *path)
 
 	for (int word = 0; word < CAVE_EEPROM_WORDS; word++)
 	{
-		bytes[2 * word] = (uint8_t)(cave_board.eeprom.words[word] >> 8);
-		bytes[2 * word + 1] = (uint8_t)cave_board.eeprom.words[word];
+		bytes[2 * word] = (uint8_t)cave_board.eeprom.words[word];    /* (little endian: MAME's nvram) */
+		bytes[2 * word + 1] = (uint8_t)(cave_board.eeprom.words[word] >> 8);
 	}
 	if (!(file = fopen(path, "wb")))
 		return "cannot write the EEPROM's file";

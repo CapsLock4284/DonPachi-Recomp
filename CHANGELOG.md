@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.5.0 (2026-11-12)
+
 ### New
 - **Cheats built in:** the Cheats page now works without MAME's cheat file. It has the game's own cheats for each
   player: infinite lives, infinite bombs, invincibility, MAX power and an endless chain (the GET POINT chain never

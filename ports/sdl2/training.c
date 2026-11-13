@@ -147,6 +147,28 @@ static const int calm_spot[5] = { 490, 317, 258, 376, 335 };    /* (area 4: befo
 #define CEASE_FIRE    4           /* the fire stopped this much of the scroll before it (about 1.5 seconds): the shots
                                      and the explosions, their points, over by the place */
 
+/* The STAGE PROGRESS bar's (widgets.c): the scroll where each area's boss appears, and where its own scrolling
+   starts (area 1's after the ship's fly-in); the same in both loops */
+static const int boss_at[5] = { 555, 576, 629, 888, 539 };
+static const int start_at[5] = { 256, 0, 0, 0, 0 };
+
+int training_part_way_scroll(int stage, int percent)
+{
+	const int end = boss_at[stage] - start_at[stage];
+
+	/* (the first scroll the bar shows as 'percent': it counts scroll * 100 / end down) */
+	return start_at[stage] + (percent * end + 99) / 100;
+}
+
+/* the percentage kept to the steps the menu offers */
+static int part_way_percent(const training_setup *setup)
+{
+	const int percent = setup->percent / TRAINING_PERCENT_STEP * TRAINING_PERCENT_STEP;
+
+	return percent < TRAINING_PERCENT_STEP ? TRAINING_PERCENT_STEP
+		: percent > TRAINING_PERCENT_MOST ? TRAINING_PERCENT_MOST : percent;
+}
+
 /* ON PACE: the power-ups taken on the way to the place, areas 1 and 2 (from area 3 on, MAX: 8 or more): at the
    start, the calm spot before the mid-boss, the boss (the power-ups there are, with the ship shooting all it can) */
 static const int on_pace[2][3] = { { 0, 2, 5 }, { 5, 7, 9 } };
@@ -156,7 +178,11 @@ static int power_ups(const training_setup *setup)
 {
 	if (setup->power == TRAINING_POWER_ON_PACE)
 	{
-		const int point = setup->point > TRAINING_BOSS ? TRAINING_BOSS : setup->point;
+		/* (part way: the start's before the mid-boss's calm spot, the mid-boss's after it) */
+		const int point = setup->point == TRAINING_PART_WAY
+			? (training_part_way_scroll(setup->area % 5, part_way_percent(setup)) < calm_spot[setup->area % 5]
+				? TRAINING_START : TRAINING_MIDBOSS)
+			: setup->point > TRAINING_BOSS ? TRAINING_BOSS : setup->point;
 
 		return setup->area < 2 ? on_pace[setup->area][point] : 8;
 	}
@@ -180,9 +206,12 @@ const char *training_power_name(const training_setup *setup)
 const char *training_name(const training_setup *setup)
 {
 	static char name[40];
-	static const char *const points[TRAINING_POINTS] = { "", " MID-BOSS", " BOSS", " TRUE BOSS" };
+	static const char *const points[TRAINING_POINTS] = { "", " MID-BOSS", " BOSS", " TRUE BOSS", "" };
 
-	snprintf(name, sizeof(name), "AREA %d%s", setup->area + 1, points[setup->point]);
+	if (setup->point == TRAINING_PART_WAY)
+		snprintf(name, sizeof(name), "AREA %d %d%%", setup->area + 1, part_way_percent(setup));
+	else
+		snprintf(name, sizeof(name), "AREA %d%s", setup->area + 1, points[setup->point]);
 	return name;
 }
 
@@ -254,6 +283,9 @@ static const char *run_to_place(const training_setup *setup)
 {
 	const unsigned stage = (unsigned)(setup->area % 5), loop = (unsigned)(setup->area / 5);
 	const int point = setup->point == TRAINING_TRUE_BOSS && setup->area != 9 ? TRAINING_BOSS : setup->point;
+	/* the scroll a mid-boss's or a point part way's run hands over at (-1: none, the other places) */
+	const int handover = point == TRAINING_MIDBOSS ? calm_spot[stage]
+		: point == TRAINING_PART_WAY ? training_part_way_scroll((int)stage, part_way_percent(setup)) : -1;
 	long frame = 0, select_frames = 0;
 	bool playing = false, area1_boss_seen = false, sent = setup->area == 0, done = false, begun = false;
 	unsigned bees = 0;
@@ -297,12 +329,12 @@ static const char *run_to_place(const training_setup *setup)
 				set_word(SCORE, 0);    /* (and no score: the HIGH would go up with it) */
 				set_word(SCORE + 2u, 0);
 				if ((point == TRAINING_TRUE_BOSS && sent)
-					|| (point == TRAINING_MIDBOSS && begun && (int16_t)word(SCROLL) < calm_spot[stage] - CEASE_FIRE))
+					|| (handover >= 0 && begun && (int16_t)word(SCROLL) < handover - CEASE_FIRE))
 				{
 					set_byte(POWER, 4u);
 					held = ((frame / 2) % 2 ? CAVE_BUTTON1 : 0u) | towards_target();
 				}
-				else if (point == TRAINING_MIDBOSS && begun)
+				else if (handover >= 0 && begun)
 					held = towards_clear();    /* (the fire stopped: to the hand-over away from the enemies) */
 				if (!sent)
 				{
@@ -327,8 +359,8 @@ static const char *run_to_place(const training_setup *setup)
 						sent = true;
 					}
 				}
-				else if (point == TRAINING_MIDBOSS)
-					done = begun && (int16_t)word(SCROLL) >= calm_spot[stage];
+				else if (handover >= 0)
+					done = begun && (int16_t)word(SCROLL) >= handover;
 				else if (area_now() == setup->area)
 					done = point == TRAINING_TRUE_BOSS ? object_up(TRUE_BOSS) : object_up(WARNING);
 			}
@@ -384,7 +416,7 @@ static const char *run_to_place(const training_setup *setup)
 		set_word(MAX_POWER, ups >= 8 ? 1u : 0u);
 		set_word(SHIP, ups >= 8 ? word(SHIP) | 0x400u : word(SHIP) & ~0x400u);
 	}
-	if (point == TRAINING_MIDBOSS)
+	if (handover >= 0)
 	{
 		/* the way's fight: the bees it took not the player's, the enemies' bullets taken off (as a bomb's start
 		   does, clear_enemy_bullets) */

@@ -396,9 +396,24 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_T_POINT:
 	{
-		const int points = in_use->training_area == 9 ? TRAINING_POINTS : TRAINING_TRUE_BOSS;
+		/* (in the order of the area: its start, the points part way, the mid-boss, the boss, area 10's true boss) */
+		const int parts = TRAINING_PERCENT_MOST / TRAINING_PERCENT_STEP;
+		const int count = 1 + parts + (in_use->training_area == 9 ? 3 : 2);
+		int at = in_use->training_point == TRAINING_PART_WAY
+			? SDL_clamp(in_use->training_percent / TRAINING_PERCENT_STEP, 1, parts)
+			: in_use->training_point == TRAINING_START ? 0 : parts + in_use->training_point;
 
-		in_use->training_point = file->training_point = (in_use->training_point + step + points) % points;
+		at = (at + step + count) % count;
+		if (at == 0)
+			in_use->training_point = TRAINING_START;
+		else if (at <= parts)
+		{
+			in_use->training_point = TRAINING_PART_WAY;
+			in_use->training_percent = file->training_percent = at * TRAINING_PERCENT_STEP;
+		}
+		else
+			in_use->training_point = at - parts;
+		file->training_point = in_use->training_point;
 		break;
 	}
 	case ITEM_T_SHIP:
@@ -1040,7 +1055,8 @@ static const char *item_help(int item)
 	case ITEM_T_AREA:
 		return "THE AREA TO PRACTISE: 1-5 THE FIRST LOOP, 6-10 THE SECOND (HARDER).";
 	case ITEM_T_POINT:
-		return "WHERE IN THE AREA TO START: ITS START, JUST BEFORE ITS MID-BOSS, ITS BOSS (AREA 10: THE TRUE BOSS).";
+		return "WHERE IN THE AREA TO START: ITS START, PART WAY (5-95% OF THE WAY TO THE BOSS, AS THE SIDE PANEL'S "
+			"STAGE PROGRESS), JUST BEFORE ITS MID-BOSS, ITS BOSS (AREA 10: THE TRUE BOSS).";
 	case ITEM_T_SHIP:
 		return "A: FASTEST, NARROW SHOT. B: MIDDLE SPEED, ITS SHOT TURNS AS YOU MOVE. C: SLOWEST, WIDE SPREAD SHOT.";
 	case ITEM_T_POWER:
@@ -1573,9 +1589,12 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_POINT:
 	{
-		static const char *const points[TRAINING_POINTS] = { "STAGE START", "MID-BOSS", "BOSS", "TRUE BOSS" };
+		static const char *const points[TRAINING_POINTS] = { "STAGE START", "MID-BOSS", "BOSS", "TRUE BOSS", "" };
 
-		snprintf(out, size, "%s", points[s->training_point < 0 || s->training_point >= TRAINING_POINTS ? 0 : s->training_point]);
+		if (s->training_point == TRAINING_PART_WAY)
+			snprintf(out, size, "%d%% OF THE WAY", s->training_percent);
+		else
+			snprintf(out, size, "%s", points[s->training_point < 0 || s->training_point >= TRAINING_POINTS ? 0 : s->training_point]);
 		break;
 	}
 	case ITEM_T_SHIP:
@@ -1583,7 +1602,8 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_T_POWER:
 	{
-		const training_setup setup = { s->training_area, s->training_point, 0, s->training_power, false, 0 };
+		const training_setup setup = { s->training_area, s->training_point, 0, s->training_power, false, 0,
+			s->training_percent };
 
 		snprintf(out, size, "%s", training_power_name(&setup));
 		break;

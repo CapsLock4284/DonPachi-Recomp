@@ -6,13 +6,17 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
+ *    The places: an area's start, a point part way through it (a percentage of the way to its boss, as the side
+ *    panel's STAGE PROGRESS counts it), its mid-boss, its boss, area 10's true boss.
  *    The game is run there unseen and unheard, as fast as it goes: from the board's reset, a coin and Start, the ship
  *    chosen on its select screen (down presses); area 1 played with the ship shielded (the respawn shield $102196
  *    held), not firing, to its boss's end, where the stage and loop are set ($101A40, $101A42) so that the game's next
  *    area is the place's (area 6: area 5's, so that the game goes through the loop's end into the second, as it starts
  *    area 6 with the dropship; set straight to it, the stage began as a mere next area, the ship already flying). A
  *    mid-boss: the area played from its start at full power, shielded, firing at the strongest enemy on the screen,
- *    to the calm spot before the mid-boss (the area's scroll), where the enemies' bullets are taken off. A boss: on,
+ *    to the calm spot before the mid-boss (the area's scroll), where the enemies' bullets are taken off; a point part
+ *    way the same, to its scroll (the fire stopped a little before, the ship then moved away from the enemies; what is
+ *    on the screen there, a mid-boss too, is the player's to face). A boss: on,
  *    shielded, until its WARNING starts (object $3F in $100102's list; the true boss:
  *    its own object, $7C, area 10's first boss shot down on the way). There the player's run is made a fresh one:
  *    score 0, the chain gone, the bees taken back to the area's start's, 3 lives, 3 bombs (or 7 in 7 slots), the
@@ -23,7 +27,11 @@
 
 #include <stdbool.h>
 
-enum { TRAINING_START, TRAINING_MIDBOSS, TRAINING_BOSS, TRAINING_TRUE_BOSS, TRAINING_POINTS };
+enum { TRAINING_START, TRAINING_MIDBOSS, TRAINING_BOSS, TRAINING_TRUE_BOSS, TRAINING_PART_WAY, TRAINING_POINTS };
+
+/* TRAINING_PART_WAY's percentages of the way to the boss: from TRAINING_PERCENT_STEP to TRAINING_PERCENT_MOST */
+#define TRAINING_PERCENT_STEP 5
+#define TRAINING_PERCENT_MOST 95
 
 /* The power: levels 1-4 (0-3), ON PACE (the power-ups there are on the way to the place, all taken: from area 3 on,
    MAX), MAX */
@@ -37,7 +45,11 @@ typedef struct
 	int power;                  /* 0-3 (levels 1-4), TRAINING_POWER_ON_PACE, TRAINING_POWER_MAX */
 	bool max_bombs;             /* 7 slots, all full (the game's most: 3 to start, one more each 3 bombs used) */
 	int difficulty;             /* the test mode's: 0 normal, 1 easy, 2 hard, 3 very hard (for this game only) */
+	int percent;                /* TRAINING_PART_WAY's: how far through the area, 5-95 (a multiple of 5) */
 } training_setup;
+
+/* The point part way's scroll in the area (0-4: the stage): where the side panel's STAGE PROGRESS shows 'percent' */
+int training_part_way_scroll(int stage, int percent);
 
 /* The game run to the place: NULL (the game is there, between frames: the port saves its state), or what went
    wrong. The game is reset first */
@@ -53,7 +65,7 @@ void training_hud(void);
 /* The power's name for the menu ("2", "ON PACE (3)", "MAX"): ON PACE's level is the place's */
 const char *training_power_name(const training_setup *setup);
 
-/* The place's name for the screen ("AREA 3 BOSS") */
+/* The place's name for the screen ("AREA 3 BOSS", "AREA 3 40%") */
 const char *training_name(const training_setup *setup);
 
 #endif

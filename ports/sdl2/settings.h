@@ -73,7 +73,9 @@ typedef struct
 	bool main_menu;             /* the main menu (START GAME, TRAINING, SETTINGS) as the program starts */
 	/* [training] (training.h) */
 	int training_area;          /* 0-9 */
-	int training_point;         /* TRAINING_START, TRAINING_MIDBOSS, TRAINING_BOSS, TRAINING_TRUE_BOSS */
+	int training_point;         /* TRAINING_START, TRAINING_MIDBOSS, TRAINING_BOSS, TRAINING_TRUE_BOSS,
+	                               TRAINING_PART_WAY */
+	int training_percent;       /* TRAINING_PART_WAY's: 5-95, in steps of 5 */
 	int training_ship;          /* 0-2: types A, B, C */
 	int training_power;         /* 0-3 (levels 1-4), TRAINING_POWER_ON_PACE, TRAINING_POWER_MAX */
 	bool training_max_bombs;

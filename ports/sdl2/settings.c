@@ -82,6 +82,7 @@ void settings_defaults(settings *s)
 	s->main_menu = true;
 	s->training_area = 0;
 	s->training_point = 0;
+	s->training_percent = 50;
 	s->training_ship = 0;
 	s->training_power = 0;
 	s->training_max_bombs = false;
@@ -325,7 +326,7 @@ static bool take(settings *s, const char *section, const char *name, char *value
 	}
 	if (!SDL_strcasecmp(section, "training"))
 	{
-		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss" };
+		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss", "part_way" };
 		static const char *const ships[3] = { "a", "b", "c" };
 
 		if (!SDL_strcasecmp(name, "area"))
@@ -346,6 +347,15 @@ static bool take(settings *s, const char *section, const char *name, char *value
 					return true;
 				}
 			return false;
+		}
+		if (!SDL_strcasecmp(name, "progress"))
+		{
+			const int percent = atoi(value);
+
+			if (percent < TRAINING_PERCENT_STEP || percent > TRAINING_PERCENT_MOST || percent % TRAINING_PERCENT_STEP)
+				return false;
+			s->training_percent = percent;
+			return true;
 		}
 		if (!SDL_strcasecmp(name, "ship"))
 		{
@@ -623,14 +633,16 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("\n\n", file);
 
 	{
-		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss" };
+		static const char *const points[TRAINING_POINTS] = { "start", "midboss", "boss", "true_boss", "part_way" };
 
 		fputs("[training]\n", file);
-		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, midboss, boss, true_boss: area 10's\n"
-			"; last), the ship (a, b, c), and a miss going straight back to the place. A training game\n"
+		fputs("; the main menu's TRAINING: the area (1-10), the place in it (start, part_way, midboss, boss, true_boss:\n"
+			"; area 10's last; part_way: progress's percentage of the way to the boss, 5-95 in steps of 5, as the side\n"
+			"; panel's STAGE PROGRESS), the ship (a, b, c), and a miss going straight back to the place. A training game\n"
 			"; ends at the area's BONUS screen (or a game over), back to the training page\n", file);
 		fprintf(file, "area = %d\n", s->training_area + 1);
 		fprintf(file, "place = %s\n", points[s->training_point < 0 || s->training_point >= TRAINING_POINTS ? 0 : s->training_point]);
+		fprintf(file, "progress = %d\n", s->training_percent);
 		fprintf(file, "ship = %c\n", 'a' + (s->training_ship < 0 || s->training_ship > 2 ? 0 : s->training_ship));
 		{
 			static const char *const powers[TRAINING_POWERS] = { "1", "2", "3", "4", "on_pace", "max" };

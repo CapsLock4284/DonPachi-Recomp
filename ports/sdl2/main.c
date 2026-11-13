@@ -848,7 +848,7 @@ static bool in_training(void)
 static bool menu_training(void)
 {
 	const training_setup setup = { options.training_area, options.training_point, options.training_ship,
-		options.training_power, options.training_max_bombs, options.training_difficulty };
+		options.training_power, options.training_max_bombs, options.training_difficulty, options.training_percent };
 	const char *problem;
 
 	hiscore_reset();

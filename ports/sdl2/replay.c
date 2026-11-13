@@ -11,7 +11,7 @@
  *      difficulty (8), its end (8: 0 stopped part way, 1 the game over, 2 all clear: area 10 cleared), the frames in
  *      all (32), the game's first frame (32: its ship select)
  *      format 2: the start (8: 0 the board's reset, 1 a training place), the training setup (6 bytes: the area,
- *      the place, the ship, the power, the bombs (1: 7), the difficulty)
+ *      the place (100 + the percentage: a point part way), the ship, the power, the bombs (1: 7), the difficulty)
  *      format 3: the slowdown (8: 1 on; cave/program.h's program_set_slowdown: the frames fall otherwise). A replay
  *      of format 1 or 2 was made without it
  *      the EEPROM's words (CAVE_EEPROM_WORDS of 16)
@@ -163,7 +163,7 @@ void replay_folder(const char *path)
 static void setup_to_bytes(const training_setup *setup, uint8_t *bytes)
 {
 	bytes[0] = (uint8_t)setup->area;
-	bytes[1] = (uint8_t)setup->point;
+	bytes[1] = (uint8_t)(setup->point == TRAINING_PART_WAY ? 100 + setup->percent : setup->point);
 	bytes[2] = (uint8_t)setup->ship;
 	bytes[3] = (uint8_t)setup->power;
 	bytes[4] = setup->max_bombs ? 1u : 0u;
@@ -175,7 +175,8 @@ static training_setup setup_from_bytes(const uint8_t *bytes)
 	training_setup setup;
 
 	setup.area = bytes[0] % 10u;
-	setup.point = bytes[1] % TRAINING_POINTS;
+	setup.point = bytes[1] >= 100u ? TRAINING_PART_WAY : bytes[1] % TRAINING_PART_WAY;
+	setup.percent = bytes[1] >= 100u ? bytes[1] - 100 : 0;
 	setup.ship = bytes[2] % 3u;
 	setup.power = bytes[3] % TRAINING_POWERS;
 	setup.max_bombs = bytes[4] != 0;

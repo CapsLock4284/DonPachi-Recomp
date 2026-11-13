@@ -70,8 +70,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **The arcade game, exactly:** checked frame by frame against MAME's 68000 core through both loops
 - **The arcade's slowdown**, at exactly the same moments as the real board (see above); can be turned off
 - **Low input lag** by default, with the board's own timing as an option
-- **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
-  of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
+- **Main menu** with **Training**: start at any area, any point part way through it (5-95% of the way to the boss),
+  its mid-boss, its boss or area 10's true boss, with your choice of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
   top score, stage progress and boss and mid-boss health
 - **AI player 2**: the computer flies player 2 beside you, joining by itself (it counts as a cheat)

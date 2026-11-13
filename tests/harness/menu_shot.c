@@ -1,5 +1,5 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
-   menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
+   menu_front.ppm (the main menu), menu_training.ppm, menu_training_part_way.ppm (START AT on a point part way), menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
    menu_debug.ppm and menu_debug_2.ppm (the DEBUG TOOLS page), menu_cheats_ai.ppm and menu_cheats.ppm (the CHEATS page: the port's own, then the cheat file's), menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
    chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_game_options.ppm (in an arcade game: STATE SLOT chosen), menu_controls.ppm (its hotkeys), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. Each
    picture has the chosen entry's tooltip panel at its right. */
@@ -91,6 +91,11 @@ int main(void)
 	key(SDL_SCANCODE_DOWN);    /* TRAINING */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_training.ppm");
+	key(SDL_SCANCODE_DOWN);    /* START AT, moved back from MID-BOSS to 95% OF THE WAY */
+	key(SDL_SCANCODE_LEFT);
+	shot("menu_training_part_way.ppm");
+	key(SDL_SCANCODE_RIGHT);
+	key(SDL_SCANCODE_UP);
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* REPLAYS */
 	key(SDL_SCANCODE_RETURN);

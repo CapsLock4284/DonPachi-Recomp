@@ -6,6 +6,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+### New
+- **Training anywhere in an area:** START AT now offers points part way through it, from 5% to 95% of the way to the
+  boss in steps of 5, the same percentage the side panel's STAGE PROGRESS shows. The game fights its way there for
+  you and hands over with the enemy bullets cleared, as it does for a mid-boss. Training replays keep the place.
+
 ### Changed
 - **Closer to the arcade, checked against MAME:**
   - **Sound effects and music land where the arcade plays them.** Before, every sound started at the beginning of its

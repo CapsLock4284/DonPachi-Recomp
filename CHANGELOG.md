@@ -17,6 +17,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
   - **The board's settings file (donpachi.eeprom) is now MAME's format.** A copy of MAME's nvram/donpachi/eeprom can
     be dropped in as is, and the port's file works in MAME. Older files from the port are still read correctly.
 
+### Behind the scenes
+- About 120 more of the game's routines and memory locations now have names in the decompiled code (the sound
+  driver, the text on screen, the game's modes, the players' ships, the score and chain, the enemies and bosses), so
+  it reads more easily. The game itself is unchanged.
+
 ## v0.6.0 (2026-11-12)
 
 ### New

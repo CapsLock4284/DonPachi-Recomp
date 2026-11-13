@@ -6,7 +6,7 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    The game's test (func_0055DA, run for each ship from 000950 and 000966): a bullet's point, or an enemy's box,
+ *    The game's test (ship_hit_test, run for each ship from 000950 and 000966): a bullet's point, or an enemy's box,
  *    against the ship's box, from its record (player 1 at $102158, player 2 at $102198): position +06 (along the
  *    board's x: up the cabinet's screen) and +08 (the board's y: across it), in 64ths of a pixel; the box reaches
  *    +10 above +06 and +12 below it, +14 above +08 and +16 below it (narrower as the ship banks). A ship is in play

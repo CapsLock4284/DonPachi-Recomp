@@ -387,7 +387,7 @@ static const char *run_to_place(const training_setup *setup)
 	if (point == TRAINING_MIDBOSS)
 	{
 		/* the way's fight: the bees it took not the player's, the enemies' bullets taken off (as a bomb's start
-		   does, func_02CB82) */
+		   does, clear_enemy_bullets) */
 		set_word(BEES_TAKEN, bees);
 		for (uint32_t bullet = 0; bullet < 75u; bullet++)
 			set_word(BULLETS + 0x40u * bullet, 0);

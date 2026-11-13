@@ -11,7 +11,7 @@
  *      $102198 player 2's ship's record: +0 bit 15 flying, +6 / +8 its place, +$22 its bombs
  *      $102158 player 1's (+6 / +8)
  *      $104E94 the enemies' bullets, 75 of $40 bytes: +0 bit 7 in use, bit 0 able to hit, bit 4 not (the game's own
- *        test, func_0055DA); +6 / +8 the place (their speed: from the frame before)
+ *        test, ship_hit_test); +6 / +8 the place (their speed: from the frame before)
  *      $103814 (100) and $104494 (50) the enemies' hit records, $20 bytes: +0 bits 15 and 13 able to be shot, +6 /
  *        +8 the place, +$10 / +$12 / +$14 / +$16 the box around it, +$18 the hit points
  *    Each frame: the 9 ways the stick can go (still and the 8), each tried 12 frames ahead, the bullets moved on at

@@ -7,7 +7,7 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    From the game's memory, player 1 / player 2 (the game's own code: func_0066C4 scores a kill, 006E3A counts the
+ *    From the game's memory, player 1 / player 2 (the game's own code: score_kill scores a kill, 006E3A counts the
  *    chain down once a frame, 0331A0 starts a game, 0069A2 sets the high score table):
  *      $101742 / $101760  the chain timer: 30 on each kill, down 1 a frame; at 0 the chain is over
  *      $10174E / $10176C  the chain's hits          $101754 / $101772  the best chain ("MAX GP COUNTS")

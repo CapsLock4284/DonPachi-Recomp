@@ -609,7 +609,7 @@ static const int start_at[5] = { 256, 0, 0, 0, 0 };
 
    The game's objects: 64 of $40 bytes from $100102; +0 bit 15 in use, +C (high byte) the type (object_types at
    $12756), +6 a pointer to its hit records: $20 bytes each, +0 the flags (bit 13: it can be shot), +$18 the hit
-   points (func_0055DA takes the shots' damage off them). Each boss keeps its health its own way (read from its
+   points (ship_hit_test takes the shots' damage off them). Each boss keeps its health its own way (read from its
    routine): parts with their own hit points, or "sensor" records set back to $7FFF each frame, the damage taken off a
    pool; and pools in reserve that refill the first as it runs out. The health is all of it together, against the
    most it has been since the boss appeared */
@@ -640,23 +640,23 @@ static long boss_health(unsigned type, uint32_t object)
 	switch (type)
 	{
 	case 0x31u:
-		/* area 1 (func_0213B8): the core (record 1, $5FFF until the four parts are gone) with its reserve in record
+		/* area 1 (boss_area_1): the core (record 1, $5FFF until the four parts are gone) with its reserve in record
 		   2, and the parts, records 3-6 */
 		return positive16(hits + 0x38u) + positive16(hits + 0x58u) + positive16(hits + 0x78u)
 			+ positive16(hits + 0x98u) + positive16(hits + 0xB8u) + positive16(hits + 0xD8u);
 	case 0x58u:
-		/* area 2 (func_026FA2): record 0, refilled from record 2's and then from +$2D6 */
+		/* area 2 (boss_area_2): record 0, refilled from record 2's and then from +$2D6 */
 		return positive16(hits + 0x18u) + positive16(hits + 0x58u) + positive16(hits + 0x2D6u);
 	case 0x4Bu:
-		/* area 3 (func_03985C): a long at +$30 of the records */
+		/* area 3 (boss_area_3): a long at +$30 of the records */
 		pool = (int32_t)long_at(hits + 0x30u);
 		return pool > 0 ? pool : 0;
 	case 0x3Bu:
-		/* area 4 (func_024582): record 0, refilled from the object's +$32, then +$36, then the records' +$3A */
+		/* area 4 (boss_area_4): record 0, refilled from the object's +$32, then +$36, then the records' +$3A */
 		return positive16(hits + 0x18u) + word(object + 0x32u) + word(object + 0x36u) + word(hits + 0x3Au);
 	case 0x6Bu:
 	case BOSS_TRUE:
-		/* area 5 and 10 (func_03B0F4), the true last boss (func_03E5C8): a long at +$1C of the records */
+		/* area 5 and 10 (boss_area_5), the true last boss (true_boss): a long at +$1C of the records */
 		pool = (int32_t)long_at(hits + 0x1Cu);
 		return pool > 0 ? pool : 0;
 	}

@@ -57,7 +57,7 @@
 002EB8  func  wait_for_frame
 
 # A second, smaller set of tasks: 56 stubs of 8 bytes like task_table (tools/probe_table.py 0x2E096 8 56: every record
-# a jmp). Slot 0 is the main table's too (00694E), slots 5-54 all go to 012D50 (probably an empty slot) and the real ones
+# a jmp). Slot 0 is the main table's too (00694E), slots 5-54 all go to 012D50 (object_task, the objects') and the others
 # are 1-4 (02D50C, 02B968, 02B8CC, 0126B2) and 55 (02B148). The two bytes after each jmp are never run.
 02E096  data  task2_table  record=8 count=56 code=2
 # runs slots 1-55 once through task2_table, as the main loop does through task_table. Called over and over by the routine
@@ -81,28 +81,6 @@
 0364FC  func  exception_illegal_instruction
 036516  func  exception_divide_by_zero
 
-0016A2  func  script_command_none
-0016A4  func  script_command_1
-0016AE  func  script_command_2
-001756  func  script_command_3
-00175C  func  script_command_4
-001762  func  script_command_5
-001768  func  script_command_6
-00176E  func  script_command_7
-00177E  func  script_command_8
-00179C  func  script_command_9
-00162C  func  run_script
-
-0294C4  func  state_1
-02959A  func  state_2
-02956C  func  state_3
-0295B8  func  state_4
-0295DE  func  state_5
-0291EA  func  state_6
-029450  func  state_7
-029366  func  state_8
-029472  func  state_9
-029194  func  run_state
 # ======== the object types, the script commands and the states (read from the listing) ========
 # 168 object types, 8 bytes each, from the second record (type 0 is left alone by the code: 012CFA "beq $12cf0", and
 # record 0 points back into the table). Each: +0 a data pointer read a word at a time (012D06 "move.w (A1)+, D0"), +4
@@ -110,19 +88,27 @@
 # times 8 (012CF6, 012CFC). The table ends where the code at 012C9E begins
 01275E  data  object_types  record=8 count=168 code=4
 
-# the script interpreter: reads a word through the pointer at +10 of the object (00163A "movea.l ($10,A6), A5"), its low
-# 4 bits pick one of 16 commands (00164E "jsr (A0,D0.w)"); commands 0 and 10-15 all go to 0016A2
-00162C  func  run_script
-0016A2  func  script_command_none
-0016A4  func  script_command_1
-0016AE  func  script_command_2
-001756  func  script_command_3
-00175C  func  script_command_4
-001762  func  script_command_5
-001768  func  script_command_6
-00176E  func  script_command_7
-00177E  func  script_command_8
-00179C  func  script_command_9
+# the sound driver's sequencer (it was taken for an object script interpreter at first): sound_update runs it for each
+# of the 8 channels with a sequence playing. The channels are 32-byte records from 101412: +0 bit 15 playing, +2 the
+# sample, +6 the volume, +A frames to wait, +C a repeat count, +E added to the sample, +10 the sequence's pointer.
+# Records 0-3 play on the effects' M6295 (B00010, its NMK112 banks at B00028), 4-7 on the music's (B00000, B00020).
+# A word of the sequence: its low 4 bits the command (00164E "jsr (A0,D0.w)"); 0 and 10-15 do nothing
+00162C  func  sound_channel_run
+0016A2  func  sound_command_none
+# 1: frames to wait and the volume, then the sample played; 2: the same with the volume kept
+0016A4  func  sound_command_play_volume
+0016AE  func  sound_command_play
+# 3: frames to wait; 4: a number added to the samples (+E); 5: the repeat count (+C)
+001756  func  sound_command_wait
+00175C  func  sound_command_sample_base
+001762  func  sound_command_set_repeat
+# 6: back to the address that follows while the count lasts; 7: on at the address that follows
+001768  func  sound_command_repeat
+00176E  func  sound_command_jump
+# 8: the chip's four NMK112 banks: 0, 1 and the operand's two 5-bit numbers
+00177E  func  sound_command_banks
+# 9: the sample stopped (the voice's stop bit from the sample table rom_003946) and the channel off
+00179C  func  sound_command_stop
 
 # the state machine at 029194: the state in 101698 (masked to 0-15, times 4) picks a routine; only 1-9 exist
 029194  func  run_state
@@ -333,24 +319,24 @@
 03073C  func  case_030610_01
 030778  func  case_030610_02
 
-# the table at 032C9C (read at 032C98): 17 records of 4 bytes, codes
-032CE0  code  case_032C9C_00
-032D30  code  case_032C9C_01
-032DF6  code  case_032C9C_02
-032E9E  code  case_032C9C_03
-032EBA  code  case_032C9C_04
-0330F6  code  case_032C9C_05
-033306  code  case_032C9C_06
-03353E  code  case_032C9C_07
-0339A8  code  case_032C9C_08
-033A2A  code  case_032C9C_09
-033B7E  code  case_032C9C_10
-033CE6  code  case_032C9C_11
-033F5C  code  case_032C9C_12
-033FD2  code  case_032C9C_13
-0340AC  code  case_032C9C_14
-0340FA  code  case_032C9C_15
-034168  code  case_032C9C_16
+# the table at 032C9C (read at 032C98): 17 records of 4 bytes, codes: the game's modes (game_mode_task, below)
+032CE0  code  game_mode_00
+032D30  code  game_mode_01
+032DF6  code  game_mode_02
+032E9E  code  game_mode_03
+032EBA  code  game_mode_04
+0330F6  code  game_mode_05
+033306  code  game_mode_06
+03353E  code  game_mode_07
+0339A8  code  game_mode_08
+033A2A  code  game_mode_09
+033B7E  code  game_mode_10
+033CE6  code  game_mode_11
+033F5C  code  game_mode_12
+033FD2  code  game_mode_13
+0340AC  code  game_mode_14
+0340FA  code  game_mode_15
+034168  code  game_mode_16
 
 # the table at 0367C8 (read at 0367BA): 11 records of 4 bytes, funcs
 0367F4  func  case_0367C8_00
@@ -721,3 +707,186 @@
 # the two players' records of 64 bytes (000942, 000958: the main loop's player code takes A5 at each)
 102158  var  player_1       u16
 102198  var  player_2       u16
+
+# ======== named from what the port has learnt of the game (13-11-2026) ========
+# (the port's own reading of the game's memory: ports/sdl2's training.c, stats.c, widgets.h, hitbox.h, own_cheats.c,
+# fast_timing.c; and the listing)
+
+# ---- the sound driver ----
+# the board's sound set up: both chips' NMK112 banks 0-3, the channels' records cleared, both chips told to stop (78),
+# then waits for the music chip's voices to be quiet (from the test mode, 037754)
+001578  func  sound_reset
+# each vblank interrupt: the 8 channels, from record 0 (on the effects' chip) to 7, each playing one run by
+# sound_channel_run
+0015E6  func  sound_update
+# plays the channel's sample on its chip: waits for the voice to be free, sets the bank (effects' channels on 4-7),
+# then the M6295's two bytes (the sample, then the voice and the volume)
+0016B2  func  sound_channel_play
+# play_sound's work: D0 the sound's code; a music code (bit 15, low byte below 10) starts channel 4's sequence from
+# the table rom_001304; the others take an effects' channel. None while 1018EB bit 7 and 101286 bit 3 are set (the
+# attract mode with its sound off)
+0037CE  func  sound_request
+# everything stopped: both chips, the effects' channels and the music's (00394E saves the registers)
+00394E  func  stop_all_sound
+00395A  func  stop_all_sound_work
+# the music stopped: its chip, and channel 4 (0039AE saves the registers)
+0039AE  func  stop_music
+0039BA  func  stop_music_work
+# the effects' chip stopped and its banks set to 0, 4, 2, 3 (the ending's voices, 02868A)
+0039E2  func  sfx_chip_reset
+# a sample on the effects' chip directly (not through a channel): D0 the sample, D1 added to it, D2 the voice and
+# volume; 003A6C stops it
+003A32  func  sfx_play_sample
+003A6C  func  sfx_stop_sample
+# the music's channel (channel 4's record, 101492 = 101412 + 4 x 32): its first long
+101492  var  music_channel  u32
+
+# ---- the text and the tile layers ----
+# a line of text: D0 the text's number, the table at 0028BC (8 bytes: the place in layer 2 at 404000, the
+# characters); the characters up to "\" (5C). 003604 one tile a character (from 20, the test mode's and the error
+# screens'); 003646 two tiles high (from 1DA, the game's); 0036A8 the same in the second font (from 312); 00370A as
+# 003646 with the registers kept
+003604  func  draw_text_small
+003646  func  draw_text
+0036A8  func  draw_text_font_2
+00370A  func  draw_text_keep
+# one tile (the long in D0) into layer 2 at A0; 00376E a block of 2 x 2
+00378A  func  put_text_tile
+00376E  func  put_tile_2x2
+# a block of tiles in layer 2: D0 the first, D2 + 1 columns of D3 + 1 rows, numbered down then across
+003198  func  put_tile_block
+# the layers emptied: 0 (003242), 1 (003258), 2 (00326C); the scroll registers' copies put back to 0 (003280);
+# 00329E all four
+003242  func  clear_layer_0
+003258  func  clear_layer_1
+00326C  func  clear_layer_2
+003280  func  reset_scroll
+00329E  func  clear_screen
+# a rectangle of layer 2 filled with D0's long (00320E: with 0)
+003210  func  fill_tile_block
+00320E  func  clear_tile_block
+# the word in D0 (0-65535) as BCD (abcd: D1 D2 D3 bytes, the number in D2's long)
+003AB0  func  binary_to_bcd
+# a BCD number (D2) into layer 2 at A0, from its last digit: 003AD8 up to its last digit not 0, 003B36 the 8 digits
+# with blanks for the leading zeros, 003B94 all 8 with the zeros (palette FA); 003C34 in the second font, 003C2E the
+# same in palette D6
+003AD8  func  draw_bcd_number
+003B36  func  draw_bcd_number_blanked
+003B94  func  draw_bcd_number_zeros
+003C34  func  draw_small_bcd_number
+003C2E  func  draw_small_bcd_number_d6
+# D0 added to one of the scroll registers' copies (1013C0 + D1)
+0037B4  func  add_scroll
+
+# ---- the buttons ----
+# the players' new presses: 10380E / 103810 the button bytes held (high byte) and just pressed (low byte)
+003106  func  read_new_buttons
+10380E  var  buttons_new_1  u16
+103810  var  buttons_new_2  u16
+
+# ---- the game's flow ----
+# the game's mode (game_mode, 1018EC: 7 player 1 alone, 6 player 2 alone, 0 both and the title screen, 0xB the ship
+# select, 8 the continue count, 1 and 5 the attract mode's demonstration, 2 and 4 the coins and start; ports/sdl2's
+# game_mode.h) picks one of 17 routines from the table at 032C9C, game_mode_00-16 (named there)
+032C8E  func  game_mode_task
+# the developers' debug tools, run by the main loop in debug mode (101398 bit 2): the palette editor, the object
+# spawner, the stage select (ports/sdl2/own_cheats.c)
+035D78  func  debug_tools
+# the buttons' byte the interrupt makes from player 1's and 2's buttons; bit 2 the debug mode, which it clears
+101398  var  debug_buttons  u8
+# 1 shows the developers' RAM editor (own_cheats.c)
+1018E8  var  ram_editor  u8
+# the program's frame made (bit 0): the vblank interrupt then sets the scroll and copies the palette
+# (ports/sdl2/fast_timing.c)
+1011FC  var  frame_ready  u16
+# the scroll's step this frame (its high bits): what the ground objects move down by (scroll_with_ground)
+1013C4  var  scroll_step  u16
+# the screen shake's entry (a pointer: the 3 layers' x and y added to their scroll)
+1013CC  var  shake_entry  u32
+# the settings from the EEPROM: the difficulty (low 2 bits), 101287 bit 0 the coinage (2 credits a game), bit 2
+# C BUTTON FULL-AUTO, 101286 bit 3 the attract mode's sound off (sound_request); the rank's base
+101284  var  difficulty  u16
+101286  var  game_settings  u16
+101288  var  rank_base  u16
+10139A  var  credits  u16
+# the loop, 0 or 1 (stage is the area in the loop, 0-4)
+101A42  var  loop_number  u16
+# the rank (its low byte, 0-63): the enemies' bullets' speed and number
+101A32  var  rank  u16
+
+# ---- the players ----
+# each ship's task (slot 2 of task_table and task2_table: player 1's; slot 3: player 2's): the first time round its
+# chain's variables cleared, then
+# player_ship with A6 at its record (player_1 / player_2), A3 at its bomb slots
+02B968  func  player_1_task
+02B8CC  func  player_2_task
+# a ship's frame: the stick and buttons, its shot, laser and bombs, being hit, the respawn
+02BBF2  func  player_ship
+# the hit test for the ship at A5 (the main loop, a ship a frame by turns, 000950 / 000966): the enemies' bullets
+# (each one's point) and the enemies (their boxes) against it (ports/sdl2/hitbox.h)
+0055DA  func  ship_hit_test
+# the enemies' 75 bullets cleared (a ship shot down)
+02CB82  func  clear_enemy_bullets
+# the lives (the low bytes: 101A2F player 1's, 101A31 player 2's)
+101A2E  var  lives_1  u16
+101A30  var  lives_2  u16
+# 1 at MAX power (a power-up then gives the bonus)
+101A86  var  max_power_1  u16
+101A88  var  max_power_2  u16
+# the bomb slots, 3-7 (the next byte: the bombs used toward one more)
+101A8A  var  bomb_slots_1  u8
+101A8C  var  bomb_slots_2  u8
+# the bees taken in the area
+10379A  var  bees_1  u16
+10379E  var  bees_2  u16
+# a bomb going off (bit 7)
+106E14  var  bomb_active  u8
+
+# ---- the score and the Get Point chain ----
+# points to the players (D0, BCD; D1 bit 4 player 1, bit 3 player 2), added to the score at the frame's end
+006698  func  add_score
+# a hit on an enemy: its sound (225D) unless it has none (bit 1 at A6), and 10 points
+006686  func  score_hit
+# an enemy shot down: its points, and the chain (its timer back to 30, its hits and points: ports/sdl2/widgets.h)
+0066C4  func  score_kill
+10177A  var  score_1  u32
+10177E  var  score_2  u32
+# the HUD's HIGH: the table's #1, until a player's score goes over it
+101782  var  hud_high_score  u32
+# the high score table's #1 (BCD; then #2-#5, the names from 10185A)
+101846  var  high_score_top  u32
+# the chain: its timer (30 at each kill, down 1 a frame, over at 0), the sum of its base values, its points (the
+# HUD's "+N GP", BCD), its hits, the best chain (the "MAX GP COUNTS")
+101742  var  chain_timer_1  u16
+101760  var  chain_timer_2  u16
+101746  var  chain_base_1  u32
+101764  var  chain_base_2  u32
+10174A  var  chain_points_1  u32
+101768  var  chain_points_2  u32
+10174E  var  chain_hits_1  u16
+10176C  var  chain_hits_2  u16
+101754  var  best_chain_1  u16
+101772  var  best_chain_2  u16
+
+# ---- the enemies ----
+# the objects' task (the slots from 5 on): the first time round the object's type (its +C byte) picks its
+# record of object_types, then each frame its routine
+012D50  func  object_task
+# an enemy bullet into the first free of 55 of the 75 bullets (104E94, 64 bytes each): D0 its kind (the table
+# rom_00BEE8), D2 its place, D1 its way. None while 101906, 1018AC or 108868 is set
+00BCFA  func  fire_enemy_bullet
+# the object at A6 moved down with the ground's scroll (scroll_step)
+00738A  func  scroll_with_ground
+# how far the object at A6 is from (D2, D3): the larger of the two distances plus half the smaller (007AA8); from a
+# ship (007A9A); from the nearer ship (007A7E)
+007AA8  func  distance_to
+007A9A  func  distance_to_player
+007A7E  func  nearest_player_distance
+# the bosses' routines, as the side panels read their health (ports/sdl2/widgets.c): the areas' bosses and the
+# true last boss of area 10 (area 5's comes back as area 10's first)
+0213B8  func  boss_area_1
+026FA2  func  boss_area_2
+03985C  func  boss_area_3
+024582  func  boss_area_4
+03B0F4  func  boss_area_5
+03E5C8  func  true_boss

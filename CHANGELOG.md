@@ -11,8 +11,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
   its scanlines, the red, green and blue phosphor stripes, a soft glow and darker corners. LIGHT or FULL; it works
   with the side panels and with the picture turned (TATE). Best in full screen.
 - **AI player 2:** the computer can fly player 2 beside you (Cheats > AI PLAYER 2). It joins by itself while you play
-  (and again after a game over), dodges the bullets it sees coming, goes for the strongest enemy and bombs when it's
-  cornered. It counts as a cheat, and the player 2 cheats work for it too.
+  (and again after a game over), dodges the bullets it sees coming, goes for the strongest enemy, uses its laser on a
+  boss or mid-boss once the other enemies are gone, and bombs when it's cornered. It counts as a cheat, and the player 2 cheats work for it too.
 - **Save states in 5 slots:** F6 and F7 (or the options' STATE SLOT) pick the slot that F5 saves to and F8 loads
   from. Both keys can be changed on the Controls page.
 - **The developers' debug tools:** Game Options > Debug Tools brings back the debug mode left in the arcade program:

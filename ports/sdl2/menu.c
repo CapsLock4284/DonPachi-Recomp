@@ -1563,6 +1563,7 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_GRAPHICS:
 	case ITEM_GAME:
 	case ITEM_CHEATS:
+	case ITEM_DEBUG_TOOLS:
 	case ITEM_ACHIEVEMENTS:
 	case ITEM_STATISTICS:
 		snprintf(out, size, ">");
@@ -2043,7 +2044,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	}
 	{
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
-		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15) : 16;
+		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15)
+			: page == PAGE_GAME ? 14 : 16;    /* (the game options: their note under them as well) */
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8 + (page == PAGE_SAVE_REPLAY ? 32 : 0);    /* (the question above) */
 		int cheats_total = 0;

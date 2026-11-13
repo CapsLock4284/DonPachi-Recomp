@@ -16,8 +16,9 @@
  *        +8 the place, +$10 / +$12 / +$14 / +$16 the box around it, +$18 the hit points
  *    Each frame: the 9 ways the stick can go (still and the 8), each tried 12 frames ahead, the bullets moved on at
  *    their speed and the enemies where they are (a touch is a life): the safest, then the nearest to where it wants
- *    to be (under the strongest enemy, else beside player 1, low in the picture). The shot tapped all the time;
- *    a bomb when every way is hit within a few frames.
+ *    to be (under the strongest enemy, else beside player 1, low in the picture). The shot tapped, or held for the
+ *    laser while a boss or mid-boss is up and no other enemy is on the screen (the ship slower then); a bomb when
+ *    every way is hit within a few frames.
  */
 #include "ai_player.h"
 #include "game_mode.h"
@@ -39,6 +40,9 @@
 #define WIDTH       (240 * UNIT)
 #define HEIGHT      (320 * UNIT)
 #define SPEED       176         /* the ship's way a frame (2.75 pixels) */
+#define LASER_SPEED 118         /* with the shot held (the laser): slower */
+#define BIG         1000        /* hit points: a boss's part (theirs are thousands; the others' 10 to a few hundred) */
+#define OBJECTS     0x100102u   /* 64 of $40 bytes: +0 bit 15 in use, +$C (high byte) the type */
 #define AHEAD       12          /* frames looked ahead */
 #define HIT         (7 * UNIT)  /* a bullet this near the ship's middle: a hit, as far as the bot cares */
 #define NEAR        (20 * UNIT) /* nearer than this: some danger */
@@ -153,12 +157,32 @@ static int read_bullets(void)
 	return count;
 }
 
-/* the enemies on the screen that can be shot (their middles and half sizes), and the strongest's across */
-static int read_enemies(thing *out, int most, int *target_x)
+/* a boss up: the areas' bosses, area 10's true boss and the mid-bosses, by their objects' types (widgets.c's) */
+static bool boss_up(void)
+{
+	static const unsigned bosses[] = { 0x31u, 0x58u, 0x4Bu, 0x3Bu, 0x6Bu, 0x7Cu, 0x42u, 0x13u, 0x21u, 0x1Eu, 0x8Bu };
+
+	for (unsigned slot = 0; slot < 64u; slot++)
+	{
+		const uint32_t object = OBJECTS + 0x40u * slot;
+
+		if (!(word(object) & 0x8000u))
+			continue;
+		for (size_t b = 0; b < sizeof(bosses) / sizeof(bosses[0]); b++)
+			if (word(object + 0xCu) >> 8 == bosses[b])
+				return true;
+	}
+	return false;
+}
+
+/* the enemies on the screen that can be shot (their middles and half sizes), the strongest's across, and how many
+   are not a boss's parts ('others') */
+static int read_enemies(thing *out, int most, int *target_x, int *others)
 {
 	int count = 0, strongest = -1;
 
 	*target_x = -1;
+	*others = 0;
 	for (int r = 0; r < 150 && count < most; r++)
 	{
 		const uint32_t at = r < 100 ? 0x103814u + 0x20u * (uint32_t)r : 0x104494u + 0x20u * (uint32_t)(r - 100);
@@ -171,6 +195,8 @@ static int read_enemies(thing *out, int most, int *target_x)
 		out[count].dx = (int)(word(at + 0x14u) > word(at + 0x16u) ? word(at + 0x14u) : word(at + 0x16u));
 		out[count].dy = (int)(word(at + 0x10u) > word(at + 0x12u) ? word(at + 0x10u) : word(at + 0x12u));
 		count++;
+		if (hp < BIG)
+			(*others)++;
 		if (hp > strongest && y > HOME_Y + 40 * UNIT)
 		{
 			strongest = hp;
@@ -183,15 +209,15 @@ static int read_enemies(thing *out, int most, int *target_x)
 /* how dangerous the way is: the bullets near the ship as it goes, nearer frames counting more; 'first_hit' the
    first frame a bullet hits (AHEAD + 1: none) */
 static long danger(int way, const thing *shots, int shots_count, const thing *enemies, int enemies_count, int x,
-	int y, int *first_hit)
+	int y, int speed, int *first_hit)
 {
 	long total = 0;
 
 	*first_hit = AHEAD + 1;
 	for (int k = 1; k <= AHEAD; k++)
 	{
-		const int sx = clamp(x + ways[way][0] * SPEED * k, 8 * UNIT, WIDTH - 8 * UNIT);
-		const int sy = clamp(y + ways[way][1] * SPEED * k, 8 * UNIT, HEIGHT - 40 * UNIT);
+		const int sx = clamp(x + ways[way][0] * speed * k, 8 * UNIT, WIDTH - 8 * UNIT);
+		const int sy = clamp(y + ways[way][1] * speed * k, 8 * UNIT, HEIGHT - 40 * UNIT);
 		const long weight = AHEAD + 1 - k;
 
 		for (int b = 0; b < shots_count; b++)
@@ -227,7 +253,8 @@ unsigned ai_player_inputs(void)
 {
 	static thing enemies[150];
 	unsigned held = 0;
-	int shots_count, enemies_count, target_x, x, y, best = 0, best_hit = 0;
+	int shots_count, enemies_count, target_x, others, x, y, best = 0, best_hit = 0, speed;
+	bool laser;
 	long best_cost = -1;
 	const bool flying = (word(P2_SHIP) & 0x8000u) != 0;
 
@@ -243,7 +270,9 @@ unsigned ai_player_inputs(void)
 	shots_count = read_bullets();
 	if (!flying)
 		return 0;    /* (down: the next ship comes) */
-	enemies_count = read_enemies(enemies, 150, &target_x);
+	enemies_count = read_enemies(enemies, 150, &target_x, &others);
+	laser = boss_up() && others == 0;
+	speed = laser ? LASER_SPEED : SPEED;
 	x = position(P2_SHIP + 8u);
 	y = position(P2_SHIP + 6u);
 	if (target_x < 0)
@@ -256,8 +285,8 @@ unsigned ai_player_inputs(void)
 	for (int way = 0; way < 9; way++)
 	{
 		int first_hit;
-		const int to_x = clamp(x + ways[way][0] * SPEED * AHEAD, 0, WIDTH), to_y = y + ways[way][1] * SPEED * AHEAD;
-		long cost = danger(way, bullets, shots_count, enemies, enemies_count, x, y, &first_hit);
+		const int to_x = clamp(x + ways[way][0] * speed * AHEAD, 0, WIDTH), to_y = y + ways[way][1] * speed * AHEAD;
+		long cost = danger(way, bullets, shots_count, enemies, enemies_count, x, y, speed, &first_hit);
 
 		cost += labs((long)to_x - target_x) / UNIT * 4;     /* (where it wants to be) */
 		cost += labs((long)to_y - HOME_Y) / UNIT * 3;
@@ -272,7 +301,7 @@ unsigned ai_player_inputs(void)
 	}
 	last_way = best;
 	held |= way_inputs[best];
-	held |= frame % 2 ? CAVE_BUTTON1 : 0u;                     /* (the shot tapped) */
+	held |= laser || frame % 2 ? CAVE_BUTTON1 : 0u;            /* (the laser held at a boss alone, else the shot tapped) */
 	if (best_hit <= 3 && word(P2_SHIP + 0x22u) > 0u)
 		held |= CAVE_BUTTON2;                                  /* (no way out: a bomb) */
 	return held;

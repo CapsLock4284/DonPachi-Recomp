@@ -6,7 +6,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Behind the scenes
+- 25 more names in the decompiled code: the HUD (scores, chain display, lives and bombs), the stage's tasks, items
+  being dropped, how objects move, the three ship types and the Start buttons. The game itself is unchanged.
 
 ## v0.7.0 (2026-11-13)
 

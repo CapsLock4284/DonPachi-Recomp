@@ -638,7 +638,7 @@ static void show_picture(const uint32_t *pixels)
 
 /* $101738 (a byte): bit 0 player 1's, bit 1 player 2's, set by Up + Left then A + Start during a game (Down + Right then A +
    Start clears it; the game clears both as a game starts): the GP window's HIT count in the large font all the time,
-   and the best chain shown between chains (func_006D06). Cosmetic only. With the option on the bits are kept set
+   and the best chain shown between chains (draw_chain_hud). Cosmetic only. With the option on the bits are kept set
    while a game is played; turned off, they are cleared once, and the command works as on the board again */
 #define BIG_HIT_FLAGS 0x101738u
 

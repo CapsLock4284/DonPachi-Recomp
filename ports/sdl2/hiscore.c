@@ -24,7 +24,7 @@
 
 static const char magic[8] = { 'D', 'P', 'H', 'I', 'S', 'C', '0', '1' };
 
-/* the default scores, BCD: what the game's first run of func_00694E writes */
+/* the default scores, BCD: what the game's first run of start_buttons_task writes */
 static const uint32_t default_scores[5] = { 0x800000u, 0x700000u, 0x600000u, 0x500000u, 0x400000u };
 
 static char path[1024];

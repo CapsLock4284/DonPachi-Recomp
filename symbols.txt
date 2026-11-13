@@ -271,9 +271,9 @@
 02B7DA  func  case_02B1FA_05
 
 # the table at 02C072 (read at 02C06E): 3 records of 4 bytes, codes
-02C0BA  code  case_02C072_00
-02C16A  code  case_02C072_01
-02C218  code  case_02C072_02
+02C0BA  code  ship_type_a
+02C16A  code  ship_type_b
+02C218  code  ship_type_c
 
 # the table at 02DA4C (read at 02DA48): 19 records of 4 bytes, codes
 02DC80  code  case_02DA4C_00
@@ -890,3 +890,61 @@
 024582  func  boss_area_4
 03B0F4  func  boss_area_5
 03E5C8  func  true_boss
+
+# ======== more names (13-11-2026): the HUD, the stage, the items, moving, the ships' types ========
+
+# ---- the HUD ----
+# a BCD number into the HUD's sprites' list: 8 digits of 8 bytes, no leading zeros, the last digit always
+# (ports/sdl2/training.c's hud_number does the same); player 1's score (101786), player 2's (101806), the HIGH (1017C6)
+006C24  func  draw_hud_number
+006BF8  func  draw_score_1
+006C08  func  draw_score_2
+006C18  func  draw_hud_high_score
+# the HUD's sprites each frame (the main loop): the scores' lists, then the chain's display (006D06: its timer bar,
+# "+N GP", the hits, and the best chain shown between chains)
+0052D6  func  draw_hud
+006D06  func  draw_chain_hud
+# a ship's lives and bombs in layer 2, from its record (its bomb slots at +24, its bombs at +22): drawn when they change
+# (ports/sdl2/training.c calls it after setting them)
+005020  func  draw_lives_and_bombs
+
+# ---- the stage ----
+# task2_table's slot 1 (task_table's too): the stage's own work (it sets the rank, the lives, the stage and loop, the
+# scroll registers)
+02D50C  func  stage_task
+# slot 4: the objects the stage brings in, by its scroll: the list for the stage (8-byte records from the table at
+# 01269E, one for each stage: the scroll position, then what to start) run as scroll_position reaches each
+0126B2  func  stage_spawn_task
+
+# ---- the items ----
+# an item dropped where the object at A6 is: into the first free of 10 of the 16 item records (106114, 32 bytes each:
+# from the third, 106154); 02A770 sets the record up
+029AE2  func  drop_item
+02A770  func  item_setup
+
+# ---- moving ----
+# the object at A6 moved by its speed (+1A) along its way (+1B, 64 ways round): 0073AA from its own record,
+# 0073BA with D0 the speed and D1 the way; 0073EE the step in y (D2) and x (D3) for the speed and way. Nothing moves
+# while 1018AC is set
+0073AA  func  move_object
+0073BA  func  move_by_angle
+0073EE  func  angle_to_velocity
+# carry set while the object at A6 is on the screen, with a border: its y (+6) from -$800 to $5FFF ($40 to the pixel)
+# and its x (+8) within the screen's width (with the horizontal scroll's 10884A); 007C08 with a wider border
+007BBC  func  on_screen
+007C08  func  on_screen_wide
+
+# ---- the ships' types ----
+# the ship chosen on the select screen, 0-2 (types A, B, C): copied into the ship's record (+1C) as its task starts
+1018A0  var  ship_choice_1  u16
+1018A2  var  ship_choice_2  u16
+# the ship's sprite (+4) from its +18 and its type (+1C), and its picture's pointer (+14); player_ship then runs the type's own part, ship_type_a / _b / _c (above: the table at 02C072)
+02C322  func  ship_sprite
+
+# ---- the Start buttons ----
+# slot 0 of both task tables: a player's Start pressed during the game, or at its start (the attract mode's demo
+# aside): player 1's (005F6E) or player 2's (00601E) taken into the game. Its first run sets up the high score table
+# (ports/sdl2/hiscore.h)
+00694E  func  start_buttons_task
+005F6E  func  player_1_start
+00601E  func  player_2_start

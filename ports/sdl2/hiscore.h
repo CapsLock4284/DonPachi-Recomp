@@ -7,7 +7,7 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    The table, in the game's memory ($101846-$10189F, set up once at boot by func_00694E's first run):
+ *    The table, in the game's memory ($101846-$10189F, set up once at boot by start_buttons_task's first run):
  *      $101846  the five scores (BCD longs, #1 first: 800000 ... 400000 by default)
  *      $10185A  the five names (3 words each)
  *      $101878  $101882  $10188C  $101896   a word each for the five (the entry's ship, stage and the like)

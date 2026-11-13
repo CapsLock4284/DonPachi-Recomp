@@ -34,7 +34,7 @@
 #define BOMB_SLOTS    0x101A8Au   /* (byte) player 1's bomb slots, 3-7; the next byte the bombs used toward one more */
 
 /* the game's own: the HUD's lives and bombs drawn from the ship's record (its slots +$24, its bombs +$22) */
-void func_005020(uint32_t a5, uint32_t a6);
+void draw_lives_and_bombs(uint32_t a5, uint32_t a6);
 #define OBJECTS       0x100102u   /* 64 of $40 bytes: +0 bit 15 in use, +C (high byte) the type */
 #define MAX_FRAMES    80000L      /* (the longest way there, area 10's true boss, is about 30000) */
 
@@ -215,7 +215,7 @@ const char *training_name(const training_setup *setup)
 	return name;
 }
 
-/* A number of the HUD's (BCD) into its sprites' list, as the game makes it when the number changes (func_006C24):
+/* A number of the HUD's (BCD) into its sprites' list, as the game makes it when the number changes (draw_hud_number):
    8 digits of 8 bytes, the leading zeros none, the last one always */
 static void hud_number(uint32_t list, uint32_t value)
 {
@@ -405,7 +405,7 @@ static const char *run_to_place(const training_setup *setup)
 		set_byte(BOMB_SLOTS + 1u, 0u);
 		set_word(SHIP + 0x24u, bombs);
 		set_word(SHIP + 0x22u, bombs);
-		func_005020(0x100082u, SHIP);    /* (as the game draws them when they change) */
+		draw_lives_and_bombs(0x100082u, SHIP);    /* (as the game draws them when they change) */
 	}
 	{
 		/* the power: as the game's power-ups make it (MAX: the flags a power-up then reads for the bonus) */

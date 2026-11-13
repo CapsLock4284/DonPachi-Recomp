@@ -24,6 +24,7 @@
  *    one ("_MY BEST RUN"), then ".dpreplay"
  */
 #include "replay.h"
+#include "game_mode.h"
 
 #include "training.h"
 
@@ -459,7 +460,8 @@ const char *replay_save_training(void)
 
 bool replay_after_frame(void)
 {
-	const unsigned mode = word(GAME_MODE);
+	const unsigned mode = game_mode_now();    /* (7: a game played, by one player or both: a second player joining is not
+	                                         the attract mode's 0) */
 	game_record *const game = &rec.game;
 	bool ended = false;
 

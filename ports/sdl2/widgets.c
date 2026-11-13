@@ -9,6 +9,7 @@
  *    outline), here also twice as large for the hits.
  */
 #include "widgets.h"
+#include "game_mode.h"
 
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -185,13 +186,12 @@ static const uint32_t scores[2] = { 0x10177Au, 0x10177Eu };
 /* The game's mode ($1018EC): 0xB the ship select, which only a start with a credit leads to; 7 the play; 0, 1 and 5
    the attract mode and its demonstration (whose ships play as the players' would). A player's own game is from the
    ship select on, until the attract mode */
-#define GAME_MODE 0x1018ECu
 
 static bool own_game;
 
 static void follow_game_mode(void)
 {
-	const unsigned mode = word(GAME_MODE);
+	const unsigned mode = game_mode_now();    /* (7: a game played, by one player or both) */
 
 	if (mode == 0xBu)
 		own_game = true;
@@ -283,7 +283,7 @@ static void run_frame(void)
 	const bool bomb_on = (word(BOMB_ON) & 0x8000u) != 0;
 	const int area = area_now();
 
-	run.playing = word(GAME_MODE) == 7u;
+	run.playing = game_mode_playing();
 	if (run.playing)
 		run.frames++;
 	if (area >= 0)
@@ -305,7 +305,7 @@ static void run_frame(void)
 		{
 			const unsigned bees = word(BEES_TAKEN + 4u * (unsigned)player);
 
-			if (bees > run.last_bees[player] && area >= 0 && word(GAME_MODE) == 7u)
+			if (bees > run.last_bees[player] && area >= 0 && game_mode_playing())
 				run.bees[area] += bees - run.last_bees[player];
 			run.last_bees[player] = bees;
 		}

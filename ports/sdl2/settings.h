@@ -34,12 +34,15 @@ enum
 	HOTKEY_RESET,               /* the board's reset */
 	HOTKEY_SERVICE_MENU,        /* the reset, with the service switch held for the player: the test mode */
 	HOTKEY_FAST_FORWARD,        /* held: the game runs fast_forward_speed frames a frame */
-	HOTKEY_SAVE_STATE,          /* the game as it is now, kept in memory (one save state, until the program closes) */
-	HOTKEY_LOAD_STATE,          /* back to it */
+	HOTKEY_SAVE_STATE,          /* the game as it is now, kept in memory in the chosen slot (until the program closes) */
+	HOTKEY_LOAD_STATE,          /* back to the chosen slot's */
+	HOTKEY_SLOT_PREVIOUS,       /* the save states' slot: the one before (STATE_SLOTS of them) */
+	HOTKEY_SLOT_NEXT,           /* the one after */
 	HOTKEYS
 };
 
 #define BINDINGS_MAX 4          /* keys or buttons an action may have */
+#define STATE_SLOTS 5           /* the save states kept at once (in memory) */
 
 enum { PAD_NONE, PAD_BUTTON, PAD_TRIGGER };
 enum { VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH, VIDEO_SCALINGS };

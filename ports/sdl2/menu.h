@@ -32,7 +32,9 @@ typedef struct
 	void (*apply_video)(void);  /* the filter and vsync from options */
 	void (*apply_timing)(void); /* options->arcade_timing */
 	void (*quit)(void);
-	void (*state)(bool save);   /* the save state: kept, or gone back to */
+	void (*state)(bool save);   /* the save state: kept, or gone back to (the chosen slot's) */
+	int (*state_slot)(int step);    /* the save states' slot, 0 to STATE_SLOTS - 1, moved by 'step' (0: as it is) */
+	bool (*state_used)(int slot);   /* a save state is kept in the slot */
 	void (*main_menu)(void);    /* the game reset, for the main menu (then it shows) */
 	bool (*training)(void);     /* the game to training's place (options->training_...): false if it could not */
 	bool (*in_training)(void);  /* a training game is on (the options then have RETRY TRAINING and TRAINING MENU) */

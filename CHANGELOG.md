@@ -10,6 +10,19 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **CRT look:** Settings > Graphics > CRT makes the picture look like the arcade's monitor: a gently curved screen,
   its scanlines, the red, green and blue phosphor stripes, a soft glow and darker corners. LIGHT or FULL; it works
   with the side panels and with the picture turned (TATE). Best in full screen.
+- **AI player 2:** the computer can fly player 2 beside you (Cheats > AI PLAYER 2). It joins by itself while you play
+  (and again after a game over), dodges the bullets it sees coming, goes for the strongest enemy and bombs when it's
+  cornered. It counts as a cheat, and the player 2 cheats work for it too.
+- **Save states in 5 slots:** F6 and F7 (or the options' STATE SLOT) pick the slot that F5 saves to and F8 loads
+  from. Both keys can be changed on the Controls page.
+- **The developers' debug tools:** Game Options > Debug Tools brings back the debug mode left in the arcade program:
+  pause and move through a stage, stage select, an object spawner, a palette editor (and the ship can't be shot down),
+  plus the developers' RAM editor. The page lists their controls. They count as cheats.
+
+### Fixed
+- When a second player joins a game partway through (a coin and P2 Start), the game no longer seems to end: no
+  "save the replay?" question in the middle of play, and the statistics, side panels and training carry on. A game
+  started by player 2 alone is followed properly too.
 
 ## v0.5.0 (2026-11-12)
 

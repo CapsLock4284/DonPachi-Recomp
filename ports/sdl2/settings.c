@@ -31,7 +31,7 @@ const char *const settings_crt_names[3] = { "off", "light", "full" };
 const char *const settings_rotate_names[ROTATIONS] = { "none", "right", "left" };
 
 static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu", "fast_forward", "save_state",
-	"load_state" };
+	"load_state", "state_slot_previous", "state_slot_next" };
 
 static const char *const action_notes[ACTIONS] = {
 	NULL, NULL, NULL, NULL,
@@ -119,6 +119,8 @@ void settings_defaults(settings *s)
 	s->hot_buttons[HOTKEY_FAST_FORWARD][0] = (pad_input){ PAD_BUTTON, SDL_CONTROLLER_BUTTON_LEFTSHOULDER };
 	s->hot_keys[HOTKEY_SAVE_STATE][0] = SDL_SCANCODE_F5;
 	s->hot_keys[HOTKEY_LOAD_STATE][0] = SDL_SCANCODE_F8;
+	s->hot_keys[HOTKEY_SLOT_PREVIOUS][0] = SDL_SCANCODE_F6;
+	s->hot_keys[HOTKEY_SLOT_NEXT][0] = SDL_SCANCODE_F7;
 }
 
 /* ---- reading ---- */
@@ -598,16 +600,26 @@ const char *settings_save(const settings *s, const char *path)
 	write_keys(file, s->hot_keys[HOTKEY_FAST_FORWARD]);
 	fputs("\nfast_forward_gamepad = ", file);
 	write_buttons(file, s->hot_buttons[HOTKEY_FAST_FORWARD]);
-	fputs("\n; a save state: the game as it is now, kept until the program closes (one; saving again replaces it)\n", file);
+	fputs("\n; a save state: the game as it is now, kept in the chosen slot until the program closes (5 slots; saving\n"
+		"; again replaces the slot's)\n", file);
 	fputs("save_state = ", file);
 	write_keys(file, s->hot_keys[HOTKEY_SAVE_STATE]);
 	fputs("\nsave_state_gamepad = ", file);
 	write_buttons(file, s->hot_buttons[HOTKEY_SAVE_STATE]);
-	fputs("\n; back to the save state\n", file);
+	fputs("\n; back to the chosen slot's save state\n", file);
 	fputs("load_state = ", file);
 	write_keys(file, s->hot_keys[HOTKEY_LOAD_STATE]);
 	fputs("\nload_state_gamepad = ", file);
 	write_buttons(file, s->hot_buttons[HOTKEY_LOAD_STATE]);
+	fputs("\n; the save states' slot: the one before, the one after\n", file);
+	fputs("state_slot_previous = ", file);
+	write_keys(file, s->hot_keys[HOTKEY_SLOT_PREVIOUS]);
+	fputs("\nstate_slot_previous_gamepad = ", file);
+	write_buttons(file, s->hot_buttons[HOTKEY_SLOT_PREVIOUS]);
+	fputs("\nstate_slot_next = ", file);
+	write_keys(file, s->hot_keys[HOTKEY_SLOT_NEXT]);
+	fputs("\nstate_slot_next_gamepad = ", file);
+	write_buttons(file, s->hot_buttons[HOTKEY_SLOT_NEXT]);
 	fputs("\n\n", file);
 
 	{

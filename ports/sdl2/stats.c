@@ -20,6 +20,7 @@
  *    A boss's parts each count, as they are each destroyed.
  */
 #include "stats.h"
+#include "game_mode.h"
 
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -221,7 +222,7 @@ void stats_frame(bool counts, unsigned defeats)
 		}
 		return;
 	}
-	const unsigned mode = word(0x1018ECu);
+	const unsigned mode = game_mode_now();    /* (7: a game played, by one player or both) */
 	const int area = area_now();
 	const bool bomb_on = (word(0x106E14u) & 0x8000u) != 0;
 

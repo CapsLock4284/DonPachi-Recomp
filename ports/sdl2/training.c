@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "training.h"
+#include "game_mode.h"
 
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -348,7 +349,7 @@ static const char *run_to_place(const training_setup *setup)
 		cave_board.in1 = 0xFFFFu;
 		program_run_frame();
 		cave_sound_drop();
-		if (playing && word(GAME_MODE) != 7u)
+		if (playing && !game_mode_playing())
 			return "the game left the stage on the way (game over?)";
 	}
 	if (!done)

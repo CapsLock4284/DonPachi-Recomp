@@ -17,6 +17,7 @@
 #include "ui_sound.h"
 
 #include "cave/cheats.h"
+#include "own_cheats.h"
 #include "cave/machine.h"
 #include "achievements.h"
 
@@ -51,8 +52,8 @@
 #define CAPTURE_FRAMES 345              /* the remapping's wait for a key or button: 6 s */
 #define STICK_DEAD   16000
 
-enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_FRONT, PAGE_TRAINING, PAGE_ACHIEVEMENTS,
-	PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE };
+enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_DEBUG, PAGE_FRONT, PAGE_TRAINING,
+	PAGE_ACHIEVEMENTS, PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -87,8 +88,10 @@ enum
 	ITEM_DELETE_YES, ITEM_DELETE_NO,
 	ITEM_SLOWDOWN,                /* the arcade's slowdown */
 	ITEM_CRT,                     /* the arcade monitor's look (crt.h) */
+	ITEM_STATE_SLOT,              /* the save states' slot */
+	ITEM_DEBUG_TOOLS,             /* the debug tools page (from the game options): own_cheats.h's debug ones */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
-	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
+	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
 	ITEM_CHEAT = 200,             /* + a cheat of the cheat file (cave/cheats.h) */
 	ITEM_ACHIEVEMENT = 400,       /* + an achievement (achievements.h) */
@@ -136,7 +139,7 @@ static unsigned blink;                    /* menu_tick's count: RENAME's cursor 
 /* the hotkeys' entries on the controls page */
 static bool is_hotkey_item(int item)
 {
-	return item >= ITEM_FAST_FORWARD_KEY && item <= ITEM_LOAD_STATE_KEY;
+	return item >= ITEM_FAST_FORWARD_KEY && item <= ITEM_SLOT_NEXT_KEY;
 }
 
 static int item_hotkey(int item)
@@ -167,7 +170,8 @@ static void build_items(void)
 	if (page == PAGE_MAIN)
 	{
 		static const int main_items[] = { ITEM_RESUME, ITEM_RESET, ITEM_TIMING, ITEM_HITBOX,
-			ITEM_VOLUME, ITEM_SAVE_STATE, ITEM_LOAD_STATE, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS, ITEM_MAIN_MENU,
+			ITEM_VOLUME, ITEM_SAVE_STATE, ITEM_LOAD_STATE, ITEM_STATE_SLOT, ITEM_GAME, ITEM_GRAPHICS, ITEM_CONTROLS,
+			ITEM_MAIN_MENU,
 			ITEM_QUIT };
 		/* (the main menu's SETTINGS: what can be set before a game) */
 		static const int settings_items[] = { ITEM_TIMING, ITEM_HITBOX, ITEM_VOLUME, ITEM_GAME,
@@ -216,7 +220,7 @@ static void build_items(void)
 	else if (page == PAGE_GAME)
 	{
 		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
-			ITEM_HISCORES, ITEM_CHEATS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
+			ITEM_HISCORES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -256,11 +260,13 @@ static void build_items(void)
 			items[item_count++] = ITEM_STAT + line;
 		items[item_count++] = ITEM_BACK;
 	}
-	else if (page == PAGE_CHEATS)
+	else if (page == PAGE_CHEATS || page == PAGE_DEBUG)
 	{
-		/* the port's own, then the cheat file's that the game can have (they write its RAM) */
+		/* the port's own, then the cheat file's that the game can have (they write its RAM); the debug tools on
+		   their own page */
 		for (int cheat = 0; cheat < cheats_count() && item_count < 40; cheat++)
-			if (cheats_usable(cheat))
+			if (cheats_usable(cheat) && (page == PAGE_DEBUG) == (cheats_own(cheat)
+					&& !strncmp(cheats_name(cheat), OWN_CHEATS_DEBUG, strlen(OWN_CHEATS_DEBUG))))
 				items[item_count++] = ITEM_CHEAT + cheat;
 		items[item_count++] = ITEM_BACK;
 	}
@@ -279,6 +285,8 @@ static void build_items(void)
 		items[item_count++] = ITEM_FAST_FORWARD_KEY;
 		items[item_count++] = ITEM_SAVE_STATE_KEY;
 		items[item_count++] = ITEM_LOAD_STATE_KEY;
+		items[item_count++] = ITEM_SLOT_PREVIOUS_KEY;
+		items[item_count++] = ITEM_SLOT_NEXT_KEY;
 		items[item_count++] = ITEM_DEADZONE;
 		items[item_count++] = ITEM_DEFAULTS;
 		items[item_count++] = ITEM_BACK;
@@ -496,6 +504,10 @@ static void change(int item, int step, bool wrap)
 	case ITEM_CRT:
 		in_use->crt = file->crt = cycle(in_use->crt, 3, step, wrap);
 		break;
+	case ITEM_STATE_SLOT:
+		if (host.state_slot)
+			host.state_slot(step);
+		break;
 	case ITEM_VSYNC:
 		in_use->vsync = file->vsync = !in_use->vsync;
 		host.apply_video();
@@ -633,6 +645,11 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_DEBUG_TOOLS:
+		page = PAGE_DEBUG;
+		selected = 0;
+		build_items();
+		break;
 	case ITEM_ACHIEVEMENTS:
 		achievements_from = page;
 		page = PAGE_ACHIEVEMENTS;
@@ -677,7 +694,7 @@ static void choose(int item)
 		host.options->left_stick[player] = host.file->left_stick[player] = defaults.left_stick[player];
 		for (settings *s = host.options; s; s = s == host.options ? host.file : NULL)
 		{
-			for (int hotkey = HOTKEY_FAST_FORWARD; hotkey <= HOTKEY_LOAD_STATE; hotkey++)
+			for (int hotkey = HOTKEY_FAST_FORWARD; hotkey <= HOTKEY_SLOT_NEXT; hotkey++)
 			{
 				memcpy(s->hot_keys[hotkey], defaults.hot_keys[hotkey], sizeof(defaults.hot_keys[hotkey]));
 				memcpy(s->hot_buttons[hotkey], defaults.hot_buttons[hotkey], sizeof(defaults.hot_buttons[hotkey]));
@@ -728,9 +745,9 @@ static void choose(int item)
 		}
 		{
 		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME
-			: page == PAGE_CHEATS ? ITEM_CHEATS : ITEM_CONTROLS;
+			: page == PAGE_CHEATS ? ITEM_CHEATS : page == PAGE_DEBUG ? ITEM_DEBUG_TOOLS : ITEM_CONTROLS;
 
-		page = page == PAGE_CHEATS ? PAGE_GAME : PAGE_MAIN;
+		page = page == PAGE_CHEATS || page == PAGE_DEBUG ? PAGE_GAME : PAGE_MAIN;
 		build_items();
 		for (selected = 0; selected < item_count - 1 && items[selected] != opened_by; selected++)
 			;    /* (back on the entry that opened the page) */
@@ -929,11 +946,14 @@ static const char *item_help(int item)
 	if (is_cheat(item))
 	{
 		/* an own cheat: what it does; then, as for the file's, what a cheat costs */
-		static char text[256];
+		static char text[512];
 
-		snprintf(text, sizeof(text), "%s%sON FOR THIS RUN ONLY. WHILE ANY CHEAT IS ON: NO HIGH SCORES, ACHIEVEMENTS, "
-			"STATISTICS OR REPLAYS.", cheats_own(item - ITEM_CHEAT) ? cheats_help(item - ITEM_CHEAT)
-			: "A CHEAT FROM MAME'S CHEAT FILE.", " ");
+		if (page == PAGE_DEBUG)
+			snprintf(text, sizeof(text), "%s COUNTS AS A CHEAT.", cheats_help(item - ITEM_CHEAT));
+		else
+			snprintf(text, sizeof(text), "%s%sON FOR THIS RUN ONLY. WHILE ANY CHEAT IS ON: NO HIGH SCORES, "
+				"ACHIEVEMENTS, STATISTICS OR REPLAYS.", cheats_own(item - ITEM_CHEAT) ? cheats_help(item - ITEM_CHEAT)
+				: "A CHEAT FROM MAME'S CHEAT FILE.", " ");
 		return text;
 	}
 	if (item >= ITEM_ACHIEVEMENT && item < ITEM_STAT)
@@ -995,11 +1015,17 @@ static const char *item_help(int item)
 	case ITEM_HISCORES:
 		return "KEEPS THE HIGH SCORE TABLE BETWEEN SESSIONS (THE ARCADE FORGETS IT WHEN SWITCHED OFF).";
 	case ITEM_SAVE_STATE:
-		return "KEEPS THE GAME AS IT IS NOW, TO GO BACK TO (F5). NO HIGH SCORES OR REPLAY FROM A GAME THAT LOADS ONE.";
+		return "KEEPS THE GAME AS IT IS NOW IN THE CHOSEN SLOT, TO GO BACK TO (F5). NO HIGH SCORES OR REPLAY FROM A GAME "
+			"THAT LOADS ONE.";
 	case ITEM_LOAD_STATE:
-		return "BACK TO THE SAVED STATE (F8).";
+		return "BACK TO THE CHOSEN SLOT'S SAVED STATE (F8).";
+	case ITEM_STATE_SLOT:
+		return "WHICH OF THE 5 SAVE STATES SAVE AND LOAD USE (F6 / F7). THEY ARE KEPT UNTIL THE GAME CLOSES.";
 	case ITEM_GAME:
 		return "DIFFICULTY, FAST FORWARD SPEED, BIG HIT, TEST MENU, FREE PLAY, HIGH SCORES, CHEATS AND MORE.";
+	case ITEM_DEBUG_TOOLS:
+		return "THE DEVELOPERS' DEBUG MODE AND RAM EDITOR, STILL IN THE GAME: PAUSE AND MOVE THROUGH A STAGE, STAGE "
+			"SELECT, OBJECT SPAWNER, PALETTE EDITOR. COUNT AS CHEATS.";
 	case ITEM_CHEATS:
 		return "INFINITE LIVES AND BOMBS, INVINCIBILITY, MAX POWER, ENDLESS CHAIN; MORE WITH MAME'S CHEAT FILE "
 			"IN THE CHEATS FOLDER.";
@@ -1070,7 +1096,11 @@ static const char *item_help(int item)
 	case ITEM_SAVE_STATE_KEY:
 		return "KEEPS THE GAME AS IT IS NOW (A SAVE STATE).";
 	case ITEM_LOAD_STATE_KEY:
-		return "BACK TO THE SAVE STATE.";
+		return "BACK TO THE CHOSEN SLOT'S SAVE STATE.";
+	case ITEM_SLOT_PREVIOUS_KEY:
+		return "THE SAVE STATES' SLOT BEFORE THIS ONE.";
+	case ITEM_SLOT_NEXT_KEY:
+		return "THE SAVE STATES' SLOT AFTER THIS ONE.";
 	}
 	return NULL;
 }
@@ -1461,11 +1491,15 @@ static const char *item_label(int item)
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
-		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT"
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS"
 	};
 
 	if (is_hotkey_item(item))
-		return item == ITEM_FAST_FORWARD_KEY ? "FAST FWD" : item == ITEM_SAVE_STATE_KEY ? "SAVE STATE" : "LOAD STATE";
+	{
+		static const char *const names[] = { "FAST FWD", "SAVE STATE", "LOAD STATE", "PREV SLOT", "NEXT SLOT" };
+
+		return names[item - ITEM_FAST_FORWARD_KEY];
+	}
 	if (is_cheat(item))
 	{
 		/* the cheat file's name, made to fit beside its ON / OFF ("Maximum" as "Max") */
@@ -1589,6 +1623,14 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_CRT:
 		snprintf(out, size, "%s", settings_crt_names[s->crt]);
+		break;
+	case ITEM_STATE_SLOT:
+		if (host.state_slot)
+		{
+			const int slot = host.state_slot(0);
+
+			snprintf(out, size, "%d%s", slot + 1, host.state_used && !host.state_used(slot) ? " (EMPTY)" : "");
+		}
 		break;
 	case ITEM_VSYNC:
 		snprintf(out, size, "%s", s->vsync ? "ON" : "OFF");
@@ -1972,6 +2014,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre_y(out, (PANEL_TOP + 3) * 8, "DO YOU WANT TO SAVE", WHITE);
 		put_centre_y(out, (PANEL_TOP + 3) * 8 + 12, "THE REPLAY?", WHITE);
 	}
+	else if (page == PAGE_DEBUG)
+	{
+		put_centre(out, PANEL_TOP + 1, "DEBUG TOOLS", GOLD);
+		put_centre(out, PANEL_TOP + 2, "THE DEVELOPERS' OWN", GREY);
+	}
 	else if (page == PAGE_CHEATS)
 	{
 		int total;
@@ -2040,12 +2087,43 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			front_message--;
 			put_text_y(out, (COLUMNS - 22) / 2, y + 2, "COULD NOT GET THERE...", RED);
 		}
-		if (page == PAGE_CHEATS)
+		if (page == PAGE_CHEATS || page == PAGE_DEBUG)
 		{
 			static const char *const warning[2] = { "HIGH SCORES SAVING DISABLED", "WHILE CHEATS ARE ACTIVE" };
 
 			for (int line = 0; line < 2; line++)
 				put_text_y(out, (COLUMNS - (int)strlen(warning[line])) / 2, y + 2 + line * 10, warning[line], RED);
+		}
+		if (page == PAGE_DEBUG)
+		{
+			/* the tools' controls (sudden-desu.net's notes): player 2's controls, mostly */
+			static const char *const controls[][2] = {
+				{ "DEBUG MODE", NULL },
+				{ "P2 START", "PAUSE" },
+				{ "  P1 C + UP/DN", "MOVE ON" },
+				{ "  P1 START", "GO ON" },
+				{ "P1 START+P2 UP/DN", "NUMBER" },
+				{ "P2 SHOT+BOMB", "STAGE 2-5" },
+				{ "P2 BOMB+C", "OBJECT" },
+				{ "P2 STICK", "PALETTE" },
+				{ "  HOLD P2 BOMB/C", "CHANGE" },
+				{ "RAM EDITOR", NULL },
+				{ "P2 STICK", "CURSOR" },
+				{ "P2 C + UP/DN", "VALUE" },
+			};
+			int line_y = y + 26;
+
+			for (size_t line = 0; line < sizeof(controls) / sizeof(controls[0]); line++, line_y += 10)
+			{
+				if (!controls[line][1])
+				{
+					line_y += line ? 3 : 0;
+					put_text_y(out, PANEL_LEFT + 1, line_y, controls[line][0], GOLD);
+					continue;
+				}
+				put_text_y(out, PANEL_LEFT + 1, line_y, controls[line][0], GREY);
+				put_right_y(out, PANEL_RIGHT - 1, line_y, controls[line][1], WHITE);
+			}
 		}
 	}
 
@@ -2061,7 +2139,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	{
 		put_hints(out, "A: CHOOSE   <>: CHANGE", front ? "B: BACK" : "B / VIEW: CLOSE");
 	}
-	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS || page == PAGE_TRAINING)
+	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS || page == PAGE_DEBUG
+			|| page == PAGE_TRAINING)
 	{
 		put_hints(out, "A: CHOOSE   <>: CHANGE", "B: BACK");
 	}

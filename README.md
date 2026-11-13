@@ -59,6 +59,8 @@ It's on by default. GAME OPTIONS > SLOWDOWN turns it off if you'd rather play at
 invincibility, MAX power and an endless chain, for each player. For more, add MAME's cheat file for DonPachi (not
 included): take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and put
 it in a `cheats` folder beside the program, as `cheats/donpachi.xml`; its cheats are listed after the game's own.
+The Cheats page also has **AI PLAYER 2**, and Game Options > **Debug Tools** brings back the developers' own debug
+mode and RAM editor, still in the arcade program (the page lists their controls).
 
 The release's `README.txt` has the controls, hotkeys and the list of files the game keeps. What's new in each
 version: [CHANGELOG.md](CHANGELOG.md).
@@ -72,7 +74,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
   of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
 - **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
   top score, stage progress and boss and mid-boss health
-- **Save states**, fast forward, hitbox display, high scores saved between sessions
+- **AI player 2**: the computer flies player 2 beside you, joining by itself (it counts as a cheat)
+- **Save states** in 5 slots, fast forward, hitbox display, high scores saved between sessions
 - **26 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
 - **Replays**: every arcade game (and training run) is recorded; save it as a small file you can share, and watch
   them from the main menu's REPLAYS, with pause and frame-by-frame stepping; rename or delete them there

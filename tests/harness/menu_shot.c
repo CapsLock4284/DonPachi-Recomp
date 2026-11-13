@@ -1,7 +1,7 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_cheats.ppm (the CHEATS page: the port's own, then the cheat file's), menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
-   chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. Each
+   menu_debug.ppm and menu_debug_2.ppm (the DEBUG TOOLS page), menu_cheats_ai.ppm and menu_cheats.ppm (the CHEATS page: the port's own, then the cheat file's), menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
+   chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_game_options.ppm (in an arcade game: STATE SLOT chosen), menu_controls.ppm (its hotkeys), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. Each
    picture has the chosen entry's tooltip panel at its right. */
 #include "common.h"
 #include "own_cheats.h"
@@ -19,6 +19,9 @@ static void nothing(void) {}
 static bool no(void) { return false; }
 static bool yes(void) { return true; }
 static bool no_replay(const char *file) { (void)file; return false; }
+static int slot_now = 1;
+static int slot_step(int step) { slot_now = (slot_now + step + STATE_SLOTS) % STATE_SLOTS; return slot_now; }
+static bool slot_used(int slot) { return slot == 0; }
 
 static void key(SDL_Scancode code)
 {
@@ -71,6 +74,8 @@ int main(void)
 	host.apply_window = host.apply_video = host.apply_timing = host.quit = host.main_menu = nothing;
 	host.state = quiet;
 	host.in_training = host.training = no;
+	host.state_slot = slot_step;
+	host.state_used = slot_used;
 	host.in_replay = no;
 	host.play_replay = no_replay;
 	host.keep_replay = quiet;
@@ -122,7 +127,8 @@ int main(void)
 	for (int i = 0; i < 7; i++)
 		key(SDL_SCANCODE_DOWN);    /* CHEATS */
 	key(SDL_SCANCODE_RETURN);
-	key(SDL_SCANCODE_DOWN);    /* (the second: P1 INFINITE BOMBS) */
+	shot("menu_cheats_ai.ppm");    /* (the first: AI PLAYER 2) */
+	key(SDL_SCANCODE_DOWN);    /* (the second) */
 	shot("menu_cheats.ppm");
 	if (getenv("CHEATS_DOWN"))
 	{
@@ -133,16 +139,41 @@ int main(void)
 			key(SDL_SCANCODE_UP);
 	}
 	key(SDL_SCANCODE_BACKSPACE);
-	for (int i = 0; i < 7; i++)
+	key(SDL_SCANCODE_DOWN);    /* DEBUG TOOLS */
+	key(SDL_SCANCODE_RETURN);
+	shot("menu_debug.ppm");
+	key(SDL_SCANCODE_DOWN);
+	shot("menu_debug_2.ppm");
+	key(SDL_SCANCODE_BACKSPACE);
+	for (int i = 0; i < 8; i++)
 		key(SDL_SCANCODE_UP);
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* GRAPHICS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_graphics.ppm");
+	key(SDL_SCANCODE_BACKSPACE);
+	key(SDL_SCANCODE_DOWN);    /* CONTROLS */
+	key(SDL_SCANCODE_RETURN);
+	for (int i = 0; i < 40; i++)
+		key(SDL_SCANCODE_DOWN);    /* (to its end: the hotkeys) */
+	key(SDL_SCANCODE_UP);
+	key(SDL_SCANCODE_UP);
+	key(SDL_SCANCODE_UP);
+	shot("menu_controls.ppm");
+	key(SDL_SCANCODE_BACKSPACE);
+	key(SDL_SCANCODE_UP);
 	host.in_training = yes;    /* (the options in a training game) */
 	menu_init(&host);
 	menu_open();
 	shot("menu_training_game.ppm");
+	host.in_training = no;    /* (the options in an arcade game: the save states' slot chosen) */
+	key(SDL_SCANCODE_ESCAPE);
+	menu_init(&host);
+	menu_open();
+	for (int i = 0; i < 6; i++)
+		key(SDL_SCANCODE_DOWN);    /* STATE SLOT */
+	shot("menu_game_options.ppm");
+	key(SDL_SCANCODE_ESCAPE);
 	menu_ask_save_replay(false);
 	shot("menu_save_replay.ppm");
 	return 0;

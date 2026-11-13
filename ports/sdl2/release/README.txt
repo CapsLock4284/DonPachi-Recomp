@@ -48,6 +48,7 @@ CONTROLS (change them in SETTINGS > CONTROLS)
   F3                     reset the game
   F4                     reset into the arcade's test (service) menu
   F5 / F8                save state / load state (for this session)
+  F6 / F7                the save state slot before / after (5 slots)
   Tab / LB (held)        fast forward
   F11 or Alt+Enter       full screen
 
@@ -86,9 +87,12 @@ FEATURES
 
 CHEATS
 ------
-The cheats page (SETTINGS > GAME OPTIONS > CHEATS) has the game's own: infinite
+The cheats page (SETTINGS > GAME OPTIONS > CHEATS) has the game's own: AI PLAYER
+2 (the computer flies player 2 beside you, joining by itself), and infinite
 lives, infinite bombs, invincibility, MAX power and an endless chain, for each
-player. For more, add MAME's cheat file for DonPachi (not included here); its
+player. GAME OPTIONS > DEBUG TOOLS brings back the developers' debug mode and
+RAM editor, left in the arcade program (the page lists their controls). For
+more cheats, add MAME's cheat file for DonPachi (not included here); its
 cheats are listed after the game's own:
   1. Download MAME's cheat collection, cheat.7z (from Pugsy's Cheats,
      https://www.mamecheat.co.uk).

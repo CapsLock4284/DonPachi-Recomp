@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "hitbox.h"
+#include "game_mode.h"
 
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -21,7 +22,6 @@
 #define GLOW        2               /* pixels of glow around the box */
 #define SEEN_IN_A_ROW 3             /* a ship's box shown once its sprite has been on the screen this many frames */
 #define SEEN_FOR    8               /* a ship's box kept this many frames after its sprite was last seen (a flicker) */
-#define GAME_MODE   0x1018ECu       /* 7 playing (0xB the ship select: its ships the same sprites) */
 #define SPRITE_BANK 0x2000u         /* the sprite RAM's words a bank: 8 a sprite */
 
 typedef struct
@@ -91,7 +91,7 @@ void hitbox_record(void)
 		const int x = word(record + 0x06u), y = word(record + 0x08u);
 
 		boxes[player].active = (word(record) & 0x8000) != 0;
-		if (boxes[player].active && word(GAME_MODE) == 7 && ship_shown(record, pixels(x), pixels(y)))
+		if (boxes[player].active && game_mode_playing() && ship_shown(record, pixels(x), pixels(y)))
 		{
 			unseen[player] = 0;
 			if (seen[player] < SEEN_IN_A_ROW)
@@ -107,7 +107,7 @@ void hitbox_record(void)
 		   screen as the game starts; kept through a flicker) */
 		if (seen[player] >= SEEN_IN_A_ROW)
 			showing[player] = true;
-		else if (unseen[player] >= SEEN_FOR || !boxes[player].active || word(GAME_MODE) != 7)
+		else if (unseen[player] >= SEEN_FOR || !boxes[player].active || !game_mode_playing())
 			showing[player] = false;
 		boxes[player].active = showing[player];
 		boxes[player].x0 = pixels(x - word(record + 0x12u));

@@ -46,16 +46,21 @@
  *    Training: the main menu's TRAINING (training.h; [training]): an area, its start or its boss (area 10's true
  *          boss too), the ship and power; the game goes straight there, a save state made there, and a miss goes
  *          back to it (retry_on_miss); F5 keeps another place to go back to. No high scores.
- *    Save state: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
- *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
+ *    Save states: F5 keeps the game as it is now, F8 goes back to it ([hotkeys] save_state, load_state; or the
+ *          options menu), in the chosen slot of 5 (F6 / F7, the options' STATE SLOT), in memory until the program
+ *          closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
  *          [game] save_high_scores); not saved in a game that had a cheat on or went back to a save state.
  *    Cheats: the options menu's GAME OPTIONS > CHEATS turns them on and off for the run (or --cheat): the port's own
- *    (own_cheats.c: lives, bombs, invincibility, MAX power, an endless chain), then the cheat file's, if it is there.
+ *    (own_cheats.c: AI PLAYER 2, player 2 flown by the computer (ai_player.c); lives, bombs, invincibility, MAX power,
+ *    an endless chain), then the cheat file's, if it is there. GAME OPTIONS > DEBUG TOOLS: the developers' debug mode
+ *    and RAM editor, still in the program (own_cheats.c), cheats as well.
  */
 #include "cave/cheats.h"
 #include "own_cheats.h"
 #include "crt.h"
+#include "ai_player.h"
+#include "game_mode.h"
 #include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -159,6 +164,7 @@ static unsigned service_held;      /* frames the service switch is still held fo
 static bool hotkey_was_down[HOTKEYS];
 
 static void state_action(bool save);
+static void state_slot_hotkey(int step);
 static bool training_active;       /* this game is training's (training.h): a miss goes back to the place */
 
 static bool hotkey_down(int hotkey)
@@ -195,18 +201,24 @@ static void hotkeys(void)
 			replay_reset();
 			free_play_reset();
 			hiscore_reset();
+			ai_player_reset();
 			big_hit_set = false;
 			training_active = false;
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
 		}
 		hotkey_was_down[hotkey] = down;
 	}
-	for (int hotkey = HOTKEY_SAVE_STATE; hotkey <= HOTKEY_LOAD_STATE; hotkey++)
+	for (int hotkey = HOTKEY_SAVE_STATE; hotkey <= HOTKEY_SLOT_NEXT; hotkey++)
 	{
 		const bool down = hotkey_down(hotkey);
 
 		if (down && !hotkey_was_down[hotkey])
-			state_action(hotkey == HOTKEY_SAVE_STATE);
+		{
+			if (hotkey == HOTKEY_SLOT_PREVIOUS || hotkey == HOTKEY_SLOT_NEXT)
+				state_slot_hotkey(hotkey == HOTKEY_SLOT_NEXT ? 1 : -1);
+			else
+				state_action(hotkey == HOTKEY_SAVE_STATE);
+		}
 		hotkey_was_down[hotkey] = down;
 	}
 }
@@ -644,6 +656,7 @@ static void menu_reset(bool service_menu)
 	replay_reset();
 	free_play_reset();
 	hiscore_reset();
+	ai_player_reset();
 	big_hit_set = false;
 	training_active = false;
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
@@ -694,23 +707,34 @@ static void menu_apply_video(void)
 		fprintf(stderr, "vsync: %s\n", SDL_GetError());
 }
 
+/* As the vblank interrupt returns: the debug tools (own_cheats.h), and the picture drawn there with arcade timing */
+static void after_vblank(void)
+{
+	own_cheats_after_vblank();
+	if (options.arcade_timing)
+		draw_picture();
+}
+
 static void menu_apply_timing(void)
 {
-	program_after_vblank = options.arcade_timing ? draw_picture : NULL;
 	if (options.arcade_timing)
 		draw_picture();    /* (the picture until the next interrupt draws it) */
 }
 
-/* ---- the save state (cave/program.h): one, in memory, until the program closes ---- */
+/* ---- the save states (cave/program.h): STATE_SLOTS of them, in memory, until the program closes ---- */
 
-static program_state *save_state;
-static void *save_state_panels;    /* (the side panels' run, as it was: widgets.h) */
+static program_state *slot_states[STATE_SLOTS];
+static void *slot_panels[STATE_SLOTS];    /* (the side panels' run, as it was: widgets.h) */
+static int state_slot;             /* the slot save and load use */
+#define save_state slot_states[state_slot]
+#define save_state_panels slot_panels[state_slot]
 static bool state_loaded;          /* this game went back to a save state, or had a cheat on: its scores are not kept
                                       (hiscore.h) */
 
 static void state_put_back(const program_state *state, const void *panels);
-static bool save_state_is_place;   /* the save state is the training's place (F5 not used since): a retry from it is
-                                      a replay's start again */
+static bool slot_is_place[STATE_SLOTS];    /* the slot's state is the training's place (F5 not used since): a retry
+                                              from it is a replay's start again */
+#define save_state_is_place slot_is_place[state_slot]
 
 static void state_action(bool save)
 {
@@ -731,16 +755,51 @@ static void state_action(bool save)
 		save_state = state;
 		save_state_panels = panels;
 		save_state_is_place = false;
-		menu_notice("STATE SAVED");
+		{
+			char text[32];
+
+			snprintf(text, sizeof(text), "STATE SAVED (SLOT %d)", state_slot + 1);
+			menu_notice(text);
+		}
 		return;
 	}
 	if (!save_state)
 	{
-		menu_notice("NO SAVE STATE YET");
+		char text[32];
+
+		snprintf(text, sizeof(text), "SLOT %d IS EMPTY", state_slot + 1);
+		menu_notice(text);
 		return;
 	}
 	state_put_back(save_state, save_state_panels);
-	menu_notice("STATE LOADED");
+	{
+		char text[32];
+
+		snprintf(text, sizeof(text), "STATE LOADED (SLOT %d)", state_slot + 1);
+		menu_notice(text);
+	}
+}
+
+/* The save states' slot, moved by 'step' (0: as it is): the one now (the menu's STATE SLOT, F6 / F7) */
+static int state_slot_step(int step)
+{
+	state_slot = ((state_slot + step) % STATE_SLOTS + STATE_SLOTS) % STATE_SLOTS;
+	return state_slot;
+}
+
+static bool state_slot_used(int slot)
+{
+	return slot >= 0 && slot < STATE_SLOTS && slot_states[slot] != NULL;
+}
+
+/* F6 / F7: the slot before or after, told on the screen */
+static void state_slot_hotkey(int step)
+{
+	char text[32];
+
+	state_slot_step(step);
+	snprintf(text, sizeof(text), "STATE SLOT %d%s", state_slot + 1, save_state ? "" : " (EMPTY)");
+	menu_notice(text);
 }
 
 /* The options' MAIN MENU: the game reset and paused, the main menu up (menu.c), until START GAME */
@@ -760,6 +819,7 @@ static void menu_main_menu(void)
 static void state_put_back(const program_state *state, const void *panels)
 {
 	program_state_load(state);
+	ai_player_reset();
 	replay_taint();    /* (not a replay: the inputs before it are not this game's) */
 	widgets_state_load(panels);
 	free_play_reset();
@@ -855,7 +915,7 @@ static void menu_save_training_replay(void)
 static bool training_frame(void)
 {
 	const bool alive = (*(const uint16_t *)cave_work_ram_at(0x102158u, 2) & 0x8000u) != 0;
-	const unsigned mode = *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2);
+	const unsigned mode = game_mode_now();    /* (7: a game played, by one player or both) */
 
 	if (!training_active)
 		return false;
@@ -1099,8 +1159,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	menu_apply_video();
-	if (options.arcade_timing)
-		program_after_vblank = draw_picture;
+	program_after_vblank = after_vblank;
 	{
 		menu_host menu = { 0 };
 
@@ -1114,6 +1173,8 @@ int main(int argc, char **argv)
 		menu.apply_timing = menu_apply_timing;
 		menu.quit = menu_quit;
 		menu.state = state_action;
+		menu.state_slot = state_slot_step;
+		menu.state_used = state_slot_used;
 		menu.main_menu = menu_main_menu;
 		menu.training = menu_training;
 		menu.in_training = in_training;
@@ -1262,6 +1323,8 @@ int main(int argc, char **argv)
 					continue;
 				}
 				read_keys();
+				if (own_cheats_ai_on())
+					cave_board.in1 = (uint16_t)~ai_player_inputs();    /* (player 2: the computer) */
 				if (options.free_play)
 					free_play_inputs();
 				replay_input(cave_board.in0, cave_board.in1, options.big_hit ? REPLAY_BIG_HIT : 0u);

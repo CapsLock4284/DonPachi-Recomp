@@ -1,11 +1,13 @@
 /* panels_shot: a picture of the game as the port shows it on a wide screen: the left panel, the game, the right
    panel (panels.ppm, 480 x 320). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
-     panels_shot AREA FRAMES [TOAST]     TOAST: an achievement's name, its pop-up shown (with "+2 MORE")
+     panels_shot AREA FRAMES [TOAST]     TOAST: an achievement's name, its pop-up shown (with "+2 MORE"); AI=1:
+                                         player 2 flown by the computer (ai_player.h)
    e.g. panels_shot 2 1800 "ONE CREDIT CLEAR"   (the README's area 3 picture is panels_shot 2 1800) */
 #include "common.h"
 #include "training.h"
 #include "widgets.h"
 #include "cave/video.h"
+#include "ai_player.h"
 #include "cave/program.h"
 
 int main(int argc, char **argv)
@@ -29,7 +31,7 @@ int main(int argc, char **argv)
 	for (long f = 0; f < frames; f++)
 	{
 		cave_board.in0 = (uint16_t)~autoplayer(f, 1);
-		cave_board.in1 = 0xFFFFu;
+		cave_board.in1 = getenv("AI") ? (uint16_t)~ai_player_inputs() : 0xFFFFu;
 		program_run_frame();
 		cave_sound_drop();
 		widgets_frame();

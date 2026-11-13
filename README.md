@@ -12,6 +12,26 @@ runs natively, frame for frame the same as the arcade original.
 **This repository contains no game data.** You need your own copy of the arcade ROM set (MAME's `donpachi.zip`).
 The game reads its graphics, sound and data from it.
 
+## The arcade's slowdown, exactly
+
+In DonPachi, slowdown is part of the game. When the screen fills with bullets, the board's 16 MHz 68000 can't finish
+a frame's work before the screen refreshes, so the game waits a frame and everything slows for a moment. Players
+lean on it to thread the densest patterns, and the boss fights feel different without it.
+
+A native port normally runs the game's code in no time at all, so it never slows down. DonPachi Recomp puts the
+slowdown back the way the board makes it:
+
+- **Every instruction counts its time.** The decompiled C carries each 68000 instruction's cycle count, including the
+  ones that depend on their data (multiplies, divides, shifts) and on which way a branch goes.
+- **The VBLANK lands between the same two instructions as on the board.** The 68000 decides whether to take an
+  interrupt at one step inside each instruction; the port knows that point for every instruction form, taken from
+  MAME's cycle-exact 68000 core.
+- **Checked against MAME, frame by frame:** about 29 minutes of play (100,000 screen refreshes), and every one of the
+  96,389 frames of the game matched MAME's 68000: the same board state, the same frames slowed down, every interrupt
+  on the same cycle.
+
+It's on by default. GAME OPTIONS > SLOWDOWN turns it off if you'd rather play at full speed all the time.
+
 ## Screenshots
 
 <p align="center">
@@ -45,8 +65,7 @@ version: [CHANGELOG.md](CHANGELOG.md).
 ## Features
 
 - **The arcade game, exactly:** checked frame by frame against MAME's 68000 core through both loops
-- **The arcade's slowdown:** the game slows when the screen is busy, at the same moments as the real board (it
-  counts the 68000's time instruction by instruction); can be turned off for full speed
+- **The arcade's slowdown**, at exactly the same moments as the real board (see above); can be turned off
 - **Low input lag** by default, with the board's own timing as an option
 - **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
   of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss

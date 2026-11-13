@@ -17,7 +17,7 @@
 # the player's own ROM set, MAME's donpachi.zip (--rom PATH, default rom: the folder holding it).
 cmake_minimum_required(VERSION 3.20)
 # The version: the one place it is set (the main menu shows it; tools/make_release.ps1 names the package from it)
-project(donpachi VERSION 0.3.0 LANGUAGES C)
+project(donpachi VERSION 0.4.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)

@@ -56,6 +56,9 @@ Free play is on by default: Start drops in a credit.
 
 FEATURES
 --------
+  - The arcade's slowdown: when the screen is busy the game slows down at the
+    same moments as the real board, as it counts the 68000's time instruction by
+    instruction (checked against MAME). GAME OPTIONS > SLOWDOWN turns it off
   - Main menu: START GAME, TRAINING (start at any area, mid-boss or boss, with
     your choice of ship, power, bombs and difficulty), SETTINGS
   - Side panels on wide screens: chain gauge, rank, run statistics, bees

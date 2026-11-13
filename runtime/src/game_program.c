@@ -58,6 +58,7 @@ uint32_t m68k_extra;    /* (the data's or a branch's cycles m68k_cycles added to
 static bool slowdown = true;       /* the port's setting: a VBLANK may come while the program works */
 static bool timed;                 /* the program counts its cycles */
 static uint64_t slow_frames;       /* the VBLANKs that came while it worked */
+static bool lagged;                /* the last one did */
 static uint64_t time_at_wait = RESET_CYCLES;    /* the time as the program last waited (another since: it counts
                                                    its cycles) */
 static uint64_t last_frame_cycles; /* the cycles of the program's last frame's work: from its VBLANK to its wait */
@@ -284,6 +285,7 @@ void m68k_vblank_came(void)
 	}
 	m68k_vblank_at += FRAME_CYCLES;
 	was_waiting = waiting;
+	lagged = !was_waiting;
 	if (was_waiting)
 		work_began = m68k_time;    /* (the VBLANK it waited for: its next frame's work begins) */
 	else
@@ -337,6 +339,7 @@ void frame_wait(void)
 		return;
 	}
 	/* (frame timing: the time goes on to the VBLANK, unless the VBLANK came in the program's last cycles) */
+	lagged = false;
 	last_frame_cycles = m68k_time - time_at_wait;
 	if (program_at_wait)
 		program_at_wait();
@@ -372,7 +375,7 @@ static void reset_board(void)
 	m68k_time = time_at_wait = work_began = handled_at = RESET_CYCLES;
 	m68k_extra = 0;
 	m68k_vblank_at = FRAME_CYCLES;
-	waiting = false;
+	waiting = lagged = false;
 }
 
 /* A save state put back (program_state_load), on the game task: its stack below what the state's stack takes, so
@@ -492,6 +495,7 @@ void program_state_load(const program_state *state)
 	work_began = state->work_began;
 	handled_at = state->handled_at;
 	waiting = state->waiting;
+	lagged = false;
 	reset_pending = false;
 	state_pending = state;
 }
@@ -529,6 +533,11 @@ bool program_timed(void)
 uint64_t program_slow_frames(void)
 {
 	return slow_frames;
+}
+
+bool program_frame_lagged(void)
+{
+	return lagged;
 }
 
 uint64_t program_frame_cycles(void)

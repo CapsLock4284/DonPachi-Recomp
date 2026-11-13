@@ -22,6 +22,7 @@
 #include "stats.h"
 
 #include "cave/machine.h"
+#include "cave/program.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -209,6 +210,17 @@ static void area_cleared(int area)
 
 void stats_frame(bool counts, unsigned defeats)
 {
+	if (program_frame_lagged())
+	{
+		/* a frame of slowdown: the game's memory is half way through its frame, so it is looked at again next; the
+		   play time goes on (it is the time played: the slowdown's frames are part of it) */
+		if (counts && game.on && !game.tainted && game.started && game.last_mode == 7u)
+		{
+			kept.counter[T_PLAY_FRAMES]++;
+			kept.ship_frames[game.ship]++;
+		}
+		return;
+	}
 	const unsigned mode = word(0x1018ECu);
 	const int area = area_now();
 	const bool bomb_on = (word(0x106E14u) & 0x8000u) != 0;

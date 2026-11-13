@@ -9,6 +9,7 @@
 #include "hitbox.h"
 
 #include "cave/machine.h"
+#include "cave/program.h"
 #include "cave/video.h"
 
 #include <stdbool.h>
@@ -74,6 +75,15 @@ static bool ship_shown(uint32_t record, int x, int y)
 void hitbox_record(void)
 {
 	box *const boxes = history[recorded++ % HISTORY];
+
+	if (program_frame_lagged())
+	{
+		/* (a frame of slowdown: the picture is the last one again, and so are its boxes; the ship's record is half
+		   way through the frame) */
+		if (recorded > 1u)
+			memcpy(boxes, history[(recorded - 2u) % HISTORY], sizeof(history[0]));
+		return;
+	}
 
 	for (int player = 0; player < 2; player++)
 	{

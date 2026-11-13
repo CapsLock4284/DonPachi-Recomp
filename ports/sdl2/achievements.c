@@ -23,6 +23,7 @@
 #include "achievements.h"
 
 #include "cave/machine.h"
+#include "cave/program.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -296,6 +297,8 @@ static void area_cleared(int area)
 
 void achievements_frame(bool counts)
 {
+	if (program_frame_lagged())
+		return;    /* (a frame of slowdown: the game's memory is half way through its frame; looked at again next) */
 	const unsigned mode = word(0x1018ECu);
 	const int area = area_now();
 	const bool bomb_on = (word(0x106E14u) & 0x8000u) != 0;

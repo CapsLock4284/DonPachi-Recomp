@@ -56,6 +56,7 @@ typedef struct
 	bool free_play;
 	bool cheats;                /* any turned on */
 	int fast_forward;           /* 0, or the frames a frame while it is held */
+	bool slowdown;              /* the arcade's slowdown on (cave/program.h: a replay's own while it plays) */
 } widgets_status;
 
 void widgets_set_status(const widgets_status *status);

@@ -42,6 +42,10 @@ bool program_slowdown(void);
 bool program_timed(void);
 uint64_t program_slow_frames(void);
 uint64_t program_frame_cycles(void);    /* the 68000 cycles the program counted from its last wait to this one */
+/* The frame program_run_frame just ran was a frame of slowdown: its VBLANK came while the program was still working,
+   so the work RAM is half way through a frame (the picture is the last one again). What watches the game's memory
+   for changes (achievements, statistics, the side panels, the high scores) skips it and looks again at the next */
+bool program_frame_lagged(void);
 
 /* Called, when set, at every round of the program's wait for the next frame (with slowdown; with it off, once, as
    the program comes to its wait): the test tools compare the board with MAME's 68000 at the first round of each

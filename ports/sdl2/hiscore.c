@@ -10,6 +10,7 @@
 #include "paths.h"
 
 #include "cave/machine.h"
+#include "cave/program.h"
 
 #include <SDL.h>
 
@@ -150,8 +151,8 @@ void hiscore_frame(bool enabled, bool saving)
 		restored = true;
 		return;
 	}
-	if (!enabled || !restored || !saving)
-		return;
+	if (!enabled || !restored || !saving || program_frame_lagged())
+		return;    /* (a frame of slowdown: the table may be half written) */
 	read_table(table);
 	if (memcmp(table, saved, TABLE_SIZE))
 	{

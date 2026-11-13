@@ -6,7 +6,14 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### New
+- **SLOWDOWN in the side panel:** the right panel's settings now show the slowdown: OFF, or how much of this game
+  has been slowed down so far (e.g. 2.4%).
+
+### Fixed
+- With slowdown on, a slowed-down frame no longer feeds half-finished game data to the achievements, the lifetime
+  statistics, the side panels, the high score file or the hitbox display: they skip it and read the next whole
+  frame. Play time still counts real time, slowdown included.
 
 ## v0.4.0 (2026-11-12)
 

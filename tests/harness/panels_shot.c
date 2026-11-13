@@ -6,6 +6,7 @@
 #include "training.h"
 #include "widgets.h"
 #include "cave/video.h"
+#include "cave/program.h"
 
 int main(int argc, char **argv)
 {
@@ -18,6 +19,11 @@ int main(int argc, char **argv)
 
 	start_game();
 	training_prepare(&setup);
+	{
+		const widgets_status status = { false, false, false, 0, program_slowdown() };
+
+		widgets_set_status(&status);
+	}
 	widgets_reset();
 	widgets_begin_game();
 	for (long f = 0; f < frames; f++)

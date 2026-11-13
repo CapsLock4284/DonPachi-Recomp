@@ -119,6 +119,87 @@ M68K_FLAGS(32, 0xFFFFFFFFu)
    microcode leaves them: by zero, of the dividend's high word for DIVU and of the divisor for DIVS (Z set);
    on overflow N set, Z clear; else of the quotient ---- */
 
+/* ---- a timed program's cycles that its data decides (tools/core m68000/timing.py, the lift's m68k_cycles) ---- */
+
+/* MULU: 2 a 1 bit of the source; MULS: 2 a change from 0 to 1 or 1 to 0 along the source with a 0 after its lowest
+   bit (the Motorola manual's n) */
+static inline uint32_t m68k_mulu_cycles(uint32_t source)
+{
+	uint32_t ones = 0;
+
+	for (source &= 0xFFFFu; source; source &= source - 1u)
+		ones++;
+	return 2u * ones;
+}
+
+static inline uint32_t m68k_muls_cycles(uint32_t source)
+{
+	uint32_t bits = (source & 0xFFFFu) << 1, changes = 0;
+
+	for (uint32_t pairs = (bits ^ bits >> 1) & 0xFFFFu; pairs; pairs &= pairs - 1u)
+		changes++;
+	return 2u * changes;
+}
+
+/* DIVU, DIVS: the instruction's time but its operand's, as the 68000's microcode takes it (Jorge Cwik's
+   algorithm, which MAME's core and other cycle-exact cores follow); a divisor of 0: the exception's, counted apart */
+static inline uint32_t m68k_divu_cycles(uint32_t dividend, uint32_t divisor)
+{
+	uint32_t cycles = 38, high;
+
+	divisor &= 0xFFFFu;
+	if (!divisor)
+		return 0;
+	if ((dividend >> 16) >= divisor)
+		return 10;    /* (overflow) */
+	high = divisor << 16;
+	for (int bit = 0; bit < 15; bit++)
+	{
+		const uint32_t before = dividend;
+
+		dividend <<= 1;
+		if ((int32_t)before < 0)
+			dividend -= high;
+		else
+		{
+			cycles += 2;
+			if (dividend >= high)
+			{
+				dividend -= high;
+				cycles--;
+			}
+		}
+	}
+	return cycles * 2u;
+}
+
+static inline uint32_t m68k_divs_cycles(uint32_t dividend, uint32_t divisor)
+{
+	const int32_t signed_dividend = (int32_t)dividend;
+	const int16_t signed_divisor = (int16_t)divisor;
+	uint32_t cycles = 6, quotient, absolute_dividend, absolute_divisor;
+
+	if (!signed_divisor)
+		return 0;
+	if (signed_dividend < 0)
+		cycles++;
+	absolute_dividend = signed_dividend < 0 ? 0u - (uint32_t)signed_dividend : (uint32_t)signed_dividend;
+	absolute_divisor = signed_divisor < 0 ? (uint32_t)(-(int32_t)signed_divisor) : (uint32_t)signed_divisor;
+	if ((absolute_dividend >> 16) >= absolute_divisor)
+		return (cycles + 2u) * 2u;    /* (overflow) */
+	quotient = absolute_dividend / absolute_divisor;
+	cycles += 55;
+	if (signed_divisor >= 0)
+		cycles += signed_dividend >= 0 ? -1 : 1;
+	for (int bit = 0; bit < 15; bit++)
+	{
+		if ((int16_t)quotient >= 0)
+			cycles++;
+		quotient <<= 1;
+	}
+	return cycles * 2u;
+}
+
 static inline uint32_t m68k_divu(uint32_t dividend, uint32_t divisor)
 {
 	uint32_t quotient;

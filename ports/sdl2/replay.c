@@ -6,12 +6,14 @@
  *
  *    license:BSD-3-Clause
  *    The file (little endian):
- *      "DPREPLAY", format (16 bits: 2; 1 is read too), the game ("donpachi", 8 bytes), the port's version (16 bytes)
+ *      "DPREPLAY", format (16 bits: 3; 1 and 2 are read too), the game ("donpachi", 8 bytes), the port's version (16 bytes)
  *      the date (20 bytes, "2026-11-11 15:20"), player 1's best score (32), the area reached (8), the ship (8), the
  *      difficulty (8), its end (8: 0 stopped part way, 1 the game over, 2 all clear: area 10 cleared), the frames in
  *      all (32), the game's first frame (32: its ship select)
  *      format 2: the start (8: 0 the board's reset, 1 a training place), the training setup (6 bytes: the area,
  *      the place, the ship, the power, the bombs (1: 7), the difficulty)
+ *      format 3: the slowdown (8: 1 on; cave/program.h's program_set_slowdown: the frames fall otherwise). A replay
+ *      of format 1 or 2 was made without it
  *      the EEPROM's words (CAVE_EEPROM_WORDS of 16)
  *      the patches: their count (32), then each: the frame after which (32; 0: before the first), the address (32),
  *      the size (16), the bytes
@@ -48,7 +50,7 @@
 #define DONPACHI_VERSION "0.0.0"
 #endif
 
-#define FORMAT          2u
+#define FORMAT          3u
 #define CHECK_EVERY     600u    /* frames between checks (about 10 seconds) */
 #define GAME_MODE       0x1018ECu
 #define BIG_HIT_FLAGS   0x101738u
@@ -82,6 +84,7 @@ typedef struct
 {
 	bool training;
 	uint8_t setup[6];           /* the area, the place, the ship, the power, the bombs (1: 7), the difficulty */
+	bool slowdown;              /* the arcade's slowdown on (cave/program.h) */
 } start_info;
 
 /* the game in a recording */
@@ -199,6 +202,8 @@ void replay_reset(void)
 	track_free(&rec);
 	track_free(&previous);
 	memcpy(rec.eeprom, cave_board.eeprom.words, sizeof(rec.eeprom));
+	rec.start.training = false;
+	rec.start.slowdown = program_slowdown();
 	tainted = false;
 	pending.on = false;
 }
@@ -266,9 +271,10 @@ static void training_begin(const start_info *start, const uint16_t *eeprom)
 
 void replay_begin_training(const training_setup *setup)
 {
-	start_info start = { true, { 0 } };
+	start_info start = { true, { 0 }, false };
 
 	setup_to_bytes(setup, start.setup);
+	start.slowdown = program_slowdown();
 	track_free(&previous);
 	training_begin(&start, cave_board.eeprom.words);
 }
@@ -347,6 +353,7 @@ static const char *save(const track *t, const game_record *g, uint32_t end, bool
 	put(file, g->begin, 4);
 	put(file, t->start.training ? 1u : 0u, 1);
 	fwrite(t->start.setup, 1, sizeof(t->start.setup), file);
+	put(file, t->start.slowdown ? 1u : 0u, 1);
 	for (unsigned at = 0; at < CAVE_EEPROM_WORDS; at++)
 		put(file, t->eeprom[at], 2);
 	while (patches < t->patch_count && t->patches[patches].frame <= end)
@@ -535,7 +542,7 @@ static bool read_header(FILE *file, replay_info *info, uint32_t *begin, start_in
 	if (fread(head, 1, 8, file) != 8 || memcmp(head, magic, 8))
 		return false;
 	format = (unsigned)get(file, 2, &ok);
-	if ((format != 1u && format != 2u) || fread(name, 1, 8, file) != 8 || memcmp(name, game_name, 8)
+	if (format < 1u || format > FORMAT || fread(name, 1, 8, file) != 8 || memcmp(name, game_name, 8)
 			|| fread(version, 1, 16, file) != 16 || fread(date, 1, 20, file) != 20)
 		return false;
 	date[19] = '\0';
@@ -563,6 +570,8 @@ static bool read_header(FILE *file, replay_info *info, uint32_t *begin, start_in
 		if (fread(start->setup, 1, sizeof(start->setup), file) != sizeof(start->setup))
 			ok = false;
 	}
+	if (format >= 3u)
+		start->slowdown = get(file, 1, &ok) != 0;
 	info->training = start->training;
 	if (start->training)
 	{
@@ -677,6 +686,7 @@ static track play;
 static bool playing, play_training;
 static uint32_t position, next_patch, next_check;
 static uint16_t own_eeprom[CAVE_EEPROM_WORDS];
+static bool own_slowdown;      /* the player's slowdown setting, put back as playback stops */
 static unsigned frame_flags;
 static bool big_hit_set, out_of_step;
 
@@ -806,6 +816,8 @@ const char *replay_play(const char *file_name)
 		return problem;
 	memcpy(own_eeprom, cave_board.eeprom.words, sizeof(own_eeprom));
 	memcpy(cave_board.eeprom.words, play.eeprom, sizeof(own_eeprom));
+	own_slowdown = program_slowdown();
+	program_set_slowdown(play.start.slowdown);    /* (as it was recorded: the frames fall the same way) */
 	playing = true;
 	play_training = play.start.training;
 	position = next_patch = next_check = 0;
@@ -852,5 +864,6 @@ void replay_stop(void)
 		return;
 	playing = false;
 	memcpy(cave_board.eeprom.words, own_eeprom, sizeof(own_eeprom));
+	program_set_slowdown(own_slowdown);
 	track_free(&play);
 }

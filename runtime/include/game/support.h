@@ -148,10 +148,54 @@ extern const size_t game_table_count;
 void frame_wait(void);
 void take_interrupts(void);
 
+/* The board's time, for a program decompiled with its timing (the profile's TIMING_MODEL: tools/core's
+   m68000/timing.py): every instruction of the C is followed by m68k_block, its 68000 cycles and its interrupt
+   point (a branch's longer way, and the data's part of a multiply, divide or shift, add m68k_cycles before it).
+   When the VBLANK came by the instruction's point, its interrupt is taken at the instruction's end, as the 68000
+   does (it samples its interrupt lines at one step of each instruction, and a request reaches it as a bus cycle
+   ends: MAME's core); a VBLANK that came after the point is taken after the next instruction. When that is in the
+   middle of the program's work, the port has a frame there (the picture as it was) and the program then waits a
+   frame more for its own: the arcade's slowdown. m68k_branch: a Bcc or DBcc, whose other way has its own point
+   (plus that way's extra cycles) */
+extern uint64_t m68k_time, m68k_vblank_at;
+extern uint32_t m68k_extra;
+void m68k_vblank_came(void);
+
+static inline void m68k_cycles(uint32_t cycles)
+{
+	m68k_time += cycles;
+	m68k_extra += cycles;
+}
+
+static inline void m68k_block(uint32_t cycles, uint32_t point)
+{
+	const uint64_t start = m68k_time - m68k_extra;
+
+	m68k_time += cycles;
+	m68k_extra = 0;
+	if (start + point >= m68k_vblank_at)
+		m68k_vblank_came();
+}
+
+static inline void m68k_branch(uint32_t cycles, uint32_t point, uint32_t other_way)
+{
+	const uint32_t extra = m68k_extra;
+	const uint64_t start = m68k_time - extra;
+
+	m68k_time += cycles;
+	m68k_extra = 0;
+	if (start + (extra ? other_way + extra : point) >= m68k_vblank_at)
+		m68k_vblank_came();
+}
+
 /* MOVE to SR, ANDI and ORI to SR: the status register's mode and interrupt mask (its flags are the C's own);
    RTE puts back the status register the interrupt or exception found; STOP waits for an interrupt; RESET pulses
    the devices' reset line (the board connects none) */
 void write_status(uint32_t value);
+
+/* The status register's system byte now (SR & 0xA700: trace, supervisor, the interrupt mask), for an instruction
+   that reads the status register (MOVE from SR, ANDI/ORI/EORI to SR) in a timed program's C */
+uint16_t status_system(void);
 void return_from_exception(void);
 void stop(uint32_t value);
 void reset_devices(void);

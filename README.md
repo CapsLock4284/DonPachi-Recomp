@@ -45,6 +45,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
 ## Features
 
 - **The arcade game, exactly:** checked frame by frame against MAME's 68000 core through both loops
+- **The arcade's slowdown:** the game slows when the screen is busy, at the same moments as the real board (it
+  counts the 68000's time instruction by instruction); can be turned off for full speed
 - **Low input lag** by default, with the board's own timing as an option
 - **Main menu** with **Training**: start at any area, its mid-boss, its boss or area 10's true boss, with your choice
   of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
@@ -110,8 +112,9 @@ your own machine.
 ## Credits
 
 - **DonPachi** is © 1995 Cave / Atlus. This is an unofficial fan project, not connected with or endorsed by them.
-- The decompiler core is [arcade-decomp](https://github.com/cheviman/arcade-decomp) (in `tools/core`); the runtime and
-  build follow tmntarcade-decomp's (Sebastian Toyos, BSD-3-Clause).
+- The decompiler core is [arcade-decomp](https://github.com/cheviman/arcade-decomp) (in `tools/core`, from
+  [a fork](https://github.com/CapsLock4284/arcade-decomp/tree/timing-model) that adds the 68000's timing for the
+  slowdown); the runtime and build follow tmntarcade-decomp's (Sebastian Toyos, BSD-3-Clause).
 - The hardware model follows [MAME](https://github.com/mamedev/mame)'s Cave drivers (Luca Elia and the MAME team,
   BSD-3-Clause).
 - [SDL2](https://www.libsdl.org/) (zlib license).

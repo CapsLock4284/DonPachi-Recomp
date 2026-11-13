@@ -85,6 +85,7 @@ enum
 	ITEM_SAVE_REPLAY,             /* a training game's: the attempt kept as a replay */
 	ITEM_WATCH, ITEM_RENAME, ITEM_DELETE,    /* a replay chosen on the replays page */
 	ITEM_DELETE_YES, ITEM_DELETE_NO,
+	ITEM_SLOWDOWN,                /* the arcade's slowdown */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -213,7 +214,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
 			ITEM_HISCORES, ITEM_CHEATS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
@@ -428,6 +429,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_BIG_HIT:
 		in_use->big_hit = file->big_hit = !in_use->big_hit;
+		break;
+	case ITEM_SLOWDOWN:
+		in_use->slowdown = file->slowdown = !in_use->slowdown;    /* (main.c puts it in use: game_program.c) */
 		break;
 	case ITEM_TIMING:
 		in_use->arcade_timing = file->arcade_timing = !in_use->arcade_timing;
@@ -1016,6 +1020,8 @@ static const char *item_help(int item)
 		return "THE DIFFICULTY FOR TRAINING ONLY: THE NORMAL GAME KEEPS ITS OWN.";
 	case ITEM_BIG_HIT:
 		return "THE ARCADE'S HIDDEN LARGE HIT COUNTER, ALWAYS ON (NORMALLY A SECRET STICK COMMAND).";
+	case ITEM_SLOWDOWN:
+		return "ON: THE GAME SLOWS WHEN THE SCREEN IS BUSY, AS THE ARCADE BOARD DID. OFF: ALWAYS FULL SPEED.";
 	case ITEM_VERSION:
 		return "THE GAME'S VERSION: THE US ONE (THE JAPANESE ONE MAY COME LATER).";
 	case ITEM_ACHIEVEMENTS:
@@ -1440,7 +1446,7 @@ static const char *item_label(int item)
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
-		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO"
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN"
 	};
 
 	if (is_hotkey_item(item))
@@ -1485,6 +1491,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_BIG_HIT:
 		snprintf(out, size, "%s", s->big_hit ? "ON" : "OFF");
+		break;
+	case ITEM_SLOWDOWN:
+		snprintf(out, size, "%s", s->slowdown ? "ON" : "OFF");
 		break;
 	case ITEM_TIMING:
 		snprintf(out, size, "%s", s->arcade_timing ? "ARCADE" : "FAST");

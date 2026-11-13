@@ -79,3 +79,9 @@ SUPERVISOR_CODE = [(0x000000, 0x080000)]
 # the loop's first instruction, so that the interrupt has set frame_flag when the tst reads it: at 002EDC the tst read
 # it before the interrupt, and every wait took two frames (the game ran at half speed)
 FRAME_WAIT = 0x002ED6
+
+# The board's time (the core's m68000/timing.py): every instruction of the C counts its 68000 cycles, and the runtime
+# keeps the frames by them and takes the VBLANK's interrupt between the same two instructions as the 68000 does, so
+# a frame whose work runs past the next VBLANK makes the game wait a frame more: the arcade's slowdown
+# (runtime/src/game_program.c; needs the core's timing-model branch, CapsLock4284/arcade-decomp)
+TIMING_MODEL = True

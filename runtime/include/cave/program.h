@@ -32,6 +32,22 @@ void program_run_frame(void);
    test mode */
 void program_reset(void);
 
+/* The arcade's slowdown (a program decompiled with its timing: game/support.h's m68k_block): on, a frame whose work
+   takes longer than the board's frame (278,016 68000 cycles) misses its VBLANK and the game waits a frame more, as
+   on the board; off, every frame's work fits. On by default. program_timed: the program counts its cycles (false:
+   it was decompiled without them, and never slows down). program_slow_frames: the VBLANKs that came while the
+   program was still working, since the start */
+void program_set_slowdown(bool on);
+bool program_slowdown(void);
+bool program_timed(void);
+uint64_t program_slow_frames(void);
+uint64_t program_frame_cycles(void);    /* the 68000 cycles the program counted from its last wait to this one */
+
+/* Called, when set, at every round of the program's wait for the next frame (with slowdown; with it off, once, as
+   the program comes to its wait): the test tools compare the board with MAME's 68000 at the first round of each
+   wait the program has made ready (tools/cref/cref_timed --waits) */
+extern void (*program_at_wait)(void);
+
 /* Called, when set, as the program's vblank interrupt (level 1) returns: its handler has flipped the sprite banks and
    set the layers' scroll and the palette for the frame. MAME draws DonPachi's screen there (90 us after the
    interrupt): a port that draws its picture there, with the sprites latched when VBLANK started, shows what the board

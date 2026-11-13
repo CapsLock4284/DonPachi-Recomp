@@ -1,3 +1,4 @@
 [submodule "tools/core"]
 	path = tools/core
-	url = https://github.com/cheviman/arcade-decomp
+	url = https://github.com/CapsLock4284/arcade-decomp
+	branch = timing-model

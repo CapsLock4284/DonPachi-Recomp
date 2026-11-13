@@ -154,4 +154,18 @@ if(DONPACHI_REFERENCE)
 	if(MSVC)
 		target_compile_options(cref PRIVATE /bigobj /wd4244 /wd4267 /wd4100 /wd4146 /wd4127)
 	endif()
+	# cref_timed: the original at the board's own timing (the VBLANK every frame's worth of 68000 cycles): the
+	# arcade's slowdown, measured
+	add_executable(cref_timed
+		tools/cref/cref_timed.cpp
+		${DONPACHI_M68000}/m68000.cpp
+		${DONPACHI_M68000}/m68kdasm.cpp
+		${DONPACHI_MAME68K}/m68000_spaces.cpp
+		${DONPACHI_M68000_OUTPUTS})
+	target_include_directories(cref_timed PRIVATE ${DONPACHI_MAME68K}/stub ${DONPACHI_M68000} ${DONPACHI_M68000_GENERATED})
+	target_compile_features(cref_timed PRIVATE cxx_std_20)
+	target_link_libraries(cref_timed PRIVATE donpachi_runtime)
+	if(MSVC)
+		target_compile_options(cref_timed PRIVATE /bigobj /wd4244 /wd4267 /wd4100 /wd4146 /wd4127)
+	endif()
 endif()

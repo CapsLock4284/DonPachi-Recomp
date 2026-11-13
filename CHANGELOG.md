@@ -6,7 +6,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### New
+- **Slowdown, as on the arcade board:** when the screen gets busy, the game now slows down exactly as the real board
+  does. Every instruction of the game's code counts its time on the board's 68000, so a frame with too much to do
+  misses its moment and the game waits a frame more, at the same moments as on the arcade (checked against MAME's
+  68000 for about half an hour of play: every frame the same). GAME OPTIONS > SLOWDOWN turns it off for full speed
+  all the time (`[game] slowdown` in `donpachi.ini`). Replays keep the setting they were recorded with.
 
 ## v0.3.0 (2026-11-11)
 

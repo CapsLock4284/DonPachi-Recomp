@@ -1126,6 +1126,7 @@ int main(int argc, char **argv)
 	SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 
+	program_set_slowdown(options.slowdown);    /* (the arcade's slowdown, as the settings have it) */
 	replay_reset();    /* (the board as it starts: recorded from here) */
 	period = SDL_GetPerformanceFrequency() * CAVE_FRAME_USEC / 1000000u;
 	next = SDL_GetPerformanceCounter() + period;
@@ -1206,6 +1207,12 @@ int main(int argc, char **argv)
 		}
 		if (!replay_playing())
 			hotkeys();    /* (a replay: no reset or save states) */
+		if (!replay_playing() && program_slowdown() != options.slowdown)
+		{
+			/* the slowdown changed in the menu: the frames fall another way from here, so no replay of this run */
+			program_set_slowdown(options.slowdown);
+			replay_taint();
+		}
 		{
 			/* fast forward, while its key or button is held: fast_forward_speed of the game's frames in this one,
 			   the last one shown, no sound */

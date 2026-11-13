@@ -33,6 +33,12 @@
 #endif
 
 #define SR_MASK      0xA700u    /* the system byte: trace, supervisor, the interrupt mask */
+#define FRAME_CYCLES ((uint64_t)CAVE_CPU_CLOCK * CAVE_FRAME_USEC / 1000000u)    /* 278,016: a frame of the 68000 */
+#define RESET_CYCLES 34u           /* the 68000's reset (its stack pointer and first PC read) before its first
+                                      instruction, as MAME's core counts it */
+#define WAIT_ROUND_MOST 64u        /* more than a round of the wait loop takes (DonPachi's: 46 cycles), less than any
+                                      frame's work: a frame_wait sooner than this after the VBLANK's interrupt is in
+                                      the wait that interrupt ended */
 #define SR_S         0x2000u
 #define MAX_DEPTH    16
 #define MAX_TABLE    0x10000u   /* the bytes of a table's copy, at most */
@@ -45,6 +51,19 @@ static host_task *port_task, *game_task;
 static jmp_buf restart;            /* (run_program's start, on the game task's own stack: program_reset) */
 static bool reset_pending;
 static bool started;               /* the program has begun (its first frame run): before, a reset is nothing to do */
+
+/* the board's time (game/support.h): the 68000's cycles, and when the next VBLANK comes */
+uint64_t m68k_time = RESET_CYCLES, m68k_vblank_at = FRAME_CYCLES;
+uint32_t m68k_extra;    /* (the data's or a branch's cycles m68k_cycles added to the instruction m68k_block ends) */
+static bool slowdown = true;       /* the port's setting: a VBLANK may come while the program works */
+static bool timed;                 /* the program counts its cycles */
+static uint64_t slow_frames;       /* the VBLANKs that came while it worked */
+static uint64_t time_at_wait = RESET_CYCLES;    /* the time as the program last waited (another since: it counts
+                                                   its cycles) */
+static uint64_t last_frame_cycles; /* the cycles of the program's last frame's work: from its VBLANK to its wait */
+static bool waiting;               /* in its wait loop (a timed program with slowdown: it goes round it) */
+static uint64_t work_began;        /* when the frame's work began: the VBLANK that ended the wait */
+static uint64_t handled_at;        /* when the VBLANK's interrupt was last done */
 
 /* The save states (program_state_save): where the program waits for its frame, on its stack. next_frame keeps the
    registers there (frame_registers) before it hands the frame to the port, and the stack from there up to
@@ -63,6 +82,8 @@ struct program_state
 	uint32_t saved[MAX_DEPTH];
 	size_t depth;
 	uint32_t interrupts;
+	uint64_t time, vblank_at, slow_frames, work_began, handled_at;
+	bool waiting;
 	jmp_buf registers;
 	uintptr_t bottom, top;
 	size_t stack_size;
@@ -190,6 +211,11 @@ static void (*code_at(uint32_t address))(void)
 
 /* ---- the status register and the interrupt ---- */
 
+uint16_t status_system(void)
+{
+	return (uint16_t)status;
+}
+
 void write_status(uint32_t value)
 {
 	status = value & SR_MASK;
@@ -218,9 +244,13 @@ void take_interrupts(void)
 		saved[depth++] = status;
 		status = (status & ~0x8700u) | SR_S | (uint32_t)level << 8;
 		interrupts++;
+		if (timed)
+			m68k_time += 44u;    /* (the 68000's own work as it takes an interrupt: 44 cycles) */
 		handler();
 		depth--;
 		status = saved[depth];
+		if (level == 1 && depth == 0)
+			handled_at = m68k_time;    /* (a wait the program comes to straight after is the one it ended) */
 		if (level == 1 && depth == 0 && program_after_vblank)
 			program_after_vblank();
 	}
@@ -233,6 +263,35 @@ void take_interrupts(void)
    run_program, past every call the program is in */
 static NOINLINE void restore_state(void);
 static void put_state_back(void);
+
+static void next_frame(void);
+
+/* The VBLANK came by an instruction's interrupt point (game/support.h's m68k_block): it comes now, at the
+   instruction's end, as on the board. The port has the frame; in the middle of the program's work, the picture as it
+   was (the program has not marked a new one ready), and the interrupt is taken here unless the status register
+   masks it (then as the program lets it through, in take_interrupts): on the board its handler then runs
+   the sound and counts the frame and the random index on, and the program, its work done, waits for the VBLANK
+   after. With slowdown off, the VBLANK waits for the program instead, as the frame timing has it */
+void m68k_vblank_came(void)
+{
+	bool was_waiting;
+
+	timed = true;
+	if (!slowdown)
+	{
+		m68k_vblank_at = m68k_time + FRAME_CYCLES;
+		return;
+	}
+	m68k_vblank_at += FRAME_CYCLES;
+	was_waiting = waiting;
+	if (was_waiting)
+		work_began = m68k_time;    /* (the VBLANK it waited for: its next frame's work begins) */
+	else
+		slow_frames++;             /* (it came in the middle of the work: a frame of slowdown) */
+	waiting = false;
+	next_frame();
+	take_interrupts();
+}
 
 static void next_frame(void)
 {
@@ -253,8 +312,37 @@ static void next_frame(void)
 	}
 }
 
+void (*program_at_wait)(void);
+
 void frame_wait(void)
 {
+	if (m68k_time != time_at_wait)
+		timed = true;    /* (cycles counted since the last wait: a timed program) */
+	if (slowdown && timed)
+	{
+		/* the board's way: the program goes round its wait loop, the loop's own blocks counting its time, until
+		   the VBLANK comes in it (m68k_block); every round does what the loop does (DonPachi's counts the random
+		   index on: how many rounds a frame has to spare is part of its random numbers) */
+		if (program_at_wait)
+			program_at_wait();    /* (every round: what the program has made ready tells its frames apart) */
+		if (m68k_time - handled_at < WAIT_ROUND_MOST)
+			return;    /* (a round straight after the VBLANK's interrupt: the rest of the round it came in, the
+			              round after it when it came after the round tested its flag, or the first round of a
+			              wait it came just before, masked until the wait let it through; the frame's flag is
+			              set, and the loop ends as the round tests it) */
+		if (!waiting)
+			last_frame_cycles = m68k_time - work_began;
+		waiting = true;
+		time_at_wait = m68k_time;
+		return;
+	}
+	/* (frame timing: the time goes on to the VBLANK, unless the VBLANK came in the program's last cycles) */
+	last_frame_cycles = m68k_time - time_at_wait;
+	if (program_at_wait)
+		program_at_wait();
+	m68k_time = m68k_vblank_at;
+	m68k_vblank_at += FRAME_CYCLES;
+	time_at_wait = m68k_time;
 	next_frame();
 }
 
@@ -281,6 +369,10 @@ static void reset_board(void)
 	cave_board.frame = frame;
 	status = 0x2700u;
 	depth = 0;
+	m68k_time = time_at_wait = work_began = handled_at = RESET_CYCLES;
+	m68k_extra = 0;
+	m68k_vblank_at = FRAME_CYCLES;
+	waiting = false;
 }
 
 /* A save state put back (program_state_load), on the game task: its stack below what the state's stack takes, so
@@ -334,6 +426,11 @@ const char *program_start(void)
 	status = 0x2700u;
 	depth = 0;
 	interrupts = 0;
+	m68k_time = time_at_wait = work_began = handled_at = RESET_CYCLES;
+	m68k_extra = 0;
+	m68k_vblank_at = FRAME_CYCLES;
+	slow_frames = 0;
+	waiting = false;
 	port_task = host_task_main();
 	game_task = host_task_create(run_program);
 	return NULL;
@@ -365,6 +462,12 @@ program_state *program_state_save(void)
 	memcpy(state->saved, saved, sizeof(saved));
 	state->depth = depth;
 	state->interrupts = interrupts;
+	state->time = m68k_time;
+	state->vblank_at = m68k_vblank_at;
+	state->slow_frames = slow_frames;
+	state->work_began = work_began;
+	state->handled_at = handled_at;
+	state->waiting = waiting;
 	memcpy(state->registers, frame_registers, sizeof(jmp_buf));
 	state->bottom = stack_bottom;
 	state->top = stack_top;
@@ -383,6 +486,12 @@ void program_state_load(const program_state *state)
 	memcpy(saved, state->saved, sizeof(saved));
 	depth = state->depth;
 	interrupts = state->interrupts;
+	m68k_time = time_at_wait = state->time;
+	m68k_vblank_at = state->vblank_at;
+	slow_frames = state->slow_frames;
+	work_began = state->work_began;
+	handled_at = state->handled_at;
+	waiting = state->waiting;
 	reset_pending = false;
 	state_pending = state;
 }
@@ -400,4 +509,29 @@ uint64_t program_frames(void)
 uint32_t program_interrupts(void)
 {
 	return interrupts;
+}
+
+void program_set_slowdown(bool on)
+{
+	slowdown = on;
+}
+
+bool program_slowdown(void)
+{
+	return slowdown;
+}
+
+bool program_timed(void)
+{
+	return timed;
+}
+
+uint64_t program_slow_frames(void)
+{
+	return slow_frames;
+}
+
+uint64_t program_frame_cycles(void)
+{
+	return last_frame_cycles;
 }

@@ -30,7 +30,6 @@ The plan, roughly in order. Tick items off (`[x]`) as they are done.
   - The setting: GAME OPTIONS > SLOWDOWN, on by default (`[game] slowdown`); a replay keeps the one it was recorded with (replay format 3; older replays play with it off, as they were made); changing it during a game stops that game's replay
   - With this weak bot the busiest frame took 802,540 cycles (nearly three frames); a real player at full power sees more slowdown
 - [x] **Slowdown follow-ups**: the slowed frames (the VBLANK in the middle of the program's work: `program_frame_lagged()`, cave/program.h) are skipped by what watches the game's memory, which is half way through a frame there: achievements, statistics, the side panels, the high score file's saving, the hitbox (its last boxes kept, as the picture is the last one again). Play time (statistics, the run's TIME) counts them: it is the time played. The right panel's settings have SLOWDOWN: OFF, or this game's share of slowed frames (0.1% to 9.9% with a decimal, then whole). Checked: replays, training replays, the achievement targets (all 6 cases), save states with slowdown
-- [ ] Check the speed on the Steam Deck (the C has a time check after every instruction: about 1,200 frames a second on a desktop, plenty)
 - [x] **Training: a loading message**: START TRAINING shows LOADING... for a frame (on the screen) before the game is run there
 - [x] **Training: the hitbox shown by default** in a training game: the Training page's HITBOX (`[training] hitbox`, on); the normal game keeps the options' HITBOX
 - [x] **Training bug: area 6** (the picture wobbling, the ship flying from the start though the dropship comes in): area 6 was entered as a mere next area from area 1's end, the loop set by hand. Now area 1's end is made area 5's (the stage set to 4, loop 0), so the game goes through the first loop's end, its story between the loops, and starts area 6 itself, from the dropship
@@ -115,7 +114,6 @@ The sections below: graphics options, the player features, accuracy checks, poli
     - `$10174A` / `$101768`: the chain's points, the HUD's "+N GP" (BCD); `$101746` / `$101764`: the sum of the base values that builds them; `$10173A`: the last kill's base value
     - `$10177A` / `$10177E`: the score (BCD); `$101782`: the HUD's HIGH; `$101846`: the high score table's #1 (then #2-#5)
     - `$1018EC`: the game's mode (0xB ship select, 7 play, 0/1/5 the attract mode and its demonstration)
-  - [ ] **Lives and bombs** left
   - [x] **Bees collected** (left panel, above the input display; one player only, as two leave no room): the area's 13 bees (the shmups wiki: 13 in each stage) as two rows of icons, greyed until taken, then in the bee's own colours. Counted from the game's own count of bees taken in the area (`$10379A` P1, `$10379E` P2; `func_008162` adds 1 as one is taken; a miss and the area's end set it back to 0, so the panel adds up the rises itself and keeps them through a death). The icon is the game's bee sprite read from the ROM at runtime (code `C2E`, 32 x 32, palette `3B`), turned as the picture is and drawn at half size: no image in the repo. The bee items are objects of type `16`
   - [x] **Stage and loop** (area 1-10), with the **stage's progress** as a bar to the boss (right panel, under the score graph): `stage` `101A40` (0-4; 5 between the loops and the ending), `loop` `101A42`, `scroll_position` `101A56` (from -1; each boss's object appears at 555, 576, 629, 888, 539 in both loops; area 1 counts from 256, after its fly-in)
   - [x] **Boss health bar**: from the boss's object appearing, the progress bar is its health, all of it together (parts, pools and the reserves that refill them), emptying as it is shot; DEFEATED or TIME UP when it is gone. The objects: 64 of $40 bytes from `$100102` (+C the type, +6 the hit records: $20 bytes, +$18 the hit points). Bosses (type, routine, health): area 1 `31` (`0213B8`: core record 1 + reserve record 2 + parts 3-6), area 2 `58` (`026FA2`: record 0 + reserves at +$58, +$2D6), area 3 `4B` (`03985C`: long at +$30), area 4 `3B` (`024582`: record 0 + reserves object +$32, +$36, records +$3A), areas 5 and 10 `6B` (`03B0F4`: long at +$1C), the true last boss `7C` (`03E5C8`: long at +$1C; a gold bar, "TRUE BOSS")
@@ -161,17 +159,6 @@ The game is C with SDL2 (no Windows-only code in the game or the runtime), and t
   - [ ] Only if needed: built on an older distribution for the releases. A build on Ubuntu 25.10 (WSL) needs only glibc 2.34 (2021: Ubuntu 22.04, Debian 12, Fedora 35 and later), as `make_release.sh` reports; check that number each release, and build on an older Ubuntu if it ever climbs
 - [ ] **macOS** (owner): a universal build (Apple silicon and Intel) as a `.app` bundle with SDL2.framework inside, and the icon as `.icns`. A bundle is read-only once signed, so the data, settings, saves and replays go to `~/Library/Application Support/DonPachi/` (`SDL_GetPrefPath`), and the ROM drop window works the same. Unsigned apps need right-click > Open the first time (signing and notarizing need a paid Apple developer account). No Mac at hand: build and test it with GitHub Actions' macOS runners
 
-## Steam Deck
-
-Worked on separately, after the Linux build (which it runs).
-
-- [ ] **Steam Deck version** (owner): the Linux build (an AppImage, or a Flatpak), added to Steam as a non-Steam game
-  - [ ] Full screen at 1280 x 800 by default (the side panels fit: the picture plus two panels is 16:10 at that height)
-  - [ ] The Deck's controls through SDL's game controller: the d-pad and A/B/X in the game, every menu with the gamepad, a button for the options menu
-  - [ ] Getting the ROM set in: no drag and drop in Game Mode, so a file picker, or a `rom` folder the README points to
-  - [ ] Suspend and resume (the game's timing and the sound picking up again)
-  - [ ] Installing and adding it to Steam explained in the README, with the controller layout
-
 ## Accuracy, to check later
 
 - [ ] Fast timing: sprites are a frame ahead of the background scroll compared with the board (at most ~1 pixel against the ground); arcade timing is exact
@@ -202,3 +189,16 @@ Worked on separately, after the Linux build (which it runs).
   - a palette editor, an object spawner, the sound test's auto-play
   - the US version's patch points: `0x35D98` (the second group of tools), `0x34334`/`0x34338`/`0x34420`/`0x34424` (skip the RAM/ROM check); the flags `$10F000` (pause and stage explore) and `$10F001` (palette editor, object spawner, stage select)
   - would be an option (off by default) that patches the program or sets the flags, never touching the normal game; useful for finding things in memory and for practice mode
+
+## Steam Deck
+
+Worked on separately, after the Linux build (which it runs). Left till last (owner: not a priority): after everything
+else here but online multiplayer.
+
+- [ ] **Steam Deck version** (owner): the Linux build (an AppImage, or a Flatpak), added to Steam as a non-Steam game
+  - [ ] Full screen at 1280 x 800 by default (the side panels fit: the picture plus two panels is 16:10 at that height)
+  - [ ] The Deck's controls through SDL's game controller: the d-pad and A/B/X in the game, every menu with the gamepad, a button for the options menu
+  - [ ] Getting the ROM set in: no drag and drop in Game Mode, so a file picker, or a `rom` folder the README points to
+  - [ ] Suspend and resume (the game's timing and the sound picking up again)
+  - [ ] Installing and adding it to Steam explained in the README, with the controller layout
+  - [ ] Check the speed on the Steam Deck (the C has a time check after every instruction: about 1,200 frames a second on a desktop, plenty)

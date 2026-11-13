@@ -42,5 +42,5 @@ game (RAM addresses, routines); read the relevant part before starting on someth
 - High scores and achievements count only for the arcade game: not training, not a game that used a cheat or loaded
   a save state, and not with the AI second player (it counts as a cheat).
 - Achievement pop-ups and other overlays may cover the side panels, never the game picture.
-- Priorities: the Japan version comes last (after the US features); online multiplayer is the lowest priority of
-  all (last, if at all).
+- Priorities: the Japan version comes last (after the US features); the Steam Deck version is left till last too
+  (not a priority); online multiplayer is the lowest priority of all (last, if at all).

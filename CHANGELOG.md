@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.7.0 (2026-11-13)
+
 ### New
 - **Training anywhere in an area:** START AT now offers points part way through it, from 5% to 95% of the way to the
   boss in steps of 5, the same percentage the side panel's STAGE PROGRESS shows. The game fights its way there for

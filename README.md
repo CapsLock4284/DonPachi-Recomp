@@ -118,7 +118,8 @@ cmake --build build/linux -j                                       # build/bin-l
 ```
 
 `tools\make_release.ps1` (Windows) and `tools/make_release.sh` (Linux) package a release (an allow list of files,
-checked for anything from the ROM before it's packed).
+checked for anything from the ROM before it's packed). `tools/make_appimage.sh` can make a Linux AppImage (SDL2 built
+from source inside it; not part of the releases for now).
 
 ## Project layout
 

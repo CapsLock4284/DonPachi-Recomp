@@ -6,8 +6,10 @@
  *    Created:     11-11-2026
  *
  *    license:BSD-3-Clause
- *    Beside the program, as the game unpacked anywhere has them (Windows, a Linux .tar.gz). When that folder can't be
- *    written (installed read-only: an AppImage, /usr, Program Files), the user's own folder for the game instead
+ *    Beside the program, as the game unpacked anywhere has them (Windows, a Linux .tar.gz); the Linux AppImage's
+ *    beside the .AppImage file (the program itself runs from its read-only image: $APPIMAGE names the file). When
+ *    that folder can't be written (installed read-only: /usr, Program Files), the user's own folder for the game
+ *    instead
  *    (SDL_GetPrefPath: ~/.local/share/DonPachi/ on Linux, %APPDATA%\DonPachi\ on Windows, ~/Library/Application
  *    Support/DonPachi/ on macOS).
  */

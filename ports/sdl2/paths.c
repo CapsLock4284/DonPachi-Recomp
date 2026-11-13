@@ -11,10 +11,36 @@
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 
 static char folder[1024];
 static bool found;
+
+/* The program's folder, with its separator (SDL_free it): an AppImage's, the folder its .AppImage file is in (the
+   AppImage's runtime names the file in $APPIMAGE; the program runs from the image, mounted read-only) */
+static char *program_folder(void)
+{
+#ifndef _WIN32
+	const char *const image = getenv("APPIMAGE");
+	const char *const slash = image ? strrchr(image, '/') : NULL;
+
+	if (slash && slash > image)
+	{
+		const size_t length = (size_t)(slash - image) + 1u;
+		char *const folder = SDL_malloc(length + 1u);
+
+		if (folder)
+		{
+			memcpy(folder, image, length);
+			folder[length] = '\0';
+			return folder;
+		}
+	}
+#endif
+	return SDL_GetBasePath();
+}
 
 /* a file can be made in 'path' (a folder, with its separator) */
 static bool can_write(const char *path)
@@ -34,7 +60,7 @@ const char *paths_folder(void)
 {
 	if (!found)
 	{
-		char *const base = SDL_GetBasePath();    /* (the program's folder, with its separator) */
+		char *const base = program_folder();    /* (the program's folder, with its separator) */
 
 		found = true;
 		if (base && can_write(base))
@@ -71,7 +97,7 @@ void paths_find(const char *path, char *out, size_t size)
 	if (!path[0] || is_full(path) || exists(path))
 		return;
 	{
-		char *const base = SDL_GetBasePath();
+		char *const base = program_folder();
 		char tried[1100];
 
 		snprintf(tried, sizeof(tried), "%s%s", paths_folder(), path);

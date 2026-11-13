@@ -50,9 +50,11 @@
  *          options menu); one, in memory until the program closes. A game that went back to one keeps no high score.
  *    High scores: kept in donpachi.hiscore beside the program (hiscore.h; the options menu's SAVE HIGH SCORES, or
  *          [game] save_high_scores); not saved in a game that had a cheat on or went back to a save state.
- *    Cheats: the options menu's GAME OPTIONS > CHEATS turns the cheat file's on and off for the run (or --cheat).
+ *    Cheats: the options menu's GAME OPTIONS > CHEATS turns them on and off for the run (or --cheat): the port's own
+ *    (own_cheats.c: lives, bombs, invincibility, MAX power, an endless chain), then the cheat file's, if it is there.
  */
 #include "cave/cheats.h"
+#include "own_cheats.h"
 #include "cave/free_play.h"
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -1057,7 +1059,8 @@ int main(int argc, char **argv)
 		snprintf(path, sizeof(path), "%sreplays/", paths_folder());
 		replay_folder(path);
 	}
-	cheats_load(options.cheats);    /* (for the menu's cheats page; none, without the file) */
+	own_cheats_add();               /* (the port's own: there without the cheat file) */
+	cheats_load(options.cheats);    /* (for the menu's cheats page: the own ones, then the file's if it is there) */
 	for (int cheat = 0; cheat < cheat_count; cheat++)
 		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
 		{

@@ -257,7 +257,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_CHEATS)
 	{
-		/* the cheat file's that the game can have (they write its RAM) */
+		/* the port's own, then the cheat file's that the game can have (they write its RAM) */
 		for (int cheat = 0; cheat < cheats_count() && item_count < 40; cheat++)
 			if (cheats_usable(cheat))
 				items[item_count++] = ITEM_CHEAT + cheat;
@@ -923,8 +923,15 @@ static const char *item_help(int item)
 	if (is_action(item))
 		return "THE KEYS AND GAMEPAD BUTTONS FOR THIS. A: SET A NEW ONE (PRESS IT), LEFT / RIGHT: THE OTHER PLAYER.";
 	if (is_cheat(item))
-		return "A CHEAT FROM MAME'S CHEAT FILE. ON FOR THIS RUN ONLY. WHILE ANY CHEAT IS ON: NO HIGH SCORES, "
-			"ACHIEVEMENTS, STATISTICS OR REPLAYS.";
+	{
+		/* an own cheat: what it does; then, as for the file's, what a cheat costs */
+		static char text[256];
+
+		snprintf(text, sizeof(text), "%s%sON FOR THIS RUN ONLY. WHILE ANY CHEAT IS ON: NO HIGH SCORES, ACHIEVEMENTS, "
+			"STATISTICS OR REPLAYS.", cheats_own(item - ITEM_CHEAT) ? cheats_help(item - ITEM_CHEAT)
+			: "A CHEAT FROM MAME'S CHEAT FILE.", " ");
+		return text;
+	}
 	if (item >= ITEM_ACHIEVEMENT && item < ITEM_STAT)
 		return "EARNED IN ARCADE GAMES ONLY: NOT IN TRAINING, OR A GAME WITH A CHEAT OR A LOADED SAVE STATE.";
 	if (is_stat(item))
@@ -987,7 +994,8 @@ static const char *item_help(int item)
 	case ITEM_GAME:
 		return "DIFFICULTY, FAST FORWARD SPEED, BIG HIT, TEST MENU, FREE PLAY, HIGH SCORES, CHEATS AND MORE.";
 	case ITEM_CHEATS:
-		return "MAME'S CHEATS FOR THIS GAME (THE CHEAT FILE IN THE CHEATS FOLDER).";
+		return "INFINITE LIVES AND BOMBS, INVINCIBILITY, MAX POWER, ENDLESS CHAIN; MORE WITH MAME'S CHEAT FILE "
+			"IN THE CHEATS FOLDER.";
 	case ITEM_START_GAME:
 		return "PLAY THE ARCADE GAME FROM THE START.";
 	case ITEM_TRAINING:
@@ -1716,6 +1724,23 @@ static void draw_achievements(uint32_t *out)
 	put_hints(out, "UP / DOWN: SCROLL", "B: BACK");
 }
 
+/* The cheats page's list: CHEAT_ROWS cheats at a time, scrolled with the choice (BACK under them, always shown): the
+   first shown, and the cheats in all (the items before BACK) */
+#define CHEAT_ROWS 10
+
+static int cheats_first(int *total)
+{
+	const int cheats = item_count - 1, chosen = selected < cheats ? selected : cheats - 1;
+	int first = chosen - CHEAT_ROWS / 2;
+
+	if (first > cheats - CHEAT_ROWS)
+		first = cheats - CHEAT_ROWS;
+	if (first < 0)
+		first = 0;
+	*total = cheats;
+	return first;
+}
+
 /* The statistics page: its lines (16 at a time, scrolled with the choice): headings in gold, each total with its
    value on the right */
 #define STAT_ROWS 17
@@ -1939,7 +1964,17 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	}
 	else if (page == PAGE_CHEATS)
 	{
+		int total;
+		const int first = cheats_first(&total);
+
 		put_centre(out, PANEL_TOP + 1, "CHEATS", GOLD);
+		if (total > CHEAT_ROWS)
+		{
+			char shown[32];
+
+			snprintf(shown, sizeof(shown), "%d-%d OF %d", first + 1, first + CHEAT_ROWS, total);
+			put_centre(out, PANEL_TOP + 2, shown, GREY);
+		}
 	}
 	else
 	{
@@ -1954,11 +1989,17 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15) : 16;
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8 + (page == PAGE_SAVE_REPLAY ? 32 : 0);    /* (the question above) */
+		int cheats_total = 0;
+		const int cheats_shown = page == PAGE_CHEATS ? cheats_first(&cheats_total) : 0;
 
 		for (int index = 0; index < item_count; index++)
 		{
 			const bool chosen = index == selected;
 			char value[48];
+
+			if (page == PAGE_CHEATS && index < cheats_total
+					&& (index < cheats_shown || index >= cheats_shown + CHEAT_ROWS))
+				continue;    /* (scrolled out of the list) */
 
 			if ((items[index] == ITEM_QUIT && !(index > 0 && items[index - 1] == ITEM_MAIN_MENU))
 					|| items[index] == ITEM_MAIN_MENU || (index > 0 && items[index - 1] == ITEM_TRAINING_MENU)

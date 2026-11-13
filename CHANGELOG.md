@@ -7,6 +7,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 ## Unreleased
 
 ### New
+- **Cheats built in:** the Cheats page now works without MAME's cheat file. It has the game's own cheats for each
+  player: infinite lives, infinite bombs, invincibility, MAX power and an endless chain (the GET POINT chain never
+  runs out). MAME's cheat file still adds its cheats after them when it's there, and the page scrolls when the list
+  is long.
 - **SLOWDOWN in the side panel:** the right panel's settings now show the slowdown: OFF, or how much of this game
   has been slowed down so far (e.g. 2.4%).
 

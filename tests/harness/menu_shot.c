@@ -1,9 +1,11 @@
 /* menu_shot: pictures of the menus, drawn as the port draws them (with a test settings file and achievements file):
    menu_front.ppm (the main menu), menu_training.ppm, menu_game.ppm (GAME OPTIONS), menu_achievements.ppm,
-   menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
+   menu_cheats.ppm (the CHEATS page: the port's own, then the cheat file's), menu_graphics.ppm, menu_replays.ppm (the replays in replays/ here), menu_replay.ppm, menu_replay_rename.ppm, menu_replay_delete.ppm (the newest
    chosen), menu_stats.ppm and menu_stats_2.ppm (STATS=file: its statistics), menu_training_game.ppm (the options in a training game), menu_save_replay.ppm (the question as a game ends). Keys are sent as the player would press them. Each
    picture has the chosen entry's tooltip panel at its right. */
 #include "common.h"
+#include "own_cheats.h"
+#include "cave/cheats.h"
 #include "menu.h"
 #include "settings.h"
 #include "achievements.h"
@@ -75,6 +77,8 @@ int main(void)
 	host.replay_in_game = no;
 	host.hold_replay = nothing;
 	host.retry_training = nothing;
+	own_cheats_add();
+	cheats_load("cheats/donpachi.xml");
 	menu_init(&host);
 
 	menu_open_front();
@@ -115,6 +119,22 @@ int main(void)
 		key(SDL_SCANCODE_DOWN);    /* GAME OPTIONS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_game.ppm");
+	for (int i = 0; i < 7; i++)
+		key(SDL_SCANCODE_DOWN);    /* CHEATS */
+	key(SDL_SCANCODE_RETURN);
+	key(SDL_SCANCODE_DOWN);    /* (the second: P1 INFINITE BOMBS) */
+	shot("menu_cheats.ppm");
+	if (getenv("CHEATS_DOWN"))
+	{
+		for (int i = 0; i < atoi(getenv("CHEATS_DOWN")); i++)
+			key(SDL_SCANCODE_DOWN);
+		shot("menu_cheats_down.ppm");
+		for (int i = 0; i < atoi(getenv("CHEATS_DOWN")); i++)
+			key(SDL_SCANCODE_UP);
+	}
+	key(SDL_SCANCODE_BACKSPACE);
+	for (int i = 0; i < 7; i++)
+		key(SDL_SCANCODE_UP);
 	key(SDL_SCANCODE_BACKSPACE);
 	key(SDL_SCANCODE_DOWN);    /* GRAPHICS */
 	key(SDL_SCANCODE_RETURN);

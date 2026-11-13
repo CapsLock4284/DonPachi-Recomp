@@ -55,9 +55,10 @@ It's on by default. GAME OPTIONS > SLOWDOWN turns it off if you'd rather play at
 3. On the first run a window asks for the ROM set: drag `donpachi.zip` onto it. The game extracts what it needs once
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
-**Cheats (optional):** the Cheats page (Settings > Game Options > Cheats) uses MAME's cheat file for DonPachi, which
-isn't included. Take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and
-put it in a `cheats` folder beside the program, as `cheats/donpachi.xml`.
+**Cheats:** the Cheats page (Settings > Game Options > Cheats) has the game's own: infinite lives, infinite bombs,
+invincibility, MAX power and an endless chain, for each player. For more, add MAME's cheat file for DonPachi (not
+included): take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and put
+it in a `cheats` folder beside the program, as `cheats/donpachi.xml`; its cheats are listed after the game's own.
 
 The release's `README.txt` has the controls, hotkeys and the list of files the game keeps. What's new in each
 version: [CHANGELOG.md](CHANGELOG.md).
@@ -79,7 +80,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
   per area (arcade games only)
 - **Menu tooltips** on the side panel, explaining each option
 - **Graphics:** scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
-- **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu, MAME cheats
+- **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu,
+  cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
 
 ## Building from source

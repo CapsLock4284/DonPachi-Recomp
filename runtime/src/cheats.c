@@ -1,7 +1,7 @@
 /**
  *    Name:        cheats.c
- *    Description: MAME's cheats that write the work RAM (cave/cheats.h)
- *    Version:     0.1.0 (draft)
+ *    Description: the port's own cheats, and MAME's that write the work RAM (cave/cheats.h)
+ *    Version:     0.2.0 (draft)
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
@@ -16,7 +16,8 @@
 #include <string.h>
 
 #define MAX_WRITES 128
-#define MAX_CHEATS 64
+#define MAX_CHEATS 96
+#define MAX_OWN    32
 
 typedef struct
 {
@@ -36,6 +37,8 @@ typedef struct
 	int needs_value;     /* it has a <parameter> */
 	int on;
 	uint32_t value;
+	cheats_effect effect;    /* an own cheat's (its writes: none) */
+	const char *help;
 } cheat;
 
 static cheat_write writes[MAX_WRITES];
@@ -43,6 +46,43 @@ static int write_count;
 static cheat cheats[MAX_CHEATS];
 static int cheat_total;
 static char loaded_path[512];
+static bool loaded;
+static const char *file_problem;    /* what was wrong with the cheat file read (NULL: nothing) */
+
+static struct
+{
+	const char *name, *help;
+	cheats_effect effect;
+} own[MAX_OWN];
+static int own_count;
+
+void cheats_add_own(const char *name, const char *help, cheats_effect effect)
+{
+	if (own_count < MAX_OWN && effect)
+	{
+		own[own_count].name = name;
+		own[own_count].help = help;
+		own[own_count].effect = effect;
+		own_count++;
+	}
+}
+
+/* The table begun again with the own cheats (all off) */
+static void begin_table(void)
+{
+	cheat_total = 0;
+	write_count = 0;
+	for (int index = 0; index < own_count; index++)
+	{
+		cheat *const c = &cheats[cheat_total++];
+
+		memset(c, 0, sizeof(*c));
+		snprintf(c->name, sizeof(c->name), "%s", own[index].name);
+		c->usable = 1;
+		c->effect = own[index].effect;
+		c->help = own[index].help;
+	}
+}
 
 static char *read_text(const char *path)
 {
@@ -121,11 +161,15 @@ void cheats_list(const char *path)
 	char *text = read_text(path);
 	const char *at;
 
+	printf("  the port's own:\n");
+	for (int index = 0; index < own_count; index++)
+		printf("  %s\n", own[index].name);
 	if (!text)
 	{
-		printf("no cheat file %s\n", path);
+		printf("(no cheat file %s)\n", path);
 		return;
 	}
+	printf("  %s:\n", path);
 	for (at = text; (at = strstr(at, "<cheat ")) != NULL; at++)
 	{
 		char name[128];
@@ -144,16 +188,17 @@ static const char *load(const char *path)
 	char *text;
 	const char *at;
 
-	if (cheat_total && !strcmp(path, loaded_path))
-		return NULL;
+	if (loaded && !strcmp(path, loaded_path))
+		return file_problem;
+	loaded = true;
+	snprintf(loaded_path, sizeof(loaded_path), "%s", path);
+	begin_table();
+	file_problem = NULL;
 	if (!(text = read_text(path)))
 	{
 		snprintf(problem, sizeof(problem), "no cheat file %s", path);
-		return problem;
+		return file_problem = problem;
 	}
-	snprintf(loaded_path, sizeof(loaded_path), "%s", path);
-	cheat_total = 0;
-	write_count = 0;
 	for (at = text; (at = strstr(at, "<cheat ")) != NULL && cheat_total < MAX_CHEATS; at++)
 	{
 		cheat *const c = &cheats[cheat_total];
@@ -161,6 +206,8 @@ static const char *load(const char *path)
 
 		if (!attribute(at, "desc", c->name, sizeof(c->name)) || strspn(c->name, " ") == strlen(c->name))
 			continue;    /* (the file's blank lines) */
+		c->effect = NULL;
+		c->help = NULL;
 		c->first = write_count;
 		c->count = 0;
 		c->usable = 1;
@@ -235,6 +282,16 @@ bool cheats_usable(int index)
 	return index >= 0 && index < cheat_total && cheats[index].usable && !cheats[index].needs_value;
 }
 
+bool cheats_own(int index)
+{
+	return index >= 0 && index < cheat_total && cheats[index].effect != NULL;
+}
+
+const char *cheats_help(int index)
+{
+	return cheats_own(index) && cheats[index].help ? cheats[index].help : "";
+}
+
 bool cheats_on(int index)
 {
 	return index >= 0 && index < cheat_total && cheats[index].on;
@@ -271,8 +328,6 @@ const char *cheats_enable(const char *path, const char *request)
 	const char *parameter = NULL, *failed = load(path);
 	int found = -1;
 
-	if (failed)
-		return failed;
 	snprintf(wanted, sizeof(wanted), "%s", request);
 	if ((equals = strchr(wanted, '=')) != NULL)
 	{
@@ -284,7 +339,10 @@ const char *cheats_enable(const char *path, const char *request)
 			found = index;
 	if (found < 0)
 	{
-		snprintf(problem, sizeof(problem), "no cheat named like \"%s\" in %s", wanted, path);
+		if (failed)
+			snprintf(problem, sizeof(problem), "no own cheat named like \"%s\" (and %s)", wanted, failed);
+		else
+			snprintf(problem, sizeof(problem), "no cheat named like \"%s\" (own, or in %s)", wanted, path);
 		return problem;
 	}
 	if (!cheats[found].usable)
@@ -314,6 +372,11 @@ void cheats_apply(void)
 	{
 		if (!cheats[index].on)
 			continue;
+		if (cheats[index].effect)
+		{
+			cheats[index].effect();
+			continue;
+		}
 		for (int at = cheats[index].first; at < cheats[index].first + cheats[index].count; at++)
 		{
 			cheat_write *const write = &writes[at];

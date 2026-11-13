@@ -82,10 +82,12 @@ FEATURES
     (arcade games only, as the achievements)
 
 
-CHEATS (optional)
------------------
-The cheats page (SETTINGS > GAME OPTIONS > CHEATS) reads MAME's cheat file for
-DonPachi, which isn't included here. To add it:
+CHEATS
+------
+The cheats page (SETTINGS > GAME OPTIONS > CHEATS) has the game's own: infinite
+lives, infinite bombs, invincibility, MAX power and an endless chain, for each
+player. For more, add MAME's cheat file for DonPachi (not included here); its
+cheats are listed after the game's own:
   1. Download MAME's cheat collection, cheat.7z (from Pugsy's Cheats,
      https://www.mamecheat.co.uk).
   2. Open it with 7-Zip and take out donpachi.xml.

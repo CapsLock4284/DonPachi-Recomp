@@ -191,6 +191,13 @@ The game is C with SDL2 (no Windows-only code in the game or the runtime), and t
   - the US version's patch points: `0x35D98` (the second group of tools), `0x34334`/`0x34338`/`0x34420`/`0x34424` (skip the RAM/ROM check); the flags `$10F000` (pause and stage explore) and `$10F001` (palette editor, object spawner, stage select)
   - (the patches' way, for MAME: points the checks at flags; the port sets the bit itself instead)
 
+## Other projects (built on this one)
+
+Separate projects that would grow out of this one (owner).
+
+- [ ] **An SDK for the other games on this arcade board** (owner): the board model (`runtime/`: memory map, the tile layers and sprites, the two OKI M6295s and the NMK112, the EEPROM, the 68000's timing and slowdown), the decompiler's setup (`tools/core`, the game profile) and the port's frame (`ports/sdl2`: window, menus, settings, save states, replays, CRT look) made into a kit, so another game on the same Cave board can be decompiled and ported the same way, with only its own profile and game-specific parts to write. (Goes further than "a shared runtime / launcher" under Future ideas.)
+- [ ] **An AI-only run for the highest score** (owner): the computer plays the whole game by itself, aiming for the best score it can get with no cheats at all: no invincibility, save states, slowdown off or other help, the arcade game exactly as it is (it could be recorded as a replay to watch). A much stronger player than AI PLAYER 2: dodging, the GET POINT chains, bees, ranks and bombs planned for score
+
 ## Steam Deck
 
 Worked on separately, after the Linux build (which it runs). Left till last (owner: not a priority): after everything

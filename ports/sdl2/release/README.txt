@@ -1,5 +1,5 @@
-DonPachi (arcade, US version) for Windows and Linux - version {VERSION}
-=======================================================================
+DonPachi (arcade, US and Japanese versions) for Windows and Linux - version {VERSION}
+=====================================================================================
 
 A native Windows and Linux version of Cave's 1995 arcade shooter DonPachi,
 rebuilt from the arcade program. It does not come with the game's graphics, sound

@@ -4,7 +4,7 @@ What has changed in each release of DonPachi Recomp, newest first. Changes made 
 **Unreleased**; when a release is made, that section becomes its version (and is pasted into the GitHub release's
 notes). The release zip carries this file as `CHANGES.txt`.
 
-## Unreleased
+## v0.8.0 (2026-11-14)
 
 ### New
 - **The Japanese version:** the original Japanese release of DonPachi (MAME's `donpachij`, Ver. 1.01), with its
@@ -18,6 +18,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   Scale2x and Scale3x (the lightest touch), MMPX (keeps the art's own look) and xBR at 2x, 3x and 4x (the smoothest).
   Off by default. They run in a few milliseconds before each picture is shown, so they add no frames of input lag.
   They can be combined with SMOOTHING and SCANLINES; the CRT look uses the plain picture.
+
+### Fixed
+- The black screen at the start is now skipped after MAIN MENU or F3 (a reset) too, not only when the game is
+  first started.
 
 ### Behind the scenes
 - 37 more names in the decompiled code: the HUD (scores, chain display, lives and bombs), the stage's tasks, the

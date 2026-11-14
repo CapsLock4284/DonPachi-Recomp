@@ -77,10 +77,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from find_tables import best_table  # noqa: E402
 
 rom = game_profile.rom
+here = game_profile.here    # (the US program's addresses below, where the program decompiled has them: --set japan)
 
 # the object types: records of 8 bytes from the second one (the first is unused), each a pointer to a word and the
 # object's init code, which "jsr (A1)" at 012D22 runs: the code is the pointer plus 2 (the word is skipped)
-OBJECT_TYPES = (0x01275E, 8, 168)
+OBJECT_TYPES = (here(0x01275E), 8, 168)
 # {address of a jump or call through a register: function giving the addresses it can go to}
 MANUAL = {}
 
@@ -107,7 +108,7 @@ def object_init_routines():
     return frozenset(found)
 
 
-MANUAL[0x012D22] = object_init_routines
+MANUAL[here(0x012D22)] = object_init_routines
 
 
 @lru_cache(maxsize=None)
@@ -125,7 +126,7 @@ def object_update_routines():
     return frozenset(found)
 
 
-MANUAL[0x012D86] = object_update_routines
+MANUAL[here(0x012D86)] = object_update_routines
 
 # the routines the stage scripts hand to "jmp (A0)" at 02D9A2 (script command 15 stores one in $10885C): a list
 # reviewed from tools/find_callbacks.py's output, one address a line, in build/callbacks.txt
@@ -140,18 +141,18 @@ def script_callbacks():
     for line in CALLBACKS.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         text = line.split("#")[0].strip()
         if text:
-            found.add(int(text.split()[0], 16))
+            found.add(here(int(text.split()[0], 16)))
     return frozenset(found)
 
 
-MANUAL[0x02D9A2] = script_callbacks
+MANUAL[here(0x02D9A2)] = script_callbacks
 
 # jumps through a register the game never makes, with what shows it: in C they stop the program (the core's
 # lost_stack()), as long as MANUAL gives them nowhere to go. The C writer takes no jump it has no places for
 UNTAKEN_JUMPS = {
     # $10885C is set only by script command 15 (02DE46), and no stage's script has one (tools/find_callbacks.py walks
     # them all); the RAM clear leaves it 0, and 02D99C "beq" skips the jump while it is
-    0x02D9A2: "the stage scripts' callback, which no script sets",
+    here(0x02D9A2): "the stage scripts' callback, which no script sets",
 }
 
 
@@ -228,7 +229,7 @@ def depths(program_object, entry, body):
 
 # the instructions that save A7 itself to RAM: the exception handlers' "movem.l D0-D7/A0-A7, $100f4c.l", for the
 # crash screen that shows the registers. C has no stack pointer to save: the long A7 goes to is 0 instead
-SP_STORES = {0x0364AE, 0x0364C8, 0x0364E2, 0x0364FC, 0x036516}
+SP_STORES = {here(address) for address in (0x0364AE, 0x0364C8, 0x0364E2, 0x0364FC, 0x036516)}
 # 9. A routine that drops its own return address and returns ("addq.w #4, A7; rts" at 0294C0, in 0294A6, which the
 # state routines call): it returns for its caller too. The core's stack pass marks that way out with its LEFT_CALLER
 # register (33), which its callers test after the call to return too; the V60 has it, the 68000's profile did not
@@ -242,7 +243,8 @@ LEFT_CALLER_NOTE = "decompiler/stack.py LEFT_CALLER"
 CRASH_HANDLERS = set(SP_STORES)
 
 # 10. {the pea's address: (the code it runs into, where that code's rts goes)}
-PUSHED_RETURNS = {0x02DA3C: (0x02DA40, 0x02DA98), 0x02DBF0: (0x02DA40, 0x02DBF8)}
+PUSHED_RETURNS = {here(0x02DA3C): (here(0x02DA40), here(0x02DA98)),
+                  here(0x02DBF0): (here(0x02DA40), here(0x02DBF8))}
 
 MAX_STACK_COPIES = 512   # blocks one function may get copied before the core's error stands (a loop that pushes would
                          # need copies without end)

@@ -19,7 +19,9 @@ import donpachi_rom as rom  # noqa: E402,F401
 
 ROOT = Path(__file__).resolve().parents[1]
 GAME = "DonPachi (arcade, Cave 1995)"                  # in the generated files' headers
-ROM_SET_TITLE = "DonPachi (donpachi, US, Ver.1.12 1995/05/2x)"
+ROM_SET_TITLE = {"donpachi": "DonPachi (donpachi, US, Ver.1.12 1995/05/2x)",
+                 "donpachij": "DonPachi (donpachij, Japan, Ver.1.01 1995/05/11)"}[rom.SET_NAME]
+JAPAN = rom.SET_NAME == "donpachij"
 CPU = "68000"
 BINARY = "donpachi"
 GUARD = "DONPACHI"                                     # the generated headers' include guards
@@ -62,6 +64,30 @@ REGIONS = [(0xA08000, 0xA09000, "PALETTE_RAM"), (0x500000, 0x510000, "SPRITE_RAM
            (0x200000, 0x208000, "LAYER1_RAM"), (0x300000, 0x308000, "LAYER0_RAM"),
            (0x400000, 0x404000, "LAYER2_RAM")]
 
+
+
+_address_map = None
+
+
+def here(address):
+    """An address of the US program (as this file, tools/call_tables.py and symbols.txt give them) in the program
+    being decompiled: the same for the US set; for the Japanese, where the same code is (tools/version_map.py:
+    the two programs aligned, both read from the rom folder). An address in code that differs stops the decompile"""
+    global _address_map
+    if not JAPAN:
+        return address
+    if _address_map is None:
+        sys.path.append(str(Path(__file__).resolve().parent))    # (tools/version_map.py, after the core's own)
+        import version_map
+        folder = ROOT / "rom"
+        _address_map = version_map.AddressMap(rom.build_program(rom.load_set(folder, "donpachi")),
+                                              rom.build_program(rom.load_set(folder)))
+    mapped = _address_map(address)
+    if mapped is None:
+        raise SystemExit(f"{address:06X} of the US program is in code the Japanese one doesn't share")
+    return mapped
+
+
 # Not here yet, to be settled as the steps that need them are reached (see TMNT's profile for what each does):
 # the structures that lie one after another in work RAM (STRUCT_ARRAYS), the frame's wait loop (FRAME_WAIT), the
 # routines that work on memory by its address (MEMORY_ROUTINES), supervisor code, the interrupt handlers, and the
@@ -78,7 +104,7 @@ SUPERVISOR_CODE = [(0x000000, 0x080000)]
 # this instruction (the runtime's frame) and take_interrupts() after it (the runtime runs level_1_interrupt). It is
 # the loop's first instruction, so that the interrupt has set frame_flag when the tst reads it: at 002EDC the tst read
 # it before the interrupt, and every wait took two frames (the game ran at half speed)
-FRAME_WAIT = 0x002ED6
+FRAME_WAIT = here(0x002ED6)
 
 # The board's time (the core's m68000/timing.py): every instruction of the C counts its 68000 cycles, and the runtime
 # keeps the frames by them and takes the VBLANK's interrupt between the same two instructions as the 68000 does, so

@@ -1,6 +1,8 @@
 """
 Name:        donpachi_rom.py
-Description: MAME 'donpachi' ROM set (DonPachi, US, Ver.1.12 1995/05/2x) and its regions
+Description: MAME 'donpachi' ROM set (DonPachi, US, Ver.1.12 1995/05/2x) and its regions; or its Japanese clone,
+             'donpachij' (Ver.1.01 1995/05/11: its own program and text, prg.u29 and u58.bin), when the environment's
+             DONPACHI_SET says so (tools/decompile.py --set japan)
 Version:     0.1.0 (draft)
 Created:     06-11-2026
 
@@ -14,11 +16,15 @@ NMK 112 sample bank chip, so there is no sound program and no build_sound().
 NOT YET TESTED against a real ROM set. Run check_vectors(build_program(load_set(...))) first.
 """
 import hashlib
+import os
 import zipfile
 import zlib
 from pathlib import Path
 
-SET_NAME = "donpachi"
+SETS = ("donpachi", "donpachij")
+SET_NAME = os.environ.get("DONPACHI_SET", "donpachi")
+if SET_NAME not in SETS:
+    raise SystemExit(f"DONPACHI_SET is '{SET_NAME}': it can be " + " or ".join(SETS))
 
 # MAME name -> (crc32, sha1, size)
 ROM_FILES = {
@@ -33,6 +39,14 @@ ROM_FILES = {
     "eeprom-donpachi.u10": ("315fb546", "7f597107d1610fc286413e0e93c794c80c0c554f", 0x000080),
     "peel18cv8p-15.u18": ("3f4787e9", "fc7da25c9f36c9cbc6ba5a7314c4828d405d1261", 0x000155),
 }
+US_FILES = dict(ROM_FILES)
+# the Japanese set: its program and text chips; the rest are the US set's (MAME's clone of 'donpachi')
+JAPAN_FILES = dict(US_FILES)
+del JAPAN_FILES["prgu.u29"], JAPAN_FILES["text.u58"]
+JAPAN_FILES["prg.u29"] = ("6be14af6", "5b1158071f160efeded816ae4c4edca1d00d6e05", 0x080000)
+JAPAN_FILES["u58.bin"] = ("285379ff", "b9552edcec29ddf4b552800b145c398b94117ab0", 0x040000)
+FILES_OF = {"donpachi": (US_FILES, "prgu.u29", "text.u58"), "donpachij": (JAPAN_FILES, "prg.u29", "u58.bin")}
+ROM_FILES, PROGRAM_FILE, TEXT_FILE = FILES_OF[SET_NAME]
 
 # Files that do not affect the program, so a set without them still loads (the PAL is the board's logic, not data)
 OPTIONAL_FILES = {"peel18cv8p-15.u18"}
@@ -65,42 +79,54 @@ def read_files(source):
     return contents
 
 
-def identify_set(source):
-    """Return ({mame_name: bytes}, [report lines]), matching every file by its hashes. A folder that holds
-    none of the set's files loose is read through the first .zip in it that does."""
-    found, report = _identify(source)
-    if not found and Path(source).is_dir():
+def identify_set(source, set_name=None):
+    """Return ({mame_name: bytes}, [report lines]), matching every file by its hashes. A folder's loose files are
+    read, then its .zips for those still missing (the Japanese set's clone .zip and its parent, donpachi.zip). The
+    set is SET_NAME's unless 'set_name' says another."""
+    files = FILES_OF[set_name or SET_NAME][0]
+    found, report = _identify(source, files)
+    if Path(source).is_dir():
         for archive in sorted(Path(source).glob("*.zip")):
-            found, report = _identify(archive)
-            if found:
+            if set(files) - OPTIONAL_FILES <= set(found):
                 break
+            more, _ = _identify(archive, files)
+            for name, data in more.items():
+                found.setdefault(name, data)
+        report = [line for line in report if not line.startswith(("MISSING", "OPTION"))]
+        for mame_name in sorted(files):
+            if mame_name in found and not any(line.endswith(f"= {mame_name}") for line in report):
+                report.append(f"OK      {'(a .zip)':20} = {mame_name}")
+        for mame_name in sorted(set(files) - set(found)):
+            report.append(f"{'OPTION ' if mame_name in OPTIONAL_FILES else 'MISSING'} {mame_name}")
     return found, report
 
 
-def _identify(source):
-    by_crc = {crc: name for name, (crc, _, _) in ROM_FILES.items()}
+def _identify(source, files=None):
+    files = files or ROM_FILES
+    by_crc = {crc: name for name, (crc, _, _) in files.items()}
     found = {}
     report = []
     for original_name, data in read_files(source).items():
         crc = format(zlib.crc32(data) & 0xFFFFFFFF, "08x")
         mame_name = by_crc.get(crc)
-        if mame_name and ROM_FILES[mame_name][1] == hashlib.sha1(data).hexdigest():
+        if mame_name and files[mame_name][1] == hashlib.sha1(data).hexdigest():
             found[mame_name] = data
             report.append(f"OK      {original_name:20} = {mame_name}")
         else:
             report.append(f"--      {original_name:20} not part of the set (crc {crc})")
-    for mame_name in sorted(set(ROM_FILES) - set(found)):
+    for mame_name in sorted(set(files) - set(found)):
         tag = "OPTION " if mame_name in OPTIONAL_FILES else "MISSING"
         report.append(f"{tag} {mame_name}")
     return found, report
 
 
-def load_set(source):
+def load_set(source, set_name=None):
     """Like identify_set, but stops when a required file is missing."""
-    found, _ = identify_set(source)
-    missing = sorted(set(ROM_FILES) - OPTIONAL_FILES - set(found))
+    set_name = set_name or SET_NAME
+    found, _ = identify_set(source, set_name)
+    missing = sorted(set(FILES_OF[set_name][0]) - OPTIONAL_FILES - set(found))
     if missing:
-        raise SystemExit(f"The '{SET_NAME}' ROM set is incomplete. Missing: " + ", ".join(missing))
+        raise SystemExit(f"The '{set_name}' ROM set is incomplete. Missing: " + ", ".join(missing))
     return found
 
 
@@ -113,8 +139,8 @@ def swap16(data):
 
 
 def build_program(rom):
-    """maincpu region (512 KB, big endian) as the 68000 sees it at 0x000000-0x07FFFF."""
-    return swap16(rom["prgu.u29"])
+    """maincpu region (512 KB, big endian) as the 68000 sees it at 0x000000-0x07FFFF (the set's own program)."""
+    return swap16(rom["prg.u29"] if "prg.u29" in rom else rom["prgu.u29"])
 
 
 def build_sprites(rom):
@@ -135,7 +161,7 @@ def build_layer1(rom):
 
 def build_layer2(rom):
     """layer2 region (256 KB): the text / character layer's tiles."""
-    return bytes(rom["text.u58"])
+    return bytes(rom["u58.bin"] if "u58.bin" in rom else rom["text.u58"])
 
 
 def build_oki1(rom):

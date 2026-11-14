@@ -46,6 +46,7 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `fx_probe AREA` | The explosions (104AD4) and effects (106914) records as they start, their kinds and words, and whether an enemy was just shot down |
 | `fx_shot AREA FRAME [FRAME ...]` | Pictures (fx_FRAME.ppm) with the explosions boxed red and the effects green; HITS=1 the enemies' hit boxes too (yellow, the bosses' magenta) |
 | `fast_timing_check [FRAMES]` | The picture with fast timing (drawn as the program's frame ends, the scroll and palette put in as the coming vblank interrupt sets them: `ports/sdl2/fast_timing.c`) against arcade timing's, frame by frame (default 6000 frames): the same in every one |
+| `romset_versions_check [FOLDER]` | The ROM set's two versions (`rom_set_load_version`): the US set and the Japanese one (donpachij.zip with donpachi.zip, its parent) from FOLDER (default `rom`), from donpachij.zip named alone, from a merged .zip (made here with zip and unzip), refused without the parent; each version's extracted data saved, read back the same, and refused as the other's. PASS or FAIL each |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |
 | `drop_window_test` | The first run's drop window, with a wrong file then the ROM set dropped on it (run with a desktop, or `xvfb-run -a`) |
 

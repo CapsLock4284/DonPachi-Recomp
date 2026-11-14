@@ -7,7 +7,7 @@
  *    license:BSD-3-Clause
  *    Each file is known by its CRC32 and size, whatever its name. The .zip reading is tmntarcade-decomp's
  *    runtime/src/rom_set.c (BSD-3-Clause, Sebastian Toyos: runtime/LICENSE.tmnt-runtime), with inflate.c; the
- *    regions follow ROM_START( donpachi ) in MAME's src/mame/cave/cave.cpp (BSD-3-Clause).
+ *    regions follow ROM_START( donpachi ) and ROM_START( donpachij ) in MAME's src/mame/cave/cave.cpp (BSD-3-Clause).
  */
 #include "cave/rom_set.h"
 
@@ -25,7 +25,8 @@
 #define ZIP_STORED          0
 #define ZIP_DEFLATED        8
 #define ZIP_COMMENT_MOST    0xFFFFu
-#define SET_ZIP             "donpachi.zip"
+#define SET_ZIP             "donpachi.zip"    /* the US set, the Japanese one's parent */
+#define CLONE_ZIP           "donpachij.zip"
 
 donpachi_rom_set rom_set;
 
@@ -43,7 +44,8 @@ static int file_state[FILES];
 typedef char files_counted[ROM_SET_FILES == FILES ? 1 : -1];    /* (rom_set.h's count, kept right) */
 static bool name_seen[FILES];    /* (a file of its name, right or not) */
 
-static const rom_file files[FILES] = {
+/* the files of the version asked for (the Japanese: its program and text, the rest the US set's) */
+static const rom_file us_files[FILES] = {
 	{ "prgu.u29", 0x89c36802u, 0x080000u },
 	{ "atdp.u44", 0x7189e953u, 0x200000u },
 	{ "atdp.u45", 0x6984173fu, 0x200000u },
@@ -54,6 +56,27 @@ static const rom_file files[FILES] = {
 	{ "atdp.u33", 0xd749de00u, 0x200000u },
 	{ "eeprom-donpachi.u10", 0x315fb546u, 0x000080u },
 };
+static rom_file files[FILES];
+
+static void use_version(donpachi_version version)
+{
+	memcpy(files, us_files, sizeof(files));
+	if (version == DONPACHI_JAPAN)
+	{
+		files[U29] = (rom_file){ "prg.u29", 0x6be14af6u, 0x080000u };
+		files[U58] = (rom_file){ "u58.bin", 0x285379ffu, 0x040000u };
+	}
+}
+
+const char *rom_set_version_name(donpachi_version version)
+{
+	return version == DONPACHI_JAPAN ? "JAPAN" : "USA";
+}
+
+const char *rom_set_mame_name(donpachi_version version)
+{
+	return version == DONPACHI_JAPAN ? "donpachij" : "donpachi";
+}
 
 static uint32_t crc32_of(const uint8_t *data, uint32_t size)
 {
@@ -232,13 +255,41 @@ int rom_set_files_missing(const char **names, bool *different, int most)
 	return count;
 }
 
+/* the files still missing from the .zip 'path', if it is there */
+static void read_zip_file(const char *path, uint8_t **chips)
+{
+	size_t size = 0;
+	uint8_t *const whole = read_whole(path, &size);
+
+	if (whole)
+	{
+		read_zip(whole, size, chips);
+		free(whole);
+	}
+}
+
+static bool all_found(uint8_t **chips)
+{
+	for (int file = 0; file < FILES; file++)
+		if (!chips[file])
+			return false;
+	return true;
+}
+
 const char *rom_set_load(const char *source)
+{
+	return rom_set_load_version(source, DONPACHI_US);
+}
+
+const char *rom_set_load_version(const char *source, donpachi_version version)
 {
 	static char problem[256];
 	uint8_t *chips[FILES] = { 0 };
 	size_t size = 0;
 	uint8_t *whole = read_whole(source, &size);
+	char path[1024];
 
+	use_version(version);
 	memset(file_state, 0, sizeof(file_state));
 	memset(name_seen, 0, sizeof(name_seen));
 	if (whole)
@@ -250,17 +301,31 @@ const char *rom_set_load(const char *source)
 			return problem;
 		}
 		free(whole);
+		if (version == DONPACHI_JAPAN && !all_found(chips))
+		{
+			/* (a clone's .zip: the rest from its parent's beside it) */
+			const char *slash = strrchr(source, '/'), *const back = strrchr(source, '\\');
+			int folder;
+
+			if (back && (!slash || back > slash))
+				slash = back;
+			folder = slash ? (int)(slash - source) + 1 : 0;
+			snprintf(path, sizeof(path), "%.*s%s", folder, source, SET_ZIP);
+			read_zip_file(path, chips);
+		}
 	}
 	else
 	{
-		char path[1024];
-
 		read_folder(source, chips);
-		snprintf(path, sizeof(path), "%s/%s", source, SET_ZIP);
-		if (!chips[U29] && (whole = read_whole(path, &size)) != NULL)
+		if (version == DONPACHI_JAPAN && !all_found(chips))
 		{
-			read_zip(whole, size, chips);
-			free(whole);
+			snprintf(path, sizeof(path), "%s/%s", source, CLONE_ZIP);
+			read_zip_file(path, chips);
+		}
+		if (!all_found(chips))
+		{
+			snprintf(path, sizeof(path), "%s/%s", source, SET_ZIP);
+			read_zip_file(path, chips);
 		}
 	}
 	for (int file = 0; file < FILES; file++)
@@ -275,6 +340,7 @@ const char *rom_set_load(const char *source)
 			return problem;
 		}
 
+	rom_set.version = version;
 	rom_set.program = swapped(chips[U29], DONPACHI_PROGRAM_SIZE);
 	rom_set.sprites = malloc(DONPACHI_SPRITES_SIZE);
 	rom_set.layer[0] = chips[U54];
@@ -310,13 +376,12 @@ const char *rom_set_load(const char *source)
 
 /* ---- the extracted data: a header, then the regions one after the other ----
    0  "DONPACHI-DATA" and 3 zero bytes
-   16 the format (1), little endian 32-bit; the version (0: the US set, 'donpachi'); the size of the regions;
-      their CRC32 */
+   16 the format (1), little endian 32-bit; the version (donpachi_version: 0 the US set, 'donpachi'; 1 the
+      Japanese, 'donpachij'); the size of the regions; their CRC32 */
 
 #define DATA_MAGIC      "DONPACHI-DATA"
 #define DATA_HEADER     32u
 #define DATA_FORMAT     1u
-#define DATA_VERSION    0u    /* the US set (1 will be the Japanese, 'donpachij') */
 
 static const uint32_t region_sizes[] = {
 	DONPACHI_PROGRAM_SIZE, DONPACHI_SPRITES_SIZE, DONPACHI_LAYER01_SIZE, DONPACHI_LAYER01_SIZE, DONPACHI_LAYER2_SIZE,
@@ -383,7 +448,7 @@ const char *rom_set_save_data(const char *path)
 		at += region_sizes[region];
 	}
 	put_little32(whole + 16, DATA_FORMAT);
-	put_little32(whole + 20, DATA_VERSION);
+	put_little32(whole + 20, (uint32_t)rom_set.version);
 	put_little32(whole + 24, size);
 	put_little32(whole + 28, crc32_of(whole + DATA_HEADER, size));
 	/* written beside it first, then put in its place: a program stopped half way leaves no damaged file */
@@ -415,6 +480,11 @@ const char *rom_set_save_data(const char *path)
 
 const char *rom_set_load_data(const char *path)
 {
+	return rom_set_load_data_version(path, DONPACHI_US);
+}
+
+const char *rom_set_load_data_version(const char *path, donpachi_version version)
+{
 	static char problem[1100];
 	const uint32_t size = data_size();
 	size_t length = 0;
@@ -428,7 +498,7 @@ const char *rom_set_load_data(const char *path)
 		return problem;
 	}
 	if (length != DATA_HEADER + size || memcmp(whole, DATA_MAGIC, sizeof(DATA_MAGIC) - 1u) != 0
-			|| little32(whole + 16) != DATA_FORMAT || little32(whole + 20) != DATA_VERSION
+			|| little32(whole + 16) != DATA_FORMAT || little32(whole + 20) != (uint32_t)version
 			|| little32(whole + 24) != size || little32(whole + 28) != crc32_of(whole + DATA_HEADER, size))
 	{
 		free(whole);
@@ -436,6 +506,7 @@ const char *rom_set_load_data(const char *path)
 		return problem;
 	}
 	memset(&set, 0, sizeof(set));
+	set.version = version;
 	at = whole + DATA_HEADER;
 	for (int region = 0; region < REGIONS; region++)
 	{

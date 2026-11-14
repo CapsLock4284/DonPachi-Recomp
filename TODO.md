@@ -146,6 +146,12 @@ The sections below: graphics options, the player features, accuracy checks, poli
 The last step: once the US version plays and works the way it should.
 
 - [ ] **DonPachi (Japan)**, MAME's `donpachij` (Ver. 1.01, 1995/05/11): the original release, with the smallest hitbox (9x10 against the US version's 11x14)
+  - [x] **Looked at** (13-11-2026): the two programs compared (the owner's donpachij.zip: prg.u29 and u58.bin, MAME's CRCs): 97.6% of the program's words the same, in long runs moved by a few bytes (6, 30, 218, 120...); the work RAM laid out the same (of about 760 addresses the program names, 5 in one only; every one the port reads used the same way). So the port's features (training, the panels, the cheats, the AI, the hitbox, achievements, statistics, replays) should work on it as they are
+  - [x] **Step 1, the ROM set** (`runtime/src/rom_set.c`): `rom_set_load_version(source, DONPACHI_JAPAN)` reads prg.u29 and u58.bin with the rest from the parent (a folder's loose files, donpachij.zip and donpachi.zip; donpachij.zip named alone, its parent beside it; a merged .zip: each file by its CRC32); `rom_set.version`; the extracted data's header carries the version (`rom_set_load_data_version`: the other version's refused). Checked: `tests/harness/romset_versions_check`; the US set and replays the same
+  - [ ] Step 2: the second decompile (src_jpn/, its symbols carried over by matching the code: tools/core and this repo's tools hold US addresses: game_profile.py, call_tables.py, symbols.txt)
+  - [ ] Step 3: both programs in one game (the Japanese one's names prefixed, `jpn_`), the runtime picking by `rom_set.version`; training.c's call to `draw_lives_and_bombs` by version
+  - [ ] Step 4: checked against MAME's 68000 (tools/cref), the slowdown too
+  - [ ] Step 5: the menus (the version shown and chosen), `donpachi_jpn.dat`, the replays, high scores and statistics kept apart by version
   - its own program ROM (the other chips are shared with the US set): a second decompile of it, and the runtime choosing the program by the ROM set the player has (`rom_set.c` checks the CRCs)
   - the hitbox dot needs nothing: it reads the box the game sets up
   - later, perhaps the other versions the same way: Korea (`donpachikr`), Hong Kong (`donpachihk`, the largest hitboxes), Japan Satsuei (`donpachijs`)

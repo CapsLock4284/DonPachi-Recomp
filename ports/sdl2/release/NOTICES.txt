@@ -23,4 +23,30 @@ SDL2 (zlib license)
   SDL2.dll, Simple DirectMedia Layer: see SDL2.txt in this folder.
   https://www.libsdl.org/
 
+The pixel-art filters (SETTINGS > GRAPHICS > FILTER)
+  This project's own code, written after the published algorithms: Scale2x and
+  Scale3x (EPX, as AdvanceMAME describes it); xBR, the "lv2" edge rules of
+  Hyllian's xBR shaders, Copyright (C) 2011-2016 Hyllian (sergiogdb@gmail.com);
+  and MMPX, Copyright 2020 Morgan McGuire and Mara Gagiu
+  (https://casual-effects.com/research/McGuire2021PixelArt/). Hyllian's shaders
+  and McGuire and Gagiu's code are provided under the MIT license:
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to
+    deal in the Software without restriction, including without limitation the
+    rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+    sell copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+    IN THE SOFTWARE.
+
 The program's icon and the ROM window's font are this project's own.

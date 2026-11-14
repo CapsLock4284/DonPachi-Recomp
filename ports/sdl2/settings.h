@@ -93,6 +93,7 @@ typedef struct
 	bool smooth;                /* a soft filter instead of sharp pixels */
 	int scanlines;              /* 0 off, 1 light, 2 medium, 3 heavy */
 	int crt;                    /* the arcade monitor's look (crt.h): 0 off, 1 light, 2 full (its own lines then) */
+	int filter;                 /* the pixel-art scaler over the picture (scaler.h's SCALER_...): not with the CRT look */
 	bool vsync;
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
 	bool panels;                /* the side panels (widgets.h) beside the picture */

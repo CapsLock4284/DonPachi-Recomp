@@ -15,6 +15,7 @@
 #include "replay.h"
 #include "stats.h"
 #include "ui_sound.h"
+#include "scaler.h"
 
 #include "cave/cheats.h"
 #include "own_cheats.h"
@@ -90,6 +91,7 @@ enum
 	ITEM_CRT,                     /* the arcade monitor's look (crt.h) */
 	ITEM_STATE_SLOT,              /* the save states' slot */
 	ITEM_DEBUG_TOOLS,             /* the debug tools page (from the game options): own_cheats.h's debug ones */
+	ITEM_FILTER,                  /* the pixel-art scaler over the picture (scaler.h) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -272,7 +274,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
-		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_ROTATE,
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_ROTATE,
 			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
@@ -512,6 +514,10 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_SMOOTH:
 		in_use->smooth = file->smooth = !in_use->smooth;
+		host.apply_video();
+		break;
+	case ITEM_FILTER:
+		in_use->filter = file->filter = cycle(in_use->filter, SCALERS, step, wrap);
 		host.apply_video();
 		break;
 	case ITEM_SCANLINES:
@@ -1010,11 +1016,14 @@ static const char *item_help(int item)
 	case ITEM_BACK:
 		return "BACK TO THE PAGE BEFORE.";
 	case ITEM_GRAPHICS:
-		return "SCALING, SMOOTHING, SCANLINES, VSYNC, ROTATION, THE SIDE PANELS.";
+		return "SCALING, SMOOTHING, FILTERS, SCANLINES, VSYNC, ROTATION, THE SIDE PANELS.";
 	case ITEM_SCALING:
 		return "FIT: AS BIG AS IT GOES. INTEGER: WHOLE PIXELS ONLY (SHARPEST). STRETCH: FILLS THE SCREEN.";
 	case ITEM_SMOOTH:
 		return "SOFTENS THE PIXELS' EDGES WHEN SCALED.";
+	case ITEM_FILTER:
+		return "PIXEL-ART SCALERS: SMOOTHER EDGES, STILL SHARP. SCALE2X/3X THE LIGHTEST, MMPX KEEPS THE ART'S LOOK, "
+			"XBR THE SMOOTHEST. NOT WITH THE CRT LOOK.";
 	case ITEM_SCANLINES:
 		return "DARK LINES ACROSS THE PICTURE, AS ON AN ARCADE SCREEN.";
 	case ITEM_CRT:
@@ -1508,7 +1517,8 @@ static const char *item_label(int item)
 		"START GAME", "TRAINING", "SETTINGS", "MAIN MENU",
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
-		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS"
+		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
+		"FILTER"
 	};
 
 	if (is_hotkey_item(item))
@@ -1641,6 +1651,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_SMOOTH:
 		snprintf(out, size, "%s", s->smooth ? "ON" : "OFF");
+		break;
+	case ITEM_FILTER:
+		snprintf(out, size, "%s", scaler_name(s->filter));
 		break;
 	case ITEM_SCANLINES:
 		snprintf(out, size, "%s", settings_scanline_names[s->scanlines]);

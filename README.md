@@ -88,8 +88,9 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Lifetime statistics**: games, play time, clears, bosses, deaths, bombs, bees, best chain and scores, per ship and
   per area (arcade games only)
 - **Menu tooltips** on the side panel, explaining each option
-- **Graphics:** a CRT look (a curved screen with scanlines, phosphor stripes and glow), scaling modes, smoothing,
-  scanlines, vsync, TATE rotation, borderless or exclusive full screen
+- **Graphics:** a CRT look (a curved screen with scanlines, phosphor stripes and glow), pixel-art filters (Scale2x,
+  Scale3x, xBR 2x/3x/4x, MMPX), scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive
+  full screen
 - **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu,
   cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
@@ -150,6 +151,9 @@ your own machine.
 - The hardware model follows [MAME](https://github.com/mamedev/mame)'s Cave drivers (Luca Elia and the MAME team,
   BSD-3-Clause).
 - [SDL2](https://www.libsdl.org/) (zlib license).
+- The FILTER setting's scalers are this project's own code, after the published algorithms: Scale2x/Scale3x (EPX, as
+  AdvanceMAME describes it), xBR (Hyllian, whose shaders are under the MIT license) and MMPX (Morgan McGuire and Mara
+  Gagiu, 2021, MIT license).
 - Bee counts from the [shmups wiki](https://shmups.wiki/library/DonPachi).
 
 ## License

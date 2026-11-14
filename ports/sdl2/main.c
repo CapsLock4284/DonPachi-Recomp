@@ -59,6 +59,7 @@
 #include "cave/cheats.h"
 #include "own_cheats.h"
 #include "crt.h"
+#include "scaler.h"
 #include "ai_player.h"
 #include "game_mode.h"
 #include "fast_timing.h"
@@ -511,7 +512,8 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
 	return marked;
 }
 
-/* ---- the picture in the window ([video]: scaling, smoothing, scanlines or the CRT look, rotation) ---- */
+/* ---- the picture in the window ([video]: scaling, smoothing, the pixel-art filter, scanlines or the CRT look,
+   rotation) ---- */
 
 /* the side panels beside the picture (widgets.h): when they are on, and the picture is not turned */
 static bool panels_shown(void)
@@ -554,6 +556,44 @@ static void turn(float x, float y, float cx, float cy, float *out_x, float *out_
 		*out_x = x;
 		*out_y = y;
 	}
+}
+
+/* the picture made larger by the settings' pixel-art scaler (scaler.h), in a texture of its own; NULL when it is
+   off (or there is no memory for it: the plain picture then). 'shown_w': the picture's width on the screen: where
+   that is less than the copy's, the copy is shrunk smoothly whatever SMOOTHING says (sharp, it would lose lines) */
+static SDL_Texture *filtered_picture(const uint32_t *pixels, float shown_w)
+{
+	static SDL_Texture *filtered;
+	static uint32_t *filtered_pixels;
+	static int filtered_factor;
+	const int factor = scaler_factor(options.filter);
+
+	if (factor <= 1)
+		return NULL;
+	if (factor != filtered_factor)
+	{
+		if (filtered)
+			SDL_DestroyTexture(filtered);
+		free(filtered_pixels);
+		filtered_factor = 0;
+		filtered_pixels = malloc((size_t)VIDEO_WIDTH * VIDEO_HEIGHT * (size_t)(factor * factor) * sizeof(uint32_t));
+		filtered = filtered_pixels ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+			VIDEO_HEIGHT * factor, VIDEO_WIDTH * factor) : NULL;
+		if (!filtered)
+		{
+			fprintf(stderr, "filter %s: %s\n", scaler_key(options.filter), filtered_pixels ? SDL_GetError() : "no memory");
+			free(filtered_pixels);
+			filtered_pixels = NULL;
+			options.filter = SCALER_OFF;    /* (for this run: the plain picture) */
+			return NULL;
+		}
+		filtered_factor = factor;
+	}
+	scaler_run(options.filter, pixels, VIDEO_HEIGHT, VIDEO_WIDTH, filtered_pixels);
+	SDL_UpdateTexture(filtered, NULL, filtered_pixels, VIDEO_HEIGHT * factor * (int)sizeof(uint32_t));
+	SDL_SetTextureScaleMode(filtered, options.smooth || shown_w < (float)(VIDEO_HEIGHT * factor) - 0.5f
+		? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+	return filtered;
 }
 
 static void show_picture(const uint32_t *pixels)
@@ -621,8 +661,13 @@ static void show_picture(const uint32_t *pixels)
 		SDL_RenderPresent(renderer);
 		return;
 	}
-	SDL_RenderCopyExF(renderer, texture, NULL, &unturned,
-		options.rotate == ROTATE_RIGHT ? 90.0 : options.rotate == ROTATE_LEFT ? 270.0 : 0.0, NULL, SDL_FLIP_NONE);
+	{
+		/* the picture, or its pixel-art scaler's larger copy (the same size on the screen) */
+		SDL_Texture *const filtered = filtered_picture(pixels, unturned.w);
+
+		SDL_RenderCopyExF(renderer, filtered ? filtered : texture, NULL, &unturned,
+			options.rotate == ROTATE_RIGHT ? 90.0 : options.rotate == ROTATE_LEFT ? 270.0 : 0.0, NULL, SDL_FLIP_NONE);
+	}
 
 	/* the scanlines: the arcade monitor's lines are the board's rows, the picture's columns (the monitor stands on
 	   its side in the cabinet): the dark half of each, turned with the picture; none when a line is under 2 pixels */
@@ -1544,6 +1589,7 @@ int main(int argc, char **argv)
 	stats_save();
 	if (audio)
 		SDL_CloseAudioDevice(audio);
+	scaler_quit();
 	SDL_Quit();
 	return 0;
 }

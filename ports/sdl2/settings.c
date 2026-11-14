@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "settings.h"
+#include "scaler.h"
 #include "training.h"
 
 #include "cave/machine.h"
@@ -97,6 +98,7 @@ void settings_defaults(settings *s)
 	s->smooth = false;
 	s->scanlines = 0;
 	s->crt = 0;
+	s->filter = SCALER_OFF;
 	s->vsync = false;
 	s->rotate = ROTATE_NONE;
 	s->panels = true;
@@ -302,6 +304,17 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->smooth);
 		if (!SDL_strcasecmp(name, "scanlines"))
 			return (s->scanlines = name_of(value, settings_scanline_names, 4)) >= 0 || (s->scanlines = 0, false);
+		if (!SDL_strcasecmp(name, "filter"))
+		{
+			for (int f = 0; f < SCALERS; f++)
+				if (!SDL_strcasecmp(value, scaler_key(f)))
+				{
+					s->filter = f;
+					return true;
+				}
+			s->filter = SCALER_OFF;
+			return false;
+		}
 		if (!SDL_strcasecmp(name, "crt"))
 			return (s->crt = name_of(value, settings_crt_names, 3)) >= 0 || (s->crt = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
@@ -595,6 +608,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; off, light or full: the arcade monitor's look, a curved tube with its lines, phosphor stripes and glow (it\n"
 		"; has its own lines: the scanlines setting is left aside while it is on)\n", file);
 	fprintf(file, "crt = %s\n", settings_crt_names[s->crt]);
+	fputs("; off, scale2x, scale3x, xbr2x, xbr3x, xbr4x or mmpx: a pixel-art scaler, smoothing the picture's edges while\n"
+		"; keeping it sharp (not with the CRT look)\n", file);
+	fprintf(file, "filter = %s\n", scaler_key(s->filter));
 	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
 	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);

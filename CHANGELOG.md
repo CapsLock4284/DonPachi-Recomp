@@ -14,6 +14,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   frame against MAME. Training, replays, the side panels, cheats and the AI player all work on it. Each version keeps
   its own high scores and arcade settings; achievements and statistics are shared. Replays remember their version.
   The game starts in the version you chose last (`--japan` or `--usa` for one run).
+- **Pixel-art filters:** SETTINGS > GRAPHICS > FILTER smooths the picture's edges while keeping the pixel art sharp:
+  Scale2x and Scale3x (the lightest touch), MMPX (keeps the art's own look) and xBR at 2x, 3x and 4x (the smoothest).
+  Off by default. They run in a few milliseconds before each picture is shown, so they add no frames of input lag.
+  They can be combined with SMOOTHING and SCANLINES; the CRT look uses the plain picture.
 
 ### Behind the scenes
 - 37 more names in the decompiled code: the HUD (scores, chain display, lives and bombs), the stage's tasks, the

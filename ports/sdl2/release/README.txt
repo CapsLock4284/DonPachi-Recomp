@@ -78,6 +78,8 @@ FEATURES
     mid-boss health
   - A CRT look (SETTINGS > GRAPHICS > CRT): a curved arcade screen with its
     scanlines, phosphor stripes and glow
+  - Pixel-art filters (SETTINGS > GRAPHICS > FILTER): Scale2x, Scale3x, xBR 2x,
+    3x and 4x, and MMPX, smoothing the picture's edges while keeping it sharp
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
   - High scores kept between sessions (not while cheats or save states were used)

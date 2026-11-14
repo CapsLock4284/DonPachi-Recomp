@@ -1,5 +1,7 @@
 /* What the test tools share: the game's memory, the inputs, and pictures saved as PPM (any image viewer opens them;
-   convert to PNG with e.g. ImageMagick). The ROM set: rom/donpachi.zip, or the DONPACHI_ROM environment variable. */
+   convert to PNG with e.g. ImageMagick). The ROM set: rom/donpachi.zip, or the DONPACHI_ROM environment variable;
+   DONPACHI_SET=japan: the Japanese set and program instead (from the rom folder: donpachij.zip and donpachi.zip; a
+   build with src_jpn/), for any of the tools. */
 #ifndef HARNESS_COMMON_H
 #define HARNESS_COMMON_H
 
@@ -24,10 +26,13 @@ static inline unsigned ram_byte(uint32_t address)
 /* the ROM set read and the board started; exits on a problem */
 static inline void start_game(void)
 {
-	const char *const rom = getenv("DONPACHI_ROM") ? getenv("DONPACHI_ROM") : "rom/donpachi.zip";
+	const char *const set = getenv("DONPACHI_SET");
+	const donpachi_version version = set && (set[0] == 'j' || set[0] == 'J') ? DONPACHI_JAPAN : DONPACHI_US;
+	const char *const rom = getenv("DONPACHI_ROM") ? getenv("DONPACHI_ROM")
+		: version == DONPACHI_JAPAN ? "rom" : "rom/donpachi.zip";
 	const char *problem;
 
-	if ((problem = rom_set_load(rom)) != NULL || (problem = program_start()) != NULL)
+	if ((problem = rom_set_load_version(rom, version)) != NULL || (problem = program_start()) != NULL)
 	{
 		fprintf(stderr, "%s\n", problem);
 		exit(1);

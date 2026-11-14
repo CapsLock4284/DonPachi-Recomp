@@ -10,7 +10,9 @@
  *    license:BSD-3-Clause
  *    After cref.cpp (the reference, frame timed). MAME's 68000 (BSD-3-Clause) built from m68000.lst.
  *
- *    Usage: cref_timed [--rom PATH] [--frames N] [--log FILE] [--hashes FILE] [--waits FILE] [--play]
+ *    Usage: cref_timed [--rom PATH] [--set japan] [--frames N] [--log FILE] [--hashes FILE] [--waits FILE] [--play]
+ *      --set     japan: the Japanese set's program ('donpachij', Ver. 1.01: rom_set_load_version), the US one's by
+ *                default (both wait for their frame at the same address, 002ED6)
  *      --frames  the board's frames (VBLANKs) to run (default 18000: about 5 minutes)
  *      --log     a line per VBLANK: "vblank game_frame busy_cycles lagged bullets objects records": busy_cycles the
  *                game's work since its last wait ended (to where it waits again; -1: still working), lagged 1 when
@@ -190,6 +192,7 @@ int main(int argc, char **argv)
 	unsigned long long frames = 18000;
 	FILE *log = nullptr, *hashes = nullptr;
 	bool play = false;
+	donpachi_version version = DONPACHI_US;
 
 	for (int index = 1; index < argc; index++)
 	{
@@ -198,6 +201,17 @@ int main(int argc, char **argv)
 
 		if (argument == "--rom" && value)
 			rom = argv[++index];
+		else if (argument == "--set" && value)
+		{
+			const std::string set = argv[++index];
+
+			if (set != "japan" && set != "us")
+			{
+				std::fprintf(stderr, "--set us or --set japan\n");
+				return 2;
+			}
+			version = set == "japan" ? DONPACHI_JAPAN : DONPACHI_US;
+		}
 		else if (argument == "--frames" && value)
 			frames = std::strtoull(argv[++index], nullptr, 10);
 		else if (argument == "--log" && value)
@@ -210,11 +224,12 @@ int main(int argc, char **argv)
 			play = true;
 		else
 		{
-			std::fprintf(stderr, "usage: cref_timed [--rom PATH] [--frames N] [--log FILE] [--hashes FILE] [--waits FILE] [--play]\n");
+			std::fprintf(stderr, "usage: cref_timed [--rom PATH] [--set japan] [--frames N] [--log FILE] [--hashes FILE] "
+				"[--waits FILE] [--play]\n");
 			return 2;
 		}
 	}
-	if (const char *problem = rom_set_load(rom.c_str()))
+	if (const char *problem = rom_set_load_version(rom.c_str(), version))
 	{
 		std::fprintf(stderr, "The game does not start: %s\n", problem);
 		return 1;

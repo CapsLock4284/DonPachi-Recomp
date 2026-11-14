@@ -1,7 +1,9 @@
 #!/bin/sh
 # Builds the test tools in tests/harness/bin (Linux, gcc; SDL2's development files installed, or SDL2_INCLUDE and
 # SDL2_LIB set). Run from anywhere:  sh tests/harness/build.sh
-# Needs the decompiled program in src/ (python tools/decompile.py) and the ROM set in rom/donpachi.zip to run.
+# Needs the decompiled program in src/ (python tools/decompile.py) and the ROM set in rom/donpachi.zip to run. With
+# the Japanese program in src_jpn/ too (python tools/decompile.py --set japan), the tools have both
+# (DONPACHI_JAPAN_PROGRAM: its files built with src_jpn/jpn_names.h first, its names as jpn_NAME).
 set -e
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 HERE="$ROOT/tests/harness"
@@ -10,7 +12,14 @@ OBJ="$OUT/obj"
 SDL_INC=${SDL2_INCLUDE:-$(sdl2-config --cflags 2>/dev/null | sed 's/-I//;s/ .*//')}
 SDL_LIB=${SDL2_LIB:-$(sdl2-config --libs 2>/dev/null || echo -lSDL2)}
 CFLAGS="-std=gnu11 -O1 -w -I$ROOT/runtime/include -I$ROOT/runtime/src -I$ROOT/src -I$ROOT/ports/sdl2 -I$SDL_INC"
+JAPAN=""
+if [ -f "$ROOT/src_jpn/jpn_names.h" ]; then
+	JAPAN="$ROOT/src_jpn"
+	CFLAGS="$CFLAGS -DDONPACHI_JAPAN_PROGRAM"
+fi
 mkdir -p "$OBJ"
+# (the objects of a build with or without the Japanese program differ: built again when that changes)
+[ "$(cat "$OBJ/.japan" 2>/dev/null)" = "$JAPAN" ] || { rm -f "$OBJ"/*.o; echo "$JAPAN" > "$OBJ/.japan"; }
 
 # the game: the board, the decompiled program, and the port's parts the tools use (not its main.c)
 for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
@@ -20,8 +29,16 @@ for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
 	o="$OBJ/$(echo "$f" | sed "s|$ROOT/||;s|/|_|g;s|\.c$|.o|")"
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done
+# the Japanese program: its own headers (src_jpn before src), its names prefixed
+if [ -n "$JAPAN" ]; then
+	for f in "$JAPAN"/*.c "$JAPAN"/*/*.c; do
+		o="$OBJ/jpn_$(echo "$f" | sed "s|$JAPAN/||;s|/|_|g;s|\.c$|.o|")"
+		[ "$o" -nt "$f" ] || { echo "cc $f"; gcc -std=gnu11 -O1 -w -fno-strict-aliasing -include "$JAPAN/jpn_names.h" \
+			-I"$JAPAN" -I"$ROOT/runtime/include" -c "$f" -o "$o"; }
+	done
+fi
 
-for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check training_replay_check targets_find targets_hunt achievement_targets slowdown_check state_slowdown_check cheats_check crt_shot debug_check ai_check replay_join_check eeprom_check sound_timing_check fast_timing_check training_part_way_check items_probe fx_probe fx_shot romset_versions_check}; do
+for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check training_replay_check targets_find targets_hunt achievement_targets slowdown_check state_slowdown_check cheats_check crt_shot debug_check ai_check replay_join_check eeprom_check sound_timing_check fast_timing_check training_part_way_check items_probe fx_probe fx_shot romset_versions_check japan_check}; do
 	echo "link $tool"
 	gcc $CFLAGS "$HERE/$tool.c" "$OBJ"/*.o $SDL_LIB -lm -o "$OUT/$tool"
 done

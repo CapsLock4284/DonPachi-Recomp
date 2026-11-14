@@ -5,7 +5,7 @@ the bees panel, the menus and the ROM extraction, and to make the README's scree
 Claude's workspace is); on Windows they'd need small changes.
 
 Nothing from the ROM is in here: like the game, they read `rom/donpachi.zip` when they run (or the file named by the
-`DONPACHI_ROM` environment variable). They need the decompiled program in `src/` (`python tools/decompile.py`).
+`DONPACHI_ROM` environment variable). They need the decompiled program in `src/` (`python tools/decompile.py`). With `DONPACHI_SET=japan` any of them runs the Japanese version instead (the `rom` folder's donpachij.zip and donpachi.zip; a build with `src_jpn/`, from `python tools/decompile.py --set japan`), e.g. `DONPACHI_SET=japan slowdown_check 100000` against `tools/cref/cref_timed --rom rom --set japan --frames 100000 --play --waits mame_jp.txt`.
 
 ## Building
 
@@ -46,6 +46,7 @@ Needs gcc and SDL2's development files (`sdl2-config`, or set `SDL2_INCLUDE` to 
 | `fx_probe AREA` | The explosions (104AD4) and effects (106914) records as they start, their kinds and words, and whether an enemy was just shot down |
 | `fx_shot AREA FRAME [FRAME ...]` | Pictures (fx_FRAME.ppm) with the explosions boxed red and the effects green; HITS=1 the enemies' hit boxes too (yellow, the bosses' magenta) |
 | `fast_timing_check [FRAMES]` | The picture with fast timing (drawn as the program's frame ends, the scroll and palette put in as the coming vblank interrupt sets them: `ports/sdl2/fast_timing.c`) against arcade timing's, frame by frame (default 6000 frames): the same in every one |
+| `japan_check [FOLDER]` | The Japanese program (a build with src_jpn/) from the Japanese set: the set and program's version, a coin and Start and a game played, the same inputs twice giving the same frames, training's way to area 3's boss; pictures japan_warning.ppm, japan_play.ppm, japan_training.ppm. PASS or FAIL each |
 | `romset_versions_check [FOLDER]` | The ROM set's two versions (`rom_set_load_version`): the US set and the Japanese one (donpachij.zip with donpachi.zip, its parent) from FOLDER (default `rom`), from donpachij.zip named alone, from a merged .zip (made here with zip and unzip), refused without the parent; each version's extracted data saved, read back the same, and refused as the other's. PASS or FAIL each |
 | `romdata_check [ZIP]` | The ROM extraction: the .zip's regions saved as data and read back the same, and a damaged copy refused |
 | `drop_window_test` | The first run's drop window, with a wrong file then the ROM set dropped on it (run with a desktop, or `xvfb-run -a`) |

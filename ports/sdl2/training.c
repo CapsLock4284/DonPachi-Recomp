@@ -11,6 +11,7 @@
 
 #include "cave/machine.h"
 #include "cave/program.h"
+#include "cave/rom_set.h"
 #include "cave/sound.h"
 
 #include <stdint.h>
@@ -35,6 +36,9 @@
 
 /* the game's own: the HUD's lives and bombs drawn from the ship's record (its slots +$24, its bombs +$22) */
 void draw_lives_and_bombs(uint32_t a5, uint32_t a6);
+#ifdef DONPACHI_JAPAN_PROGRAM
+void jpn_draw_lives_and_bombs(uint32_t a5, uint32_t a6);    /* (the Japanese program's: src_jpn/jpn_names.h) */
+#endif
 #define OBJECTS       0x100102u   /* 64 of $40 bytes: +0 bit 15 in use, +C (high byte) the type */
 #define MAX_FRAMES    80000L      /* (the longest way there, area 10's true boss, is about 30000) */
 
@@ -405,7 +409,12 @@ static const char *run_to_place(const training_setup *setup)
 		set_byte(BOMB_SLOTS + 1u, 0u);
 		set_word(SHIP + 0x24u, bombs);
 		set_word(SHIP + 0x22u, bombs);
-		draw_lives_and_bombs(0x100082u, SHIP);    /* (as the game draws them when they change) */
+#ifdef DONPACHI_JAPAN_PROGRAM
+		if (rom_set.version == DONPACHI_JAPAN)
+			jpn_draw_lives_and_bombs(0x100082u, SHIP);
+		else
+#endif
+			draw_lives_and_bombs(0x100082u, SHIP);    /* (as the game draws them when they change) */
 	}
 	{
 		/* the power: as the game's power-ups make it (MAX: the flags a power-up then reads for the bonus) */

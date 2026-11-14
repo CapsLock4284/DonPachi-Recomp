@@ -9,6 +9,8 @@
  *    After tmntarcade-decomp's runtime/src/game_program.c (BSD-3-Clause, Sebastian Toyos:
  *    runtime/LICENSE.tmnt-runtime). DonPachi reads its data from the ROM set's program region, as the board does,
  *    not from extracted assets.
+ *    Two programs can be in the game: the US one (src/) and the Japanese (src_jpn/, built with its names as jpn_NAME:
+ *    DONPACHI_JAPAN_PROGRAM); program_start runs the one of the ROM set loaded (rom_set.version).
  */
 #include "game/support.h"
 
@@ -153,14 +155,50 @@ const void *data_record(uint32_t address, uint32_t size)
 	return copy;
 }
 
+/* ---- the program the ROM set's version has (src/ or src_jpn/: the registry, the vectors' code, its entry) ---- */
+
+typedef struct
+{
+	const game_table *tables;
+	const size_t *table_count;
+	const game_code_entry *code;
+	const size_t *code_count;
+	void (*entry)(void);
+} program_code;
+
+static const program_code us_program = { game_tables, &game_table_count, game_code, &game_code_count, game_entry };
+
+#ifdef DONPACHI_JAPAN_PROGRAM
+/* the Japanese program's, as src_jpn/jpn_names.h names them */
+extern const game_table jpn_game_tables[];
+extern const size_t jpn_game_table_count;
+extern const game_code_entry jpn_game_code[];
+extern const size_t jpn_game_code_count;
+void jpn_game_entry(void);
+
+static const program_code japan_program = { jpn_game_tables, &jpn_game_table_count, jpn_game_code,
+	&jpn_game_code_count, jpn_game_entry };
+#endif
+
+static const program_code *active = &us_program;
+
+bool program_has_version(int version)
+{
+#ifdef DONPACHI_JAPAN_PROGRAM
+	if (version == DONPACHI_JAPAN)
+		return true;
+#endif
+	return version == DONPACHI_US;
+}
+
 /* Every table of the registry (src/table.c): a copy from its address on, each element in the host's order */
 static const char *load_tables(void)
 {
 	static char problem[160];
 
-	for (size_t index = 0; index < game_table_count; index++)
+	for (size_t index = 0; index < *active->table_count; index++)
 	{
-		const game_table *table = &game_tables[index];
+		const game_table *table = &active->tables[index];
 		uint32_t length = DONPACHI_PROGRAM_SIZE - (table->address & 0xFFFFFFu);
 		uint8_t *copy;
 
@@ -193,20 +231,20 @@ static const char *load_tables(void)
 
 static void (*code_at(uint32_t address))(void)
 {
-	size_t low = 0, high = game_code_count;
+	size_t low = 0, high = *active->code_count;
 
 	address &= 0xFFFFFFu;
 	while (low < high)
 	{
 		const size_t middle = (low + high) / 2;
 
-		if (game_code[middle].address < address)
+		if (active->code[middle].address < address)
 			low = middle + 1;
 		else
 			high = middle;
 	}
-	if (low < game_code_count && game_code[low].address == address)
-		return game_code[low].function;
+	if (low < *active->code_count && active->code[low].address == address)
+		return active->code[low].function;
 	stopped("no code of the program starts at", address);
 }
 
@@ -413,7 +451,7 @@ static void run_program(void)
 	started = true;
 	if (setjmp(restart))
 		reset_board();
-	game_entry();
+	active->entry();
 	stopped("the program came to its end, after", 0);
 }
 
@@ -425,9 +463,14 @@ static uint64_t cycles_now(void)
 
 const char *program_start(void)
 {
-	const char *problem = load_tables();
+	const char *problem;
 
-	if (problem)
+	if (!program_has_version(rom_set.version))
+		return "this build has no Japanese program: python tools/decompile.py --set japan, then build it again";
+#ifdef DONPACHI_JAPAN_PROGRAM
+	active = rom_set.version == DONPACHI_JAPAN ? &japan_program : &us_program;
+#endif
+	if ((problem = load_tables()) != NULL)
 		return problem;
 	cave_board.program = rom_set.program;
 	memcpy(cave_board.eeprom.words, rom_set.eeprom, sizeof(cave_board.eeprom.words));

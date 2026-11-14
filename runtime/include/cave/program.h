@@ -19,9 +19,12 @@
 extern "C" {
 #endif
 
-/* The board and the program as the 68000's reset leaves them, the ROM set loaded (cave/rom_set.h): NULL, or
-   what is wrong */
+/* The board and the program as the 68000's reset leaves them, the ROM set loaded (cave/rom_set.h): the program of
+   its version (the US one, src/, or the Japanese, src_jpn/: a build with it has DONPACHI_JAPAN_PROGRAM). NULL, or
+   what is wrong (a version this build doesn't have). program_has_version: the build has that version's program
+   (donpachi_version) */
 const char *program_start(void);
+bool program_has_version(int version);
 
 /* Runs the program to its next frame: VBLANK has started when it returns */
 void program_run_frame(void);

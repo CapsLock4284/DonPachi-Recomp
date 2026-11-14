@@ -81,5 +81,38 @@ sys.argv[1:] = arguments
 
 import call_tables  # noqa: E402
 
+
+def prefix_header(out_dir):
+    """out_dir/jpn_names.h: every name the Japanese program's C defines (its functions, the tables' copies, the
+    registry: game_code, game_entry, game_tables...), as jpn_NAME. The build includes it before each of its files
+    (CMakeLists.txt, tests/harness/build.sh), so the two programs' C goes into one game without a name twice; the
+    runtime picks the program by the ROM set (runtime/src/game_program.c). Found as the C has them: what starts at
+    a line's first column and is defined there (not static, typedef or extern)"""
+    import re
+    names = set()
+    definition = re.compile(r"(?:const\s+)?(?:unsigned\s+)?[A-Za-z_]\w*(?:\s+const)?[\s*]+(?:const\s+)?\**\s*"
+                            r"([A-Za-z_]\w*)\s*(\(|\[|=|;)")
+    for path in sorted(out_dir.rglob("*.c")):
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line or line[0] in " \t#/{}*" or line.startswith(
+                    ("static", "typedef", "extern", "struct ", "enum ", "union ")):
+                continue
+            found = definition.match(line)
+            if found:
+                names.add(found.group(1))
+    lines = ["/* The Japanese program's names, each as jpn_NAME: included before each file of src_jpn/ (made by",
+             "   tools/decompile.py --set japan), so that its C and the US program's go into one game */",
+             "#ifndef DONPACHI_JPN_NAMES_H", "#define DONPACHI_JPN_NAMES_H", ""]
+    lines += [f"#define {name} jpn_{name}" for name in sorted(names)]
+    lines += ["", "#endif", ""]
+    (out_dir / "jpn_names.h").write_text("\n".join(lines), encoding="ascii")
+    print(f"prefix:     {out_dir / 'jpn_names.h'} ({len(names)} names, jpn_)")
+
+
 call_tables.install()
-runpy.run_path(str(TOOLS / "core" / "decompile.py"), run_name="__main__")
+try:
+    runpy.run_path(str(TOOLS / "core" / "decompile.py"), run_name="__main__")
+except SystemExit as stopped:
+    if os.environ.get("DONPACHI_SET") == "donpachij" and not stopped.code and "--check" not in arguments:
+        prefix_header(Path(arguments[arguments.index("--out") + 1]))
+    raise

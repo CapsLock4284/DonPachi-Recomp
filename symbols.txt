@@ -252,11 +252,11 @@
 
 # the table at 0291BE (read at 0291B0): 10 records of 4 bytes, funcs
 
-# the table at 029B38 (read at 029B2A): 8 records of 4 bytes, funcs
-029B58  func  case_029B38_00
-02A270  func  case_029B38_01
-02A51C  func  case_029B38_02
-02A6E4  func  case_029B38_03
+# the table at 029B38 (read at 029B2A): 8 records of 4 bytes, funcs: the items' kinds (item_task, below)
+029B58  func  item_power_up
+02A270  func  item_full_power
+02A51C  func  item_bomb
+02A6E4  func  item_one_up
 02A768  func  case_029B38_04
 02A76A  func  case_029B38_05
 02A76C  func  case_029B38_06
@@ -948,3 +948,32 @@
 00694E  func  start_buttons_task
 005F6E  func  player_1_start
 00601E  func  player_2_start
+
+# ======== more names (13-11-2026, seen running: tests/harness's items_probe, fx_probe, fx_shot) ========
+
+# ---- the items ----
+# the items each frame: the 10 records from 106154 (drop_item's), moved with the scroll, each by its kind's routine
+# (its +0's low bits: the table at 029B38): 0 a power-up (sprite 0361: a half step towards the next level), 1 full
+# power (sprite 036D: the shot to MAX at once), 2 a bomb (0379), 3 a 1-Up (0391); 4-7 none
+029B04  func  item_task
+
+# ---- explosions and effects ----
+# an explosion: into the first free of 30 records from 104AD4 (32 bytes: +0 8000 + its kind, +2 its picture, +6 / +8
+# its place); 008C46 sets it up. Seen: one starts where an enemy is shot down. 008AC6 runs them each frame
+# (stage_spawn_task calls it)
+008AA4  func  spawn_explosion
+008C46  func  explosion_setup
+008AC6  func  explosions_update
+# a small effect (the sparks of a shot hitting a big enemy, the pieces of a plane shot down): into the first free of
+# 40 records from 106914 (32 bytes, the same layout), its kind's settings from the table at 0366A6; 03665A sets it
+# up; 036798 runs them each frame (task2_table's slot 55)
+036640  func  spawn_effect
+03665A  func  effect_setup
+036798  func  effects_update
+
+# ---- the enemies' parts ----
+# an object's part each frame (the parts: 32-byte records from the object's +6 pointer, +4 the count less one;
+# remove_object clears them): its script (+14: a timer at +10, then words, the negative ones commands from the table
+# at 0136DE, a positive one the next timer and the part's sprite, +4), its movement (+1A speed, +1B way:
+# move_by_angle), its hit points (+18)
+013586  func  run_part

@@ -54,6 +54,15 @@ extern donpachi_rom_set rom_set;
 const char *rom_set_load(const char *source);
 const char *rom_set_load_version(const char *source, donpachi_version version);
 
+/* The Japanese set over the US one now loaded: its own program and text (prg.u29, u58.bin) read from 'source' (a
+   .zip, donpachij.zip alone will do, or a folder: its loose files or its .zips), the US set's other regions kept (the
+   chips the two share): NULL, or what is wrong (no US set loaded; the two files not there: rom_set_files_missing
+   names them). So the Japanese version needs no more than donpachij.zip once the US set's data is there */
+const char *rom_set_load_japan_over(const char *source);
+
+/* The regions freed (rom_set empty again: another set to load) */
+void rom_set_free(void);
+
 /* The version's name for the screen ("USA", "JAPAN") and MAME's set ("donpachi", "donpachij") */
 const char *rom_set_version_name(donpachi_version version);
 const char *rom_set_mame_name(donpachi_version version);

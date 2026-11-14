@@ -6,6 +6,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+### New
+- **The Japanese version:** the original Japanese release of DonPachi (MAME's `donpachij`, Ver. 1.01), with its
+  smaller hitbox, can now be played. Choose it with VERSION on the main menu; the first time it needs MAME's
+  `donpachij.zip` (beside `donpachi.zip` in the `rom` folder, or dropped on the window that asks), and keeps what it
+  needs as `donpachi_jpn.dat`. It runs the Japanese program itself, decompiled like the US one and checked frame for
+  frame against MAME. Training, replays, the side panels, cheats and the AI player all work on it. Each version keeps
+  its own high scores and arcade settings; achievements and statistics are shared. Replays remember their version.
+  The game starts in the version you chose last (`--japan` or `--usa` for one run).
+
 ### Behind the scenes
 - 37 more names in the decompiled code: the HUD (scores, chain display, lives and bombs), the stage's tasks, the
   items and their kinds, explosions and small effects, the enemies' parts, how objects move, the three ship types and

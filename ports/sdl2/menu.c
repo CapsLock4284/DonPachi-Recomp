@@ -76,7 +76,7 @@ enum
 	ITEM_DIFFICULTY,              /* the game's difficulty: the test mode's, in the EEPROM */
 	ITEM_T_DIFFICULTY,            /* the training game's own */
 	ITEM_BIG_HIT,                 /* the GP window's large HIT display, always on */
-	ITEM_VERSION,                 /* the main menu's version of the game (the US one only, so far) */
+	ITEM_VERSION,                 /* the main menu's version of the game: the US one or the Japanese one */
 	ITEM_ACHIEVEMENTS,            /* the achievements page (the main menu's, the game options') */
 	ITEM_RETRY_TRAINING,          /* a training game: back to its place, as it began */
 	ITEM_STATISTICS,              /* the lifetime statistics page (the main menu's, the game options') */
@@ -370,8 +370,9 @@ static void change(int item, int step, bool wrap)
 	switch (item)
 	{
 	case ITEM_VERSION:
-		/* (one version so far: the Japanese one comes with its own decompile, from donpachij's program ROM) */
-		menu_notice("JAPAN VERSION: NOT YET");
+		/* the other version, from its reset (main.c: its data, EEPROM and high scores) */
+		if (host.version && host.set_version)
+			host.set_version(!host.version());
 		return;
 	case ITEM_DIFFICULTY:
 	{
@@ -1080,7 +1081,7 @@ static const char *item_help(int item)
 	case ITEM_SLOWDOWN:
 		return "ON: THE GAME SLOWS WHEN THE SCREEN IS BUSY, AS THE ARCADE BOARD DID. OFF: ALWAYS FULL SPEED.";
 	case ITEM_VERSION:
-		return "THE GAME'S VERSION: THE US ONE (THE JAPANESE ONE MAY COME LATER).";
+		return "USA OR JAPAN. THE JAPANESE VERSION NEEDS MAME'S DONPACHIJ.ZIP ONCE. EACH KEEPS ITS OWN HIGH SCORES.";
 	case ITEM_ACHIEVEMENTS:
 		return "23 GOALS, AND WHEN YOU MET THEM. EARNED IN ARCADE GAMES ONLY.";
 	case ITEM_RETRY_TRAINING:
@@ -1535,6 +1536,8 @@ static const char *item_label(int item)
 		return stats_label(item - ITEM_STAT);
 	if (item >= ITEM_ACHIEVEMENT)
 		return achievements_name(item - ITEM_ACHIEVEMENT);
+	if (item == ITEM_VERSION && host.version && host.version() == 1)
+		return "VERSION: JAPAN";
 	return is_action(item) ? action_labels[item - ITEM_ACTION] : labels[item];
 }
 
@@ -1701,7 +1704,7 @@ static void draw_front(uint32_t *out)
 		put_glyph(out, title_x + at * 8 * scale + 3, 63, title[at], 0x301000u, scale);
 	for (int at = 0; title[at]; at++)
 		put_glyph(out, title_x + at * 8 * scale, 60, title[at], GOLD, scale);
-	put_centre(out, 12, "ARCADE  US VERSION", GREY);
+	put_centre(out, 12, host.version && host.version() == 1 ? "ARCADE  JAPANESE VERSION" : "ARCADE  US VERSION", GREY);
 	for (int index = 0; index < item_count; index++)
 	{
 		const bool chosen = index == selected;
@@ -1865,9 +1868,10 @@ static void replay_details(uint32_t *out, const replay_info *r, int y)
 		seconds / 60u, seconds % 60u);
 	put_centre_y(out, y, line, CYAN);
 	if (r->training)
-		snprintf(line, sizeof(line), "TRAINING: %s", r->place);
+		snprintf(line, sizeof(line), "%sTRAINING: %s", r->version == 1 ? "JPN " : "", r->place);
 	else
-		snprintf(line, sizeof(line), "%s", r->all_clear ? "ALL CLEAR" : r->finished ? "GAME OVER" : "QUIT");
+		snprintf(line, sizeof(line), "%s%s", r->version == 1 ? "JAPAN: " : "",
+			r->all_clear ? "ALL CLEAR" : r->finished ? "GAME OVER" : "QUIT");
 	put_centre_y(out, y + 12, line, GREY);
 }
 

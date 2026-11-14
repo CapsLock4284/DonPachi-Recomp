@@ -45,6 +45,8 @@ typedef struct
 	bool (*replay_in_game)(void);      /* an arcade game is being recorded (MAIN MENU asks about its replay) */
 	void (*hold_replay)(void);         /* that game, stopped there, to keep or not */
 	void (*save_training_replay)(void);    /* a training game's SAVE REPLAY */
+	int (*version)(void);              /* the game's version: 0 the US one, 1 the Japanese one (rom_set.h) */
+	bool (*set_version)(int version);  /* the game to that version, from its reset: false if it could not be */
 } menu_host;
 
 void menu_init(const menu_host *host);

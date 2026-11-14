@@ -85,6 +85,7 @@ typedef struct
 	bool finished;              /* played to the game's end: a game over (not quit part way) */
 	bool all_clear;             /* ... with area 10 cleared */
 	uint32_t frames;            /* the game's frames, from its ship select */
+	int version;                /* the game's version it was played on: 0 the US one, 1 the Japanese one */
 } replay_info;
 
 /* The replays in the folder, newest first, at most 'most': how many */
@@ -94,6 +95,9 @@ int replay_list(replay_info *out, int most);
    deleted: false if that could not be done */
 bool replay_rename(const char *file, const char *name);
 bool replay_delete(const char *file);
+
+/* The game's version a replay was played on (0 the US one, 1 the Japanese one), or -1 if it is not a replay */
+int replay_version(const char *file);
 
 /* ---- playback ---- */
 

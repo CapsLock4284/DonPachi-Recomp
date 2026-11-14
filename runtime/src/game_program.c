@@ -402,12 +402,14 @@ void reset_devices(void)
 
 /* The board as its reset leaves it (cave_reset: the RAMs, the video, the sound chips cleared, the EEPROM kept), the
    68000's status, and the frames counted on */
+static uint64_t reset_frame;    /* the frame the board was last reset at (program_frames_since_reset) */
+
 static void reset_board(void)
 {
 	const uint64_t frame = cave_board.frame;
 
 	cave_reset();
-	cave_board.frame = frame;
+	cave_board.frame = reset_frame = frame;
 	status = 0x2700u;
 	depth = 0;
 	m68k_time = time_at_wait = work_began = handled_at = RESET_CYCLES;
@@ -553,6 +555,40 @@ void program_state_load(const program_state *state)
 void program_state_free(program_state *state)
 {
 	free(state);
+}
+
+uint64_t program_frames_since_reset(void)
+{
+	return cave_board.frame - reset_frame;
+}
+
+/* the tables' copies of the program running now freed (another program's to be loaded) */
+static void free_tables(void)
+{
+	for (size_t index = 0; index < *active->table_count; index++)
+	{
+		free((void *)*active->tables[index].data);
+		*active->tables[index].data = NULL;
+	}
+}
+
+const char *program_switch(void)
+{
+	const char *problem;
+
+	if (!program_has_version(rom_set.version))
+		return "this build has no Japanese program: python tools/decompile.py --set japan, then build it again";
+	free_tables();
+#ifdef DONPACHI_JAPAN_PROGRAM
+	active = rom_set.version == DONPACHI_JAPAN ? &japan_program : &us_program;
+#endif
+	if ((problem = load_tables()) != NULL)
+		return problem;
+	cave_board.program = rom_set.program;
+	memcpy(cave_board.eeprom.words, rom_set.eeprom, sizeof(cave_board.eeprom.words));
+	state_pending = NULL;
+	program_reset();    /* (the game task starts again from the reset, at the new program's entry) */
+	return NULL;
 }
 
 uint64_t program_frames(void)

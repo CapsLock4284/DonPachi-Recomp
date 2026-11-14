@@ -139,6 +139,8 @@ static void text_fitted(SDL_Renderer *renderer, int y, const char *text, int sca
 
 /* What is wrong with a set that was read but is not whole, as up to four lines ('\n' between them): the files it
    lacks (or has another version of). No file of the set at all: not the DonPachi set */
+static int asked;    /* the version the window asks for (donpachi_version) */
+
 static void describe_missing(char *out, size_t size)
 {
 	const size_t most = (size_t)((WINDOW_W - 32) / 12);    /* (the letters a line has at scale 2) */
@@ -150,7 +152,8 @@ static void describe_missing(char *out, size_t size)
 
 	if (rom_set_files_found() == 0 || missing == 0)
 	{
-		snprintf(out, size, "NOT THE DONPACHI SET (US VERSION). TRY ANOTHER.");
+		snprintf(out, size, asked == DONPACHI_JAPAN ? "NOT THE DONPACHIJ SET (JAPAN VERSION). TRY ANOTHER."
+			: "NOT THE DONPACHI SET (US VERSION). TRY ANOTHER.");
 		return;
 	}
 	/* the names on up to two lines, each "NAME" or "NAME (WRONG ONE)", a comma between */
@@ -173,8 +176,9 @@ static void describe_missing(char *out, size_t size)
 	if (shown < missing)
 		snprintf(list[line] + strlen(list[line]), sizeof(list[line]) - strlen(list[line]), ", +%d MORE",
 			missing - shown);
-	snprintf(out, size, "THE SET IS MISSING %d OF ITS %d FILES:\n%s%s%s\nA COMPLETE DONPACHI.ZIP FROM MAME HAS THEM ALL.",
-		missing, ROM_SET_FILES, list[0], line ? "\n" : "", line ? list[1] : "");
+	snprintf(out, size, "THE SET IS MISSING %d OF ITS %d FILES:\n%s%s%s\nA COMPLETE %s FROM MAME HAS THEM ALL.",
+		missing, ROM_SET_FILES, list[0], line ? "\n" : "", line ? list[1] : "",
+		asked == DONPACHI_JAPAN ? "DONPACHIJ.ZIP" : "DONPACHI.ZIP");
 }
 
 static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_colour, const char *why)
@@ -183,8 +187,10 @@ static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_col
 	SDL_RenderClear(renderer);
 	text_centred(renderer, 70 + 4, "DONPACHI", 8, 0x301000u);    /* (its shadow) */
 	text_centred(renderer, 70, "DONPACHI", 8, GOLD);
-	text_centred(renderer, 170, "DROP THE ARCADE ROM SET HERE", 3, WHITE);
-	text_centred(renderer, 210, "DONPACHI.ZIP: MAME'S SET, US VERSION", 2, GREY);
+	text_centred(renderer, 170, asked == DONPACHI_JAPAN ? "DROP THE JAPANESE ROM SET HERE"
+		: "DROP THE ARCADE ROM SET HERE", 3, WHITE);
+	text_centred(renderer, 210, asked == DONPACHI_JAPAN ? "DONPACHIJ.ZIP: MAME'S SET, JAPAN VERSION"
+		: "DONPACHI.ZIP: MAME'S SET, US VERSION", 2, GREY);
 	text_centred(renderer, 232, "THE GAME TAKES ITS DATA FROM IT, ONCE.", 2, GREY);
 	if (status)
 	{
@@ -208,6 +214,22 @@ static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_col
 
 bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 {
+	return rom_drop_screen_version(data_path, why, saved, DONPACHI_US);
+}
+
+/* the dropped file or folder read as the version's set: the Japanese one whole, or over the US set loaded */
+static const char *read_dropped(const char *path)
+{
+	const char *problem;
+	const bool over = asked == DONPACHI_JAPAN && rom_set.program && rom_set.version == DONPACHI_US;
+
+	if ((problem = rom_set_load_version(path, (donpachi_version)asked)) == NULL || !over)
+		return problem;
+	return rom_set_load_japan_over(path);
+}
+
+bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved, int version)
+{
 	SDL_Window *const window = SDL_CreateWindow("DonPachi: the ROM set", SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, 0);
 	SDL_Renderer *renderer;
@@ -216,6 +238,7 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 	bool loaded = false, running = true;
 
 	*saved = false;
+	asked = version;
 	if (!window)
 		return false;
 	window_icon_set(window);
@@ -250,7 +273,7 @@ bool rom_drop_screen(const char *data_path, const char *why, bool *saved)
 			const char *problem;
 
 			draw(renderer, "READING...", WHITE, NULL);
-			if ((problem = rom_set_load(event.drop.file)) == NULL)
+			if ((problem = read_dropped(event.drop.file)) == NULL)
 			{
 				const char *const save_problem = rom_set_save_data(data_path);
 

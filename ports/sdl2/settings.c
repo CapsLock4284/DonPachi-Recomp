@@ -73,6 +73,7 @@ void settings_defaults(settings *s)
 
 	memset(s, 0, sizeof(*s));
 	s->free_play = true;
+	s->version = 0;
 	s->arcade_timing = false;
 	s->fast_forward_speed = 4;
 	s->hitbox = false;
@@ -249,6 +250,16 @@ static bool take(settings *s, const char *section, const char *name, char *value
 	{
 		if (!SDL_strcasecmp(name, "free_play"))
 			return parse_bool(value, &s->free_play);
+		if (!SDL_strcasecmp(name, "version"))
+		{
+			if (!SDL_strcasecmp(value, "us") || !SDL_strcasecmp(value, "usa"))
+				s->version = 0;
+			else if (!SDL_strcasecmp(value, "japan"))
+				s->version = 1;
+			else
+				return false;
+			return true;
+		}
 		if (!SDL_strcasecmp(name, "arcade_timing"))
 			return parse_bool(value, &s->arcade_timing);
 		if (!SDL_strcasecmp(name, "fast_forward_speed"))
@@ -541,6 +552,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("[game]\n", file);
 	fputs("; Start drops in a coin first when there is no credit (DonPachi has no free play setting of its own)\n", file);
 	fprintf(file, "free_play = %s\n", bool_text(s->free_play));
+	fputs("; the game's version: us, or japan (MAME's donpachij: its own data, donpachi_jpn.dat, high scores and\n"
+		"; settings; donpachij.zip beside donpachi.zip in the rom folder, or dropped on the window, the first time)\n", file);
+	fprintf(file, "version = %s\n", s->version == 1 ? "japan" : "us");
 	fputs("; false: each picture shown as soon as the game's frame is done (the fastest response: movement and shots\n"
 		"; on the 2nd picture). true: when the board shows it (as MAME: the 3rd). The game runs the same either way\n", file);
 	fprintf(file, "arcade_timing = %s\n", bool_text(s->arcade_timing));

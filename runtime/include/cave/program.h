@@ -26,6 +26,12 @@ extern "C" {
 const char *program_start(void);
 bool program_has_version(int version);
 
+/* Another version's ROM set loaded (rom_set_load_version, rom_set_load_data_version, rom_set_load_japan_over) after
+   program_start: its program runs from the next program_run_frame, as from the board's reset (the RAMs cleared; the
+   EEPROM the ROM set's, for the port to put its own over). A save state of the other program can't be loaded after
+   it. NULL, or what is wrong */
+const char *program_switch(void);
+
 /* Runs the program to its next frame: VBLANK has started when it returns */
 void program_run_frame(void);
 
@@ -76,6 +82,7 @@ void program_state_free(program_state *state);
 
 /* The frames so far, and the interrupts the program took */
 uint64_t program_frames(void);
+uint64_t program_frames_since_reset(void);    /* the frames since the board's last reset (or its start) */
 uint32_t program_interrupts(void);
 
 #ifdef __cplusplus

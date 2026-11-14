@@ -18,4 +18,8 @@
    the window was closed */
 bool rom_drop_screen(const char *data_path, const char *why, bool *saved);
 
+/* The same for a version's set (donpachi_version): the Japanese one asks for donpachij.zip (read with
+   rom_set_load_version, or over the US set already loaded: rom_set_load_japan_over, its other chips the US set's) */
+bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved, int version);
+
 #endif

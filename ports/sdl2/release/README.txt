@@ -32,6 +32,16 @@ Then, on both:
    sets both work. If your set is incomplete, the window lists the files it is
    missing.
 
+THE JAPANESE VERSION
+The game also has the original Japanese release (MAME's donpachij, Ver. 1.01),
+with its smaller hitbox. Choose VERSION on the main menu. The first time, it
+needs MAME's donpachij.zip: put it beside donpachi.zip in the rom folder, or
+drag it onto the window that asks for it. It is saved as donpachi_jpn.dat and
+the .zip isn't needed after that. Each version keeps its own high scores and
+arcade settings; the achievements and statistics are shared. Replays remember
+their version and switch to it when you watch them. The game starts in the
+version you chose last (or add --japan / --usa when starting it).
+
 
 CONTROLS (change them in SETTINGS > CONTROLS)
 ---------------------------------------------
@@ -108,16 +118,18 @@ High scores aren't saved while a cheat is on.
 FILES THE GAME KEEPS BESIDE THE PROGRAM
 ---------------------------------------
   donpachi_usa.dat   the game data taken from your ROM set
+  donpachi_jpn.dat   the same for the Japanese version, if you've played it
   donpachi.ini       your settings (delete it to go back to the defaults)
   donpachi.eeprom    the arcade board's own settings (the test menu's)
   donpachi.hiscore   the high score table
+  donpachi_jpn.eeprom, donpachi_jpn.hiscore   the same for the Japanese version
   donpachi.achievements   the achievements you've earned, and when
   donpachi.stats     your lifetime statistics
   replays\           your replays (.dpreplay files: share them, or delete the
                      ones you don't want)
 
 Keep these if you move the game to another folder or computer. Don't share
-donpachi_usa.dat: it is the contents of the ROM set.
+donpachi_usa.dat or donpachi_jpn.dat: they are the contents of the ROM sets.
 
 donpachi.eeprom is in MAME's format: to bring your settings over from MAME,
 copy MAME's nvram\donpachi\eeprom beside the program as donpachi.eeprom (and

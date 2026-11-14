@@ -64,6 +64,7 @@ typedef struct
 {
 	/* [game] */
 	bool free_play;
+	int version;                /* the game's version: 0 the US one, 1 the Japanese (cave/rom_set.h's donpachi_version) */
 	bool arcade_timing;
 	int fast_forward_speed;     /* 2-16 */
 	bool hitbox;                /* the ships' hitboxes shown */

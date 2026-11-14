@@ -196,7 +196,7 @@ static bool big_hit_set;    /* (the big HIT display's flags set by the port, to 
 
 static bool booting(void)
 {
-	return program_frames() < BOOT_FRAMES_MOST && *(const uint16_t *)cave_work_ram_at(0x101260u, 2) == 0u;
+	return program_frames_since_reset() < BOOT_FRAMES_MOST && *(const uint16_t *)cave_work_ram_at(0x101260u, 2) == 0u;
 }
 
 /* A hotkey pressed (not held from before): the reset, or the reset into the test mode (fast forward is held: the
@@ -289,28 +289,40 @@ static void show_problem(const char *problem)
 
 /* ---- the game's data: extracted from the ROM set on the first run, read from then on (no .zip needed) ---- */
 
-#define DATA_FILE "donpachi_usa.dat"    /* beside the program: the US set's contents (never in the repository) */
+/* beside the program: each version's set's contents (never in the repository) */
+static const char *const data_files[DONPACHI_VERSIONS] = { "donpachi_usa.dat", "donpachi_jpn.dat" };
 
 static bool data_extracted;
+static bool version_fell_back;    /* the settings' Japanese version not there at the start: the US one */
 
-/* The extracted data beside the program; without it (the first run, or a damaged file), the ROM set ('rom' in the
-   settings), then its contents saved as the data for next time. 'rom_given': the command line's --rom, read
-   (and extracted) whatever data there is */
-static const char *game_data_open(bool rom_given)
+/* The version's extracted data beside the program; without it (the first run, or a damaged file), the ROM set ('rom'
+   in the settings), then its contents saved as the data for next time. 'rom_given': the command line's --rom, read
+   (and extracted) whatever data there is. The Japanese set shares 7 of its 9 chips with the US one: with only
+   donpachij.zip at hand, the rest is the US set's (its data, read first: rom_set_load_japan_over) */
+static const char *game_data_open(int version, bool rom_given)
 {
 	char path[1024];
 	const char *data_problem = "--rom given", *rom_problem, *save_problem;
 
-	snprintf(path, sizeof(path), "%s%s", paths_folder(), DATA_FILE);
-	if (!rom_given && (data_problem = rom_set_load_data(path)) == NULL)
+	snprintf(path, sizeof(path), "%s%s", paths_folder(), data_files[version]);
+	if (!rom_given && (data_problem = rom_set_load_data_version(path, (donpachi_version)version)) == NULL)
 		return NULL;
-	if ((rom_problem = rom_set_load(options.rom)) != NULL)
+	if ((rom_problem = rom_set_load_version(options.rom, (donpachi_version)version)) != NULL
+			&& version == DONPACHI_JAPAN)
+	{
+		/* (the clone's .zip alone: the US set's other chips, from its data or its set) */
+		if ((rom_set.program && rom_set.version == DONPACHI_US) || game_data_open(DONPACHI_US, false) == NULL)
+			rom_problem = rom_set_load_japan_over(options.rom);
+	}
+	if (rom_problem != NULL)
 	{
 		/* no data and no set: a window asks for the set to be dropped onto it */
 		bool saved;
 
 		fprintf(stderr, "%s (%s): the ROM set is asked for\n", rom_problem, data_problem);
-		if (!rom_drop_screen(path, "NO DONPACHI_USA.DAT, AND NO DONPACHI.ZIP IN THE 'ROM' FOLDER", &saved))
+		if (!rom_drop_screen_version(path, version == DONPACHI_JAPAN
+				? "NO DONPACHI_JPN.DAT, AND NO DONPACHIJ.ZIP IN THE 'ROM' FOLDER"
+				: "NO DONPACHI_USA.DAT, AND NO DONPACHI.ZIP IN THE 'ROM' FOLDER", &saved, version))
 			return "";    /* (the window closed: no game, no message) */
 		data_extracted = saved;
 		return NULL;
@@ -435,12 +447,16 @@ static void eeprom_home_defaults(void)
 	cave_board.eeprom.words[4] |= 0x0004u;
 }
 
+/* each version's own EEPROM and high scores, beside the program (the settings' or --eeprom's EEPROM: the US one's) */
+static const char *const eeprom_files[DONPACHI_VERSIONS] = { "donpachi.eeprom", "donpachi_jpn.eeprom" };
+static const char *const hiscore_files[DONPACHI_VERSIONS] = { "donpachi.hiscore", "donpachi_jpn.hiscore" };
+
 static void eeprom_open(const char *path)
 {
-	if (path)
+	if (path && rom_set.version == DONPACHI_US)
 		snprintf(eeprom_path, sizeof(eeprom_path), "%s", path);
 	else
-		snprintf(eeprom_path, sizeof(eeprom_path), "%sdonpachi.eeprom", paths_folder());
+		snprintf(eeprom_path, sizeof(eeprom_path), "%s%s", paths_folder(), eeprom_files[rom_set.version]);
 	switch (cave_eeprom_load(eeprom_path))
 	{
 	case 1:
@@ -965,6 +981,84 @@ static bool training_frame(void)
 	return false;
 }
 
+/* ---- the game's version (rom_set.h): the US one or the Japanese one, each with its own data, EEPROM and high
+   scores (the statistics and achievements: shared) ---- */
+
+static void hiscores_open(void)
+{
+	char path[1024];
+	const char *problem;
+
+	snprintf(path, sizeof(path), "%s%s", paths_folder(), hiscore_files[rom_set.version]);
+	if ((problem = hiscore_open(path)) != NULL)
+		fprintf(stderr, "%s: %s\n", path, problem);
+}
+
+static void window_title(void)
+{
+	if (window)
+		SDL_SetWindowTitle(window, fast_forwarding
+			? (rom_set.version == DONPACHI_JAPAN ? "DonPachi (Japan, fast forward)" : "DonPachi (fast forward)")
+			: (rom_set.version == DONPACHI_JAPAN ? "DonPachi (Japan)" : "DonPachi"));
+}
+
+static int menu_version(void)
+{
+	return (int)rom_set.version;
+}
+
+/* The game to the other version, from its reset: its data (extracted the first time: game_data_open), its
+   program, EEPROM and high scores; the save states gone (another program's). False if it could not be (the version
+   as it was, told on the screen) */
+static bool switch_version(int version)
+{
+	const int was = (int)rom_set.version;
+	const char *problem;
+
+	if (version == was)
+		return true;
+	if (!program_has_version(version))
+	{
+		menu_notice("NO JAPANESE PROGRAM IN THIS BUILD");
+		return false;
+	}
+	if (replay_playing())
+		replay_stop();    /* (the player's own EEPROM back, to save) */
+	replay_keep(false);
+	eeprom_keep(false);
+	data_extracted = false;
+	if ((problem = game_data_open(version, false)) != NULL || (problem = program_switch()) != NULL)
+	{
+		if (problem[0])
+			fprintf(stderr, "the %s version: %s\n", rom_set_version_name((donpachi_version)version), problem);
+		if (rom_set.version != (donpachi_version)was || !rom_set.program)
+			game_data_open(was, false);
+		program_switch();
+		menu_notice(version == DONPACHI_JAPAN ? "NO JAPANESE ROM SET" : "NO US ROM SET");
+		return false;
+	}
+	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
+	hiscores_open();
+	for (int slot = 0; slot < STATE_SLOTS; slot++)
+	{
+		program_state_free(slot_states[slot]);
+		free(slot_panels[slot]);
+		slot_states[slot] = NULL;
+		slot_panels[slot] = NULL;
+		slot_is_place[slot] = false;
+	}
+	program_state_free(training_place);
+	free(training_place_panels);
+	training_place = NULL;
+	training_place_panels = NULL;
+	menu_main_menu();
+	options.version = file_options.version = version;
+	settings_save(&file_options, settings_path);
+	window_title();
+	menu_notice(data_extracted ? "ROM DATA EXTRACTED" : version == DONPACHI_JAPAN ? "JAPANESE VERSION" : "US VERSION");
+	return true;
+}
+
 /* ---- replays (replay.h) ---- */
 
 static bool replay_paused;         /* playback paused: Space or A; Right or the d-pad's right a frame on */
@@ -974,7 +1068,10 @@ static bool replay_step;
 static bool menu_play_replay(const char *file)
 {
 	const char *problem;
+	const int version = replay_version(file);
 
+	if (version >= 0 && version != (int)rom_set.version && !switch_version(version))
+		return false;    /* (the replay's version not there: told on the screen) */
 	hiscore_reset();
 	if ((problem = replay_play(file)) != NULL)
 	{
@@ -1085,6 +1182,10 @@ int main(int argc, char **argv)
 			snprintf(options.cheats, sizeof(options.cheats), "%s", argv[++index]);
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
+		else if (!strcmp(argv[index], "--japan"))
+			options.version = DONPACHI_JAPAN;    /* (for this run: the settings' version as it was) */
+		else if (!strcmp(argv[index], "--usa"))
+			options.version = DONPACHI_US;
 		else if (!strcmp(argv[index], "--no-sound"))
 			options.sound = false;
 		else if (!strcmp(argv[index], "--no-free-play"))
@@ -1113,7 +1214,20 @@ int main(int argc, char **argv)
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
 		return 1;
 	}
-	if ((problem = game_data_open(rom_given)) != NULL || (problem = program_start()) != NULL)
+	if (options.version != DONPACHI_US && !program_has_version(options.version))
+	{
+		fprintf(stderr, "no Japanese program in this build: the US version\n");
+		options.version = DONPACHI_US;
+	}
+	if (options.version != DONPACHI_US && (problem = game_data_open(options.version, rom_given)) != NULL)
+	{
+		/* (no Japanese set, or its window closed: the US version, told in the menu) */
+		fprintf(stderr, "the Japanese version: %s: the US version\n", problem[0] ? problem : "no ROM set");
+		options.version = DONPACHI_US;
+		version_fell_back = true;
+	}
+	if ((options.version == DONPACHI_US && (problem = game_data_open(DONPACHI_US, rom_given)) != NULL)
+			|| (problem = program_start()) != NULL)
 	{
 		if (problem[0])
 			show_problem(problem);
@@ -1128,8 +1242,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
-	if ((problem = hiscore_open(NULL)) != NULL)
-		fprintf(stderr, "donpachi.hiscore: %s\n", problem);
+	hiscores_open();
 	{
 		char path[1024];
 
@@ -1153,7 +1266,10 @@ int main(int argc, char **argv)
 		shown_width() * options.scale, shown_height() * options.scale,
 		SDL_WINDOW_RESIZABLE | (options.fullscreen && !options.exclusive ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	if (window)
+	{
 		window_icon_set(window);
+		window_title();
+	}
 	if (window && options.fullscreen && options.exclusive)
 		set_fullscreen();    /* (exclusive: at the desktop's mode, not the window's size) */
 	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
@@ -1198,11 +1314,15 @@ int main(int argc, char **argv)
 		menu.replay_in_game = replay_in_game;
 		menu.hold_replay = replay_hold_unfinished;
 		menu.save_training_replay = menu_save_training_replay;
+		menu.version = menu_version;
+		menu.set_version = switch_version;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
 		if (data_extracted)
-			menu_notice("ROM DATA EXTRACTED");    /* (the .zip not needed from now on) */
+			menu_notice("ROM DATA EXTRACTED");
+		else if (version_fell_back)
+			menu_notice("NO JAPANESE ROM SET: THE US VERSION");    /* (the .zip not needed from now on) */
 	}
 	if (options.sound)
 		audio_open();
@@ -1309,7 +1429,7 @@ int main(int argc, char **argv)
 			if (fast != fast_forwarding)
 			{
 				fast_forwarding = fast;
-				SDL_SetWindowTitle(window, fast ? "DonPachi (fast forward)" : "DonPachi");
+				window_title();
 				if (!fast && audio)
 					audio_restart();
 			}

@@ -55,6 +55,12 @@ It's on by default. GAME OPTIONS > SLOWDOWN turns it off if you'd rather play at
 3. On the first run a window asks for the ROM set: drag `donpachi.zip` onto it. The game extracts what it needs once
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
+**The Japanese version:** VERSION on the main menu switches to the original Japanese release (MAME's `donpachij`,
+Ver. 1.01, with its smaller hitbox). The first time it needs `donpachij.zip` (beside `donpachi.zip` in the `rom` folder,
+or dropped on the window that asks); it is extracted to `donpachi_jpn.dat`. Each version keeps its own high scores and
+arcade settings; achievements and statistics are shared. To build it in, decompile it too:
+`python tools/decompile.py --set japan` (writes `src_jpn/`), then build as usual.
+
 **Cheats:** the Cheats page (Settings > Game Options > Cheats) has the game's own: infinite lives, infinite bombs,
 invincibility, MAX power and an endless chain, for each player. For more, add MAME's cheat file for DonPachi (not
 included): take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and put

@@ -340,6 +340,7 @@ const char *rom_set_load_version(const char *source, donpachi_version version)
 			return problem;
 		}
 
+	rom_set_free();    /* (the set loaded before: this one in its place) */
 	rom_set.version = version;
 	rom_set.program = swapped(chips[U29], DONPACHI_PROGRAM_SIZE);
 	rom_set.sprites = malloc(DONPACHI_SPRITES_SIZE);
@@ -372,6 +373,84 @@ const char *rom_set_load_version(const char *source, donpachi_version version)
 	free(chips[U33]);
 	free(chips[U10]);
 	return NULL;
+}
+
+const char *rom_set_load_japan_over(const char *source)
+{
+	static char problem[256];
+	uint8_t *chips[FILES] = { 0 };
+	size_t size = 0;
+	uint8_t *whole;
+	uint8_t *program;
+
+	if (!rom_set.program || rom_set.version != DONPACHI_US)
+		return "the US set's data is needed first (the Japanese set shares its other chips)";
+	use_version(DONPACHI_JAPAN);
+	memset(file_state, 0, sizeof(file_state));
+	memset(name_seen, 0, sizeof(name_seen));
+	if ((whole = read_whole(source, &size)) != NULL)
+	{
+		const int is_zip = read_zip(whole, size, chips);
+
+		free(whole);
+		if (!is_zip)
+		{
+			snprintf(problem, sizeof(problem), "%s is no .zip", source);
+			return problem;
+		}
+	}
+	else
+	{
+		char path[1024];
+
+		read_folder(source, chips);
+		snprintf(path, sizeof(path), "%s/%s", source, CLONE_ZIP);
+		if (!chips[U29] || !chips[U58])
+			read_zip_file(path, chips);
+	}
+	/* (only the two of the Japanese set's own count: the others are the US set's, already here) */
+	for (int file = 0; file < FILES; file++)
+	{
+		file_state[file] = file != U29 && file != U58 ? FILE_FOUND
+			: chips[file] ? FILE_FOUND : name_seen[file] ? FILE_DIFFERENT : FILE_MISSING;
+		if (file != U29 && file != U58)
+		{
+			free(chips[file]);
+			chips[file] = NULL;
+		}
+	}
+	if (!chips[U29] || !chips[U58])
+	{
+		snprintf(problem, sizeof(problem), "%s has no %s (CRC32 %08x), or a different one", source,
+			files[chips[U29] ? U58 : U29].name, (unsigned)files[chips[U29] ? U58 : U29].crc);
+		free(chips[U29]);
+		free(chips[U58]);
+		return problem;
+	}
+	if (!(program = swapped(chips[U29], DONPACHI_PROGRAM_SIZE)))
+	{
+		free(chips[U29]);
+		free(chips[U58]);
+		return "no memory for the ROM set";
+	}
+	free(chips[U29]);
+	free(rom_set.program);
+	free(rom_set.layer[2]);
+	rom_set.program = program;
+	rom_set.layer[2] = chips[U58];
+	rom_set.version = DONPACHI_JAPAN;
+	return NULL;
+}
+
+void rom_set_free(void)
+{
+	free(rom_set.program);
+	free(rom_set.sprites);
+	for (int layer = 0; layer < 3; layer++)
+		free(rom_set.layer[layer]);
+	free(rom_set.oki[0]);
+	free(rom_set.oki[1]);
+	memset(&rom_set, 0, sizeof(rom_set));
 }
 
 /* ---- the extracted data: a header, then the regions one after the other ----
@@ -528,6 +607,7 @@ const char *rom_set_load_data_version(const char *path, donpachi_version version
 		at += region_sizes[region];
 	}
 	free(whole);
+	rom_set_free();
 	rom_set = set;
 	return NULL;
 }

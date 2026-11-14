@@ -14,6 +14,7 @@
  *      the place (100 + the percentage: a point part way), the ship, the power, the bombs (1: 7), the difficulty)
  *      format 3: the slowdown (8: 1 on; cave/program.h's program_set_slowdown: the frames fall otherwise). A replay
  *      of format 1 or 2 was made without it
+ *      format 4: the game's version (8: 0 the US one, 1 the Japanese one: cave/rom_set.h). Before it: the US one
  *      the EEPROM's words (CAVE_EEPROM_WORDS of 16)
  *      the patches: their count (32), then each: the frame after which (32; 0: before the first), the address (32),
  *      the size (16), the bytes
@@ -30,6 +31,7 @@
 
 #include "cave/machine.h"
 #include "cave/program.h"
+#include "cave/rom_set.h"
 #include "cave/sound.h"
 
 #include <ctype.h>
@@ -51,7 +53,7 @@
 #define DONPACHI_VERSION "0.0.0"
 #endif
 
-#define FORMAT          3u
+#define FORMAT          4u
 #define CHECK_EVERY     600u    /* frames between checks (about 10 seconds) */
 #define GAME_MODE       0x1018ECu
 #define BIG_HIT_FLAGS   0x101738u
@@ -86,6 +88,7 @@ typedef struct
 	bool training;
 	uint8_t setup[6];           /* the area, the place, the ship, the power, the bombs (1: 7), the difficulty */
 	bool slowdown;              /* the arcade's slowdown on (cave/program.h) */
+	uint8_t version;            /* the game's version (cave/rom_set.h's donpachi_version) */
 } start_info;
 
 /* the game in a recording */
@@ -206,6 +209,7 @@ void replay_reset(void)
 	memcpy(rec.eeprom, cave_board.eeprom.words, sizeof(rec.eeprom));
 	rec.start.training = false;
 	rec.start.slowdown = program_slowdown();
+	rec.start.version = (uint8_t)rom_set.version;
 	tainted = false;
 	pending.on = false;
 }
@@ -273,10 +277,11 @@ static void training_begin(const start_info *start, const uint16_t *eeprom)
 
 void replay_begin_training(const training_setup *setup)
 {
-	start_info start = { true, { 0 }, false };
+	start_info start = { true, { 0 }, false, 0 };
 
 	setup_to_bytes(setup, start.setup);
 	start.slowdown = program_slowdown();
+	start.version = (uint8_t)rom_set.version;
 	track_free(&previous);
 	training_begin(&start, cave_board.eeprom.words);
 }
@@ -356,6 +361,7 @@ static const char *save(const track *t, const game_record *g, uint32_t end, bool
 	put(file, t->start.training ? 1u : 0u, 1);
 	fwrite(t->start.setup, 1, sizeof(t->start.setup), file);
 	put(file, t->start.slowdown ? 1u : 0u, 1);
+	put(file, t->start.version, 1);
 	for (unsigned at = 0; at < CAVE_EEPROM_WORDS; at++)
 		put(file, t->eeprom[at], 2);
 	while (patches < t->patch_count && t->patches[patches].frame <= end)
@@ -575,7 +581,12 @@ static bool read_header(FILE *file, replay_info *info, uint32_t *begin, start_in
 	}
 	if (format >= 3u)
 		start->slowdown = get(file, 1, &ok) != 0;
+	if (format >= 4u)
+		start->version = (uint8_t)get(file, 1, &ok);
+	if (start->version >= DONPACHI_VERSIONS)
+		return false;
 	info->training = start->training;
+	info->version = start->version;
 	if (start->training)
 	{
 		const training_setup setup = setup_from_bytes(start->setup);
@@ -673,6 +684,24 @@ bool replay_rename(const char *file, const char *name)
 	if (!strcmp(from, to))
 		return true;
 	return rename(from, to) == 0;
+}
+
+int replay_version(const char *file_name)
+{
+	char path[1400];
+	FILE *file;
+	replay_info info;
+	uint32_t begin;
+	start_info start;
+	int version = -1;
+
+	snprintf(path, sizeof(path), "%s%s", folder, file_name);
+	if (!(file = fopen(path, "rb")))
+		return -1;
+	if (read_header(file, &info, &begin, &start))
+		version = start.version;
+	fclose(file);
+	return version;
 }
 
 bool replay_delete(const char *file)
@@ -817,6 +846,11 @@ const char *replay_play(const char *file_name)
 
 	if (problem)
 		return problem;
+	if (play.start.version != (uint8_t)rom_set.version)
+	{
+		track_free(&play);
+		return "it is a replay of the game's other version";
+	}
 	memcpy(own_eeprom, cave_board.eeprom.words, sizeof(own_eeprom));
 	memcpy(cave_board.eeprom.words, play.eeprom, sizeof(own_eeprom));
 	own_slowdown = program_slowdown();

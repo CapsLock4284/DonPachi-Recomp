@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 	start_game();
 	training_prepare(&setup);
 	{
-		const widgets_status status = { false, false, false, 0, program_slowdown() };
+		const widgets_status status = { false, false, false, 0, program_slowdown(), true };
 
 		widgets_set_status(&status);
 	}

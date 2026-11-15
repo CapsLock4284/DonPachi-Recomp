@@ -1484,7 +1484,7 @@ int main(int argc, char **argv)
 			}
 			{
 				const widgets_status status = { options.arcade_timing, options.free_play, cheats_any_on(),
-					fast ? options.fast_forward_speed : 0, program_slowdown() };
+					fast ? options.fast_forward_speed : 0, program_slowdown(), options.autobomb };
 
 				widgets_set_status(&status);
 			}

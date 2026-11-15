@@ -13,6 +13,7 @@ notes). The release zip carries this file as `CHANGES.txt`.
   high scores, achievements or statistics. Replays keep its bombs. It sets off a normal bomb, not the laser bomb you
   get by holding the shot into it: it lets go of the shot for one frame first, and only falls back to the laser bomb
   when the hit is too close for that.
+  The side panel's settings list shows AUTOBOMB ON or OFF.
 
 ### Fixed
 - The statistics' BOMBS USED and BOMB ITEMS never counted, and the NO BOMBS NEEDED achievement could be earned while

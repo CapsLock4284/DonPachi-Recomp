@@ -1178,6 +1178,8 @@ static void draw_setting(panel *p, int y, const char *name, const char *value, u
 	put_right(p, WIDGET_W - 8, y, value, colour);
 }
 
+#define ROW(n)  (5 + 8 * (n))    /* the settings' lines, from the top of theirs */
+
 static void draw_status(panel *p, int top)
 {
 	char text[16];
@@ -1186,17 +1188,17 @@ static void draw_status(panel *p, int top)
 	if (status.fast_forward > 0)
 	{
 		snprintf(text, sizeof(text), ">>%dX", status.fast_forward);
-		draw_setting(p, top + 5, "SPEED", text, YELLOW);
+		draw_setting(p, top + ROW(0), "SPEED", text, YELLOW);
 	}
 	else
-		draw_setting(p, top + 5, "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
+		draw_setting(p, top + ROW(0), "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
 	/* the board's own rapid fire: the EEPROM's "C BUTTON FULL-AUTO" (word 4, bit 2) */
-	draw_setting(p, top + 14, "C AUTO", cave_board.eeprom.words[4] & 0x0004u ? "ON" : "OFF", WHITE);
-	draw_setting(p, top + 23, "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
-	draw_setting(p, top + 32, "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
+	draw_setting(p, top + ROW(1), "C AUTO", cave_board.eeprom.words[4] & 0x0004u ? "ON" : "OFF", WHITE);
+	draw_setting(p, top + ROW(2), "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
+	draw_setting(p, top + ROW(3), "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
 	/* the arcade's slowdown: off, or this game's share of frames slowed (on, before there is a game) */
 	if (!status.slowdown)
-		draw_setting(p, top + 41, "SLOWDOWN", "OFF", WHITE);
+		draw_setting(p, top + ROW(4), "SLOWDOWN", "OFF", WHITE);
 	else if (own_game && run.frames > 0u)
 	{
 		const unsigned tenths = (unsigned)(((unsigned long long)run.slowed * 1000u + run.frames / 2u) / run.frames);
@@ -1205,10 +1207,11 @@ static void draw_status(panel *p, int top)
 			snprintf(text, sizeof(text), "%u.%u%%", tenths / 10u, tenths % 10u);    /* (0.4%) */
 		else
 			snprintf(text, sizeof(text), "%u%%", (tenths + 5u) / 10u);              /* (12%) */
-		draw_setting(p, top + 41, "SLOWDOWN", text, run.slowed ? YELLOW : WHITE);
+		draw_setting(p, top + ROW(4), "SLOWDOWN", text, run.slowed ? YELLOW : WHITE);
 	}
 	else
-		draw_setting(p, top + 41, "SLOWDOWN", "ON", WHITE);
+		draw_setting(p, top + ROW(4), "SLOWDOWN", "ON", WHITE);
+	draw_setting(p, top + ROW(5), "AUTOBOMB", status.autobomb ? "ON" : "OFF", status.autobomb ? YELLOW : WHITE);
 }
 
 void widgets_draw(uint32_t *left, uint32_t *right)
@@ -1248,7 +1251,7 @@ void widgets_draw(uint32_t *left, uint32_t *right)
 	put_centre(&p, 22, "VS #1 SCORE", GREY, 1);
 	draw_graph(&p);
 	draw_stage(&p, 200);
-	draw_status(&p, 268);
+	draw_status(&p, 266);
 	if (toast_frames > 0)
 		draw_toast(&p);
 }

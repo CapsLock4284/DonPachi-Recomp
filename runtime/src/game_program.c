@@ -557,6 +557,11 @@ void program_state_free(program_state *state)
 	free(state);
 }
 
+bool program_change_pending(void)
+{
+	return reset_pending || state_pending != NULL;
+}
+
 uint64_t program_frames_since_reset(void)
 {
 	return cave_board.frame - reset_frame;

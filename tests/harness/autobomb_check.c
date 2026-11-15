@@ -4,7 +4,7 @@
    and fewer deaths than without (PASS or FAIL). Then the inputs of the run with it played again without it: the same
    board at the end (its bombs are inputs like any other: replays keep them). Then with the shot held most of the
    time (the laser on): its bombs normal ones, not the laser's (it lets the shot go a frame first), but where there was no time
-   for that (at most 1 in 10), and still no death with a bomb left */
+   for that (at most 1 in 10), and still no death with a bomb left. And a reset asked for in play with it on: done */
 #include "common.h"
 #include "autobomb.h"
 
@@ -149,6 +149,26 @@ int main(int argc, char **argv)
 		verdict(what, laser.seen_laser == laser.laser && laser.seen_laser * 10u <= laser.seen_normal + laser.seen_laser);
 		snprintf(what, sizeof(what), "the laser on: no death with a bomb left (%d)", laser.with_bombs);
 		verdict(what, laser.with_bombs == 0);
+	}
+	{
+		/* a reset asked for in the middle of play (F3, the menu's MAIN MENU) with it on: not used up by its looking
+		   ahead (the board's frame counter starts again) */
+		program_state_load(start);
+		for (int f = 0; f < 3; f++)
+		{
+			cave_board.in0 = 0xFFFFu;
+			autobomb_frame(false);
+			program_run_frame();
+			cave_sound_drop();
+		}
+		program_reset();
+		cave_board.in0 = 0xFFFFu;
+		autobomb_frame(false);
+		program_run_frame();
+		cave_sound_drop();
+		snprintf(what, sizeof(what), "a reset in play with it on: done (frames since it %llu)",
+			(unsigned long long)program_frames_since_reset());
+		verdict(what, program_frames_since_reset() <= 1u);
 	}
 	printf("%s\n", failures ? "FAILED" : "ALL PASS");
 	return failures != 0;

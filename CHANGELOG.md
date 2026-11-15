@@ -24,6 +24,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
   effects), named after its type and the areas it was seen in, with the three already known (the heavy planes, the
   hover boat, the extend building); and the enemies' parts' script commands, by what each does. The game itself is
   unchanged.
+- A first step towards a run played by the computer alone, for the best score: a test tool that searches the game
+  (no cheats or help of any kind) and saves what it finds as a replay to watch in REPLAYS. So far it clears area 1
+  without a miss.
 
 ## v0.8.0 (2026-11-14)
 

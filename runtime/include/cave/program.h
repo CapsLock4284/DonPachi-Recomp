@@ -83,6 +83,8 @@ void program_state_free(program_state *state);
 /* The frames so far, and the interrupts the program took */
 uint64_t program_frames(void);
 uint64_t program_frames_since_reset(void);    /* the frames since the board's last reset (or its start) */
+bool program_change_pending(void);    /* a reset or a save state asked for, taking effect at the next frame: nothing
+                                         may save or load a state before it (program_state_load would drop it) */
 uint32_t program_interrupts(void);
 
 #ifdef __cplusplus

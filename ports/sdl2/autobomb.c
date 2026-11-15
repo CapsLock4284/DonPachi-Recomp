@@ -88,7 +88,8 @@ bool autobomb_frame(bool player2)
 	const int players = player2 ? 2 : 1;
 	bool watch[2] = { false, false }, any = false, pressed = false;
 
-	if (*(const uint16_t *)cave_work_ram_at(MODE, 2) != PLAYING)
+	/* (a reset or a save state asked for: looking ahead would use it up and put the board back before it) */
+	if (*(const uint16_t *)cave_work_ram_at(MODE, 2) != PLAYING || program_change_pending())
 	{
 		pending[0] = pending[1] = false;
 		return false;

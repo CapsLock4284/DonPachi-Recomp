@@ -4,7 +4,7 @@ What has changed in each release of DonPachi Recomp, newest first. Changes made 
 **Unreleased**; when a release is made, that section becomes its version (and is pasted into the GitHub release's
 notes). The release zip carries this file as `CHANGES.txt`.
 
-## Unreleased
+## v0.9.0 (2026-11-15)
 
 ### New
 - **Autobomb** (GAME OPTIONS > AUTOBOMB, off by default): when your ship is about to be hit, a bomb goes off by
@@ -28,7 +28,7 @@ notes). The release zip carries this file as `CHANGES.txt`.
   unchanged.
 - A first step towards a run played by the computer alone, for the best score: a test tool that searches the game
   (no cheats or help of any kind) and saves what it finds as a replay to watch in REPLAYS. So far it clears area 1
-  without a miss.
+  without a miss, taking 8 of its 13 bees, for 476,510 points.
 
 ## v0.8.0 (2026-11-14)
 

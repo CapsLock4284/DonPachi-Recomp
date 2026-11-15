@@ -32,7 +32,12 @@
    13: about the same. The bees need their places (to steer to them, and to shoot where they hide) worked out first.
    Area 1's bees placed from the shmups wiki's map (below: the nearest pulls the ship, the laser under it counts):
    8 of 13 taken, 448,650 points, best chain 16, area 1 in 11,574 frames (3:13), no miss, no bomb; 17 minutes here
-   (the owner's BEAM=32 without the bees: 435,950) */
+   (the owner's BEAM=32 without the bees: 435,950).
+   The chain setups (a top player's way, from the owner's screenshots of his notes: enemies weakened first, then
+   killed one after another): an enemy weakened and still alive worth 600 x the part of its hit points gone (lost if
+   it is killed alone), a kill no longer worth anything by itself: 456,220, best chain 26 (16-21 before), area 1 in
+   2:23. With it the chain's hit worth matters at last: 1,500 a hit, 476,510 (the defaults now); a weakened enemy
+   worth 1,500, 437,320; 300, 424,580. 17 minutes a run here (16 plans). His area 1: 1,616,990 */
 #include "common.h"
 #include "replay.h"
 
@@ -55,7 +60,7 @@
 #define CHAIN_BEST  0x101754u   /* the best chain (widgets.c reads the same) */
 #define CHAIN_VALUE chain_value /* a hit of a chain still going at the look's end: worth this much (the hits to come
                                    with it; a chain let go is worth nothing more) */
-static double chain_value = 400.0;  /* (CHAIN_W) */
+static double chain_value = 1500.0; /* (CHAIN_W) */
 static double damage_weight = 1.0;  /* the damage done against the score (DAMAGE_W) */
 
 enum { ACTIONS = 18 };
@@ -161,8 +166,13 @@ typedef struct
 	bool bee[RECORDS];          /* a bee's hiding place (its picture the bee's, $0C2E-$0C3F: shot, it shows the bee) */
 } health;
 
-#define KILL_VALUE  300.0       /* an enemy shot down (its record's hit points gone): the owner's, every kill tried for,
-                                   small chains too */
+#define KILL_VALUE  kill_value  /* an enemy shot down (its record's hit points gone): the owner's, every kill tried for,
+                                   small chains too. 0 by default since the chain setups (a top player's way: enemies
+                                   weakened first, then killed one after another; a lone kill early spoils that) */
+static double kill_value = 0.0;     /* (KILL_W) */
+static double setup_value = 600.0;  /* an enemy weakened and still alive, all its hit points but the last gone: worth
+                                       this much while it waits to be killed into a chain (SETUP_W; lost if it is
+                                       killed alone, more than won back if killed in a chain) */
 #define BEE_SPOT    50.0        /* a bee's hiding place's damage counts this many times (shooting it shows the bee) */
 #define BEE_VALUE   20000.0     /* a bee taken (the owner's: always try for the bees) */
 #define BEES_1      0x10379Au   /* player 1's bees taken in the area */
@@ -257,6 +267,32 @@ static double value(const program_state *from, int action)
 	return best + 200.0 * (double)lived + (big_up && action >= 9 ? 300.0 : 0.0);
 }
 
+/* the chain setups (a top player's way, the owner's screenshots): the enemies weakened and still alive, each worth
+   setup_value times how much of its hit points is gone. 'full' (the plan's): each record's hit points when it came,
+   brought up to date here ('before': the records as the segment began: one there then is the same enemy) */
+static double setup_worth(int16_t *full, const health *before)
+{
+	double worth = 0.0;
+
+	for (int r = 0; r < RECORDS; r++)
+	{
+		const uint32_t at = record_at(r);
+		const int hp = (int16_t)ram_word(at + 0x18u);
+		const bool there = (ram_word(at) & 0xA000u) == 0xA000u && hp > 0;
+
+		if (!there)
+		{
+			full[r] = 0;
+			continue;
+		}
+		if (full[r] <= 0 || before->hp[r] < 0 || hp > full[r])
+			full[r] = (int16_t)(before->hp[r] > hp ? before->hp[r] : hp);    /* (new: as it came) */
+		if (hp < full[r] && !before->bee[r] && full[r] < BIG)
+			worth += setup_value * (double)(full[r] - hp) / (double)full[r];
+	}
+	return worth;
+}
+
 /* ---- area 1's bees (the owner's: always take the bees; the shmups wiki's map of them, Donpachi_stage1_wbees.png):
    each hidden until the laser goes over it, then taken by flying into it. Their places on that map (made 240 pixels
    wide: the map's x, y down from its top), and where the screen is on it: its top at 3,057 - 6 x (scroll - 279)
@@ -322,6 +358,7 @@ typedef struct
 	double done, worth;         /* the score and damage so far; with the chain going */
 	uint32_t score;
 	unsigned bees_taken;        /* area 1's bees this plan has taken (bits: area1_bees) */
+	int16_t full[RECORDS];      /* each enemy record's hit points when it came (0: none there) */
 	unsigned hits;
 	int x, y;
 	bool kept;                  /* its board belongs to a checkpoint */
@@ -432,6 +469,7 @@ static bool beam_search(int width, long most, double began)
 					p->done = beam[b].done + (double)(score() - at_start) + damage_since(&hp_before)
 						+ (ram_word(BEES_1) > bees_before ? BEE_VALUE * (double)(ram_word(BEES_1) - bees_before) : 0.0);
 					p->bees_taken = beam[b].bees_taken;
+					memcpy(p->full, beam[b].full, sizeof(p->full));
 					if (ram_word(BEES_1) > bees_before)
 					{
 						/* (the one taken: the nearest) */
@@ -457,7 +495,8 @@ static bool beam_search(int width, long most, double began)
 				p->hits = ram_word(CHAIN_TIMER) ? ram_word(CHAIN_HITS) : 0u;
 				p->x = ((int16_t)ram_word(SHIP + 8u) >> 6) / 8;
 				p->y = ((int16_t)ram_word(SHIP + 6u) >> 6) / 8;
-				p->worth = p->done + CHAIN_VALUE * (double)p->hits + (big_up && a >= 9 ? 300.0 : 0.0);
+				p->worth = p->done + CHAIN_VALUE * (double)p->hits + (big_up && a >= 9 ? 300.0 : 0.0)
+					+ setup_worth(p->full, &hp_before);
 				{
 					/* the nearest bee: towards it, and the laser under it (that shows it) */
 					int dx, dy;
@@ -566,7 +605,12 @@ int main(int argc, char **argv)
 		chain_value = atof(getenv("CHAIN_W"));
 	if (getenv("DAMAGE_W"))
 		damage_weight = atof(getenv("DAMAGE_W"));
-	printf("the chain's hit worth %.0f, the damage's weight %.2f\n", chain_value, damage_weight);
+	if (getenv("KILL_W"))
+		kill_value = atof(getenv("KILL_W"));
+	if (getenv("SETUP_W"))
+		setup_value = atof(getenv("SETUP_W"));
+	printf("the chain's hit worth %.0f, the damage's weight %.2f, a kill %.0f, a weakened enemy %.0f\n", chain_value,
+		damage_weight, kill_value, setup_value);
 	inputs = malloc(sizeof(uint16_t) * (size_t)(run_most + 20000));
 	steps = calloc((size_t)(run_most / SEGMENT + 10), sizeof(step));
 	start_game();

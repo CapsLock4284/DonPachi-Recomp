@@ -22,7 +22,7 @@ mkdir -p "$OBJ"
 [ "$(cat "$OBJ/.japan" 2>/dev/null)" = "$JAPAN" ] || { rm -f "$OBJ"/*.o; echo "$JAPAN" > "$OBJ/.japan"; }
 
 # the game: the board, the decompiled program, and the port's parts the tools use (not its main.c)
-for f in "$ROOT"/runtime/src/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
+for f in "$ROOT"/runtime/src/*.c "$ROOT"/runtime/src/boards/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
          "$ROOT"/ports/sdl2/settings.c "$ROOT"/ports/sdl2/menu.c "$ROOT"/ports/sdl2/widgets.c \
          "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c \
          "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/replay.c "$ROOT"/ports/sdl2/paths.c "$ROOT"/ports/sdl2/own_cheats.c "$ROOT"/ports/sdl2/crt.c "$ROOT"/ports/sdl2/scaler.c "$ROOT"/ports/sdl2/autobomb.c "$ROOT"/ports/sdl2/ai_player.c "$ROOT"/ports/sdl2/fast_timing.c; do

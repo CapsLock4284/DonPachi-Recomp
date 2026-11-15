@@ -2,3 +2,6 @@
 	path = tools/core
 	url = https://github.com/CapsLock4284/arcade-decomp
 	branch = timing-model
+[submodule "runtime"]
+	path = runtime
+	url = https://github.com/CapsLock4284/Cave68kSDK.git

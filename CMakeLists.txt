@@ -52,6 +52,7 @@ add_library(donpachi_runtime STATIC
 	runtime/src/cheats.c
 	runtime/src/sound.c
 	runtime/src/free_play.c
+	runtime/src/boards/donpachi.c    # (the SDK's description of the board: its bus, ROM set, picture, sound)
 )
 target_include_directories(donpachi_runtime PUBLIC runtime/include PRIVATE runtime/src)
 if(NOT MSVC)

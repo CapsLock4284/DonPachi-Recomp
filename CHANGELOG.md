@@ -4,6 +4,16 @@ What has changed in each release of DonPachi Recomp, newest first. Changes made 
 **Unreleased**; when a release is made, that section becomes its version (and is pasted into the GitHub release's
 notes). The release zip carries this file as `CHANGES.txt`.
 
+## Unreleased
+
+### Behind the scenes
+- The board runtime (`runtime/`) is now the separate Cave68kSDK project, included as a git submodule
+  (https://github.com/CapsLock4284/Cave68kSDK), so that other Cave 68000 games can share it. DonPachi is described
+  there as data (its memory map, ROM sets, picture and sound settings). The game is unchanged: the board, sound and
+  picture were checked identical over 30,000 frames of play in both versions, and the extracted data file is the
+  same byte for byte, so existing installs keep working. Clone with `--recursive`, or run
+  `git submodule update --init` in an existing clone.
+
 ## v0.9.0 (2026-11-15)
 
 ### New

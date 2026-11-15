@@ -91,7 +91,7 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Graphics:** a CRT look (a curved screen with scanlines, phosphor stripes and glow), pixel-art filters (Scale2x,
   Scale3x, xBR 2x/3x/4x, MMPX), scaling modes, smoothing, scanlines, vsync, TATE rotation, borderless or exclusive
   full screen
-- **Game options:** difficulty, free play, the arcade's hidden big HIT display, the arcade's test menu,
+- **Game options:** difficulty, autobomb (a bomb set off when you are about to be hit), free play, the arcade's hidden big HIT display, the arcade's test menu,
   cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
 

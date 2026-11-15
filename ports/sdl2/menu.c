@@ -92,6 +92,7 @@ enum
 	ITEM_STATE_SLOT,              /* the save states' slot */
 	ITEM_DEBUG_TOOLS,             /* the debug tools page (from the game options): own_cheats.h's debug ones */
 	ITEM_FILTER,                  /* the pixel-art scaler over the picture (scaler.h) */
+	ITEM_AUTOBOMB,                /* a bomb set off for a ship about to be shot down (autobomb.h) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -221,7 +222,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
 			ITEM_HISCORES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
@@ -456,6 +457,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_BIG_HIT:
 		in_use->big_hit = file->big_hit = !in_use->big_hit;
+		break;
+	case ITEM_AUTOBOMB:
+		in_use->autobomb = file->autobomb = !in_use->autobomb;
 		break;
 	case ITEM_SLOWDOWN:
 		in_use->slowdown = file->slowdown = !in_use->slowdown;    /* (main.c puts it in use: game_program.c) */
@@ -1087,6 +1091,9 @@ static const char *item_help(int item)
 		return "THE DIFFICULTY FOR TRAINING ONLY: THE NORMAL GAME KEEPS ITS OWN.";
 	case ITEM_BIG_HIT:
 		return "THE ARCADE'S HIDDEN LARGE HIT COUNTER, ALWAYS ON (NORMALLY A SECRET STICK COMMAND).";
+	case ITEM_AUTOBOMB:
+		return "A BOMB GOES OFF BY ITSELF WHEN YOUR SHIP IS ABOUT TO BE HIT, IF YOU HAVE ONE AND IT WILL SAVE YOU. "
+			"GAMES WITH IT ON DON'T COUNT FOR HIGH SCORES, ACHIEVEMENTS OR STATISTICS.";
 	case ITEM_SLOWDOWN:
 		return "ON: THE GAME SLOWS WHEN THE SCREEN IS BUSY, AS THE ARCADE BOARD DID. OFF: ALWAYS FULL SPEED.";
 	case ITEM_VERSION:
@@ -1518,7 +1525,7 @@ static const char *item_label(int item)
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
-		"FILTER"
+		"FILTER", "AUTOBOMB"
 	};
 
 	if (is_hotkey_item(item))
@@ -1569,6 +1576,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_BIG_HIT:
 		snprintf(out, size, "%s", s->big_hit ? "ON" : "OFF");
+		break;
+	case ITEM_AUTOBOMB:
+		snprintf(out, size, "%s", s->autobomb ? "ON" : "OFF");
 		break;
 	case ITEM_SLOWDOWN:
 		snprintf(out, size, "%s", s->slowdown ? "ON" : "OFF");

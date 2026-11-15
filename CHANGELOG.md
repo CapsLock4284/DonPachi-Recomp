@@ -4,6 +4,18 @@ What has changed in each release of DonPachi Recomp, newest first. Changes made 
 **Unreleased**; when a release is made, that section becomes its version (and is pasted into the GitHub release's
 notes). The release zip carries this file as `CHANGES.txt`.
 
+## Unreleased
+
+### New
+- **Autobomb** (GAME OPTIONS > AUTOBOMB, off by default): when your ship is about to be hit, a bomb goes off by
+  itself, as in many newer shooters. It only fires if you have a bomb left and the bomb will really save you: the
+  game looks a few frames ahead each frame to check. It is an assist, so games played with it on don't count for
+  high scores, achievements or statistics. Replays keep its bombs.
+
+### Fixed
+- The statistics' BOMBS USED and BOMB ITEMS never counted, and the NO BOMBS NEEDED achievement could be earned while
+  bombing: the bomb count was read from the wrong half of its memory word.
+
 ## v0.8.0 (2026-11-14)
 
 ### New

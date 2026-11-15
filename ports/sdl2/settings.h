@@ -71,6 +71,7 @@ typedef struct
 	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
 	bool big_hit;               /* the GP window's large HIT count always on, the best chain shown between chains */
 	bool slowdown;              /* the arcade's slowdown: a busy frame takes two (cave/program.h) */
+	bool autobomb;              /* a bomb set off for a ship about to be shot down (autobomb.h): an assist */
 	bool main_menu;             /* the main menu (START GAME, TRAINING, SETTINGS) as the program starts */
 	/* [training] (training.h) */
 	int training_area;          /* 0-9 */

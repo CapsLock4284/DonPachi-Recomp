@@ -82,6 +82,9 @@ FEATURES
     3x and 4x, and MMPX, smoothing the picture's edges while keeping it sharp
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
+  - Autobomb (GAME OPTIONS > AUTOBOMB): a bomb goes off by itself when your ship
+    is about to be hit, if you have one (an assist: those games don't count for
+    high scores, achievements or statistics)
   - High scores kept between sessions (not while cheats or save states were used)
   - 26 achievements (main menu > ACHIEVEMENTS): area clears, no-miss and no-bomb
     clears, all 13 bees, long chains, scores and more. Earned in the arcade game

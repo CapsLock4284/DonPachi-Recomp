@@ -81,6 +81,7 @@ void settings_defaults(settings *s)
 	s->save_high_scores = true;
 	s->big_hit = false;
 	s->slowdown = true;
+	s->autobomb = false;
 	s->main_menu = true;
 	s->training_area = 0;
 	s->training_point = 0;
@@ -274,6 +275,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->big_hit);
 		if (!SDL_strcasecmp(name, "slowdown"))
 			return parse_bool(value, &s->slowdown);
+		if (!SDL_strcasecmp(name, "autobomb"))
+			return parse_bool(value, &s->autobomb);
 		if (!SDL_strcasecmp(name, "main_menu"))
 			return parse_bool(value, &s->main_menu);
 		return false;
@@ -584,6 +587,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; the arcade's slowdown: when the screen is busy the board's 68000 can't finish a frame in time and the game\n"
 		"; runs slower, as on the real board (true); false: always full speed\n", file);
 	fprintf(file, "slowdown = %s\n", bool_text(s->slowdown));
+	fputs("; true: a bomb goes off by itself when a ship is about to be hit, if one is left and it will save the ship (an\n"
+		"; assist: games with it on don't count for high scores, achievements or statistics)\n", file);
+	fprintf(file, "autobomb = %s\n", bool_text(s->autobomb));
 	fputs("; the main menu (START GAME, TRAINING, SETTINGS) as the game starts; false: straight into the arcade game\n", file);
 	fprintf(file, "main_menu = %s\n\n", bool_text(s->main_menu));
 

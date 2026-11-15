@@ -60,6 +60,7 @@
 #include "own_cheats.h"
 #include "crt.h"
 #include "scaler.h"
+#include "autobomb.h"
 #include "ai_player.h"
 #include "game_mode.h"
 #include "fast_timing.h"
@@ -1507,6 +1508,8 @@ int main(int argc, char **argv)
 					cave_board.in1 = (uint16_t)~ai_player_inputs();    /* (player 2: the computer) */
 				if (options.free_play)
 					free_play_inputs();
+				if (options.autobomb)
+					autobomb_frame(!own_cheats_ai_on());    /* (the AI player bombs for itself) */
 				replay_input(cave_board.in0, cave_board.in1, options.big_hit ? REPLAY_BIG_HIT : 0u);
 				program_run_frame();
 				big_hit_frame();
@@ -1520,8 +1523,8 @@ int main(int argc, char **argv)
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
 				widgets_frame();
-				if (cheats_any_on())
-					state_loaded = true;
+				if (cheats_any_on() || options.autobomb)
+					state_loaded = true;    /* (an assist: the game doesn't count) */
 				hiscore_frame(options.save_high_scores, !state_loaded && !training_active);
 				if (hiscore_take_put_back())
 				{
@@ -1531,7 +1534,8 @@ int main(int argc, char **argv)
 				if (training_frame())
 					break;    /* (the training page is up: the game paused) */
 				/* (a new game: its scores are kept again) */
-				if (state_loaded && !cheats_any_on() && *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
+				if (state_loaded && !cheats_any_on() && !options.autobomb
+						&& *(const uint16_t *)cave_work_ram_at(0x1018ECu, 2) == 0xBu)
 				{
 					state_loaded = false;
 					hiscore_state_loaded();    /* (the table as the file has it: none of that game's scores) */

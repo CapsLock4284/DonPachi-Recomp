@@ -14,6 +14,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
   get by holding the shot into it: it lets go of the shot for one frame first, and only falls back to the laser bomb
   when the hit is too close for that.
   The side panel's settings list shows AUTOBOMB ON or OFF.
+- **donpachi.log** beside the program on Windows: the game's messages, and if it ever closes by itself, why (send it
+  with a bug report).
 
 ### Fixed
 - The statistics' BOMBS USED and BOMB ITEMS never counted, and the NO BOMBS NEEDED achievement could be earned while

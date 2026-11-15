@@ -61,6 +61,7 @@
 #include "crt.h"
 #include "scaler.h"
 #include "autobomb.h"
+#include "crash_log.h"
 #include "ai_player.h"
 #include "game_mode.h"
 #include "fast_timing.h"
@@ -1196,6 +1197,13 @@ int main(int argc, char **argv)
 	const char *problem;
 	Uint64 next, period;
 
+	{
+		/* donpachi.log beside the program (Windows: stderr; a crash written there) */
+		char log_path[1100];
+
+		snprintf(log_path, sizeof(log_path), "%sdonpachi.log", paths_folder());
+		crash_log_start(log_path);
+	}
 	/* the settings file, then the command line over it */
 	settings_defaults(&options);
 	settings_path[0] = '\0';

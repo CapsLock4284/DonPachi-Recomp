@@ -20,3 +20,4 @@ symbols - Copy*.txt
 *.hiscore
 *.eeprom
 *.dpreplay
+*.log

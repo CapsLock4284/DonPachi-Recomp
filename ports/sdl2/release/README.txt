@@ -130,6 +130,8 @@ FILES THE GAME KEEPS BESIDE THE PROGRAM
   donpachi_jpn.eeprom, donpachi_jpn.hiscore   the same for the Japanese version
   donpachi.achievements   the achievements you've earned, and when
   donpachi.stats     your lifetime statistics
+  donpachi.log       the program's messages (Windows): if the game ever closes by
+                     itself, this says why, so it helps to send it with a report
   replays\           your replays (.dpreplay files: share them, or delete the
                      ones you don't want)
 

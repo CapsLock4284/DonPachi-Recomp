@@ -27,6 +27,9 @@
    pressed one */
 bool autobomb_frame(bool player2);
 
+/* It is looking ahead now (the crash log) */
+bool autobomb_looking(void);
+
 /* Forgets a bomb it planned for the next frame (a save state loaded, the game reset) */
 void autobomb_reset(void);
 

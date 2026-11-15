@@ -76,6 +76,16 @@ static jmp_buf frame_registers;
 static uintptr_t stack_top;        /* (run_program's frame: the game task's stack is below it) */
 static uintptr_t stack_bottom;     /* (next_frame's, at the frame just handed over: a little below its locals) */
 static const program_state *state_pending;
+static bool pending_freed;          /* program_state_free had the pending state: freed once it is put back (or dropped) */
+
+/* the pending state let go of (another loaded, or none: a reset, a program switched): freed if its owner had freed it */
+static void drop_pending(void)
+{
+	if (state_pending && pending_freed)
+		free((void *)state_pending);
+	state_pending = NULL;
+	pending_freed = false;
+}
 #define STACK_MARGIN 512u          /* below next_frame's locals: its own frame, wherever the compiler puts it */
 
 struct program_state
@@ -438,6 +448,12 @@ static NOINLINE void restore_state(void)
 	state_pending = NULL;
 	memcpy((void *)state->bottom, state->stack, state->stack_size);
 	memcpy(frame_registers, state->registers, sizeof(jmp_buf));
+	if (pending_freed)
+	{
+		/* (its owner freed it before it was put back: now it has been, all of it copied out) */
+		pending_freed = false;
+		free((void *)state);
+	}
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
 	/* (straight back to the registers, as the frames there are the state's, not those the C unwinds from here) */
 	((_JUMP_BUFFER *)&frame_registers)->Frame = 0;
@@ -549,11 +565,20 @@ void program_state_load(const program_state *state)
 	waiting = state->waiting;
 	lagged = false;
 	reset_pending = false;
+	if (state != state_pending)
+		drop_pending();
 	state_pending = state;
 }
 
 void program_state_free(program_state *state)
 {
+	/* (a state loaded but not yet put back, at the next frame: freed then; freeing it now would leave the next frame
+	   copying freed memory: a crash on Windows, where the heap gives it back sooner) */
+	if (state && state == state_pending)
+	{
+		pending_freed = true;
+		return;
+	}
 	free(state);
 }
 
@@ -591,7 +616,7 @@ const char *program_switch(void)
 		return problem;
 	cave_board.program = rom_set.program;
 	memcpy(cave_board.eeprom.words, rom_set.eeprom, sizeof(cave_board.eeprom.words));
-	state_pending = NULL;
+	drop_pending();
 	program_reset();    /* (the game task starts again from the reset, at the new program's entry) */
 	return NULL;
 }

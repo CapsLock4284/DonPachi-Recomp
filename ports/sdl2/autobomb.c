@@ -80,6 +80,7 @@ static void run_ahead(int frames, int plan_for, int let_go, int bomb_at, int sho
 		*laser = laser_bomb();
 }
 
+static bool looking;       /* in its look ahead (crash_log.c) */
 static bool pending[2];    /* the shot let go last frame: the bomb this one (a normal bomb, not the laser's) */
 static unsigned set_off, set_off_laser;
 
@@ -122,6 +123,7 @@ bool autobomb_frame(bool player2)
 		if (!now)
 			return pressed;
 		program_after_vblank = NULL;    /* (nothing drawn while it looks ahead) */
+		looking = true;
 		run_ahead(AUTOBOMB_AHEAD, -1, 0, 0, shot_down, NULL);
 		program_state_load(now);
 		for (int player = 0; player < players; player++)
@@ -166,6 +168,7 @@ bool autobomb_frame(bool player2)
 			}
 		}
 		program_after_vblank = after_vblank;
+		looking = false;
 		program_state_free(now);
 	}
 	return pressed;
@@ -174,6 +177,11 @@ bool autobomb_frame(bool player2)
 void autobomb_reset(void)
 {
 	pending[0] = pending[1] = false;
+}
+
+bool autobomb_looking(void)
+{
+	return looking;
 }
 
 unsigned autobomb_count(void)

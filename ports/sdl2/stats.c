@@ -66,11 +66,6 @@ static unsigned word(uint32_t address)
 	return *(const uint16_t *)cave_work_ram_at(address, 2);
 }
 
-static unsigned byte(uint32_t address)
-{
-	return *cave_work_ram_byte(address);
-}
-
 static uint32_t bcd_long(uint32_t address)
 {
 	const uint32_t bcd = (uint32_t)word(address) << 16 | word(address + 2u);
@@ -249,7 +244,7 @@ void stats_frame(bool counts, unsigned defeats)
 		{
 			game.last_lives[player] = word(0x101A2Eu + 2u * (unsigned)player);
 			game.last_bees[player] = word(0x10379Au + 4u * (unsigned)player);
-			game.last_bombs[player] = byte(records[player] + 0x22u);
+			game.last_bombs[player] = word(records[player] + 0x22u);
 			game.last_power[player] = power_ups(player);
 			game.last_flying[player] = flying(player);
 		}
@@ -298,7 +293,7 @@ void stats_frame(bool counts, unsigned defeats)
 		{
 			const unsigned lives = word(0x101A2Eu + 2u * (unsigned)player);
 			const unsigned bees = word(0x10379Au + 4u * (unsigned)player);
-			const unsigned bombs = byte(records[player] + 0x22u);
+			const unsigned bombs = word(records[player] + 0x22u);
 			const unsigned power = power_ups(player);
 			const unsigned hits = word(0x10174Eu + 0x1Eu * (unsigned)player);
 			const uint32_t score = bcd_long(0x10177Au + 4u * (unsigned)player);

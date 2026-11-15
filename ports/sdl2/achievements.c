@@ -336,7 +336,7 @@ void achievements_frame(bool counts)
 		{
 			const unsigned lives = word(0x101A2Eu + 2u * (unsigned)player);
 			const unsigned bees = word(0x10379Au + 4u * (unsigned)player);
-			const unsigned bombs = byte(records[player] + 0x22u);
+			const unsigned bombs = word(records[player] + 0x22u);
 
 			if (game.last_mode == 7u)
 			{

@@ -217,6 +217,7 @@ static void hotkeys(void)
 			free_play_reset();
 			hiscore_reset();
 			ai_player_reset();
+			autobomb_reset();
 			big_hit_set = false;
 			training_active = false;
 			service_held = hotkey == HOTKEY_SERVICE_MENU ? SERVICE_MENU_FRAMES : 0;
@@ -732,6 +733,7 @@ static void menu_reset(bool service_menu)
 	free_play_reset();
 	hiscore_reset();
 	ai_player_reset();
+	autobomb_reset();
 	big_hit_set = false;
 	training_active = false;
 	service_held = service_menu ? SERVICE_MENU_FRAMES : 0;
@@ -895,6 +897,7 @@ static void state_put_back(const program_state *state, const void *panels)
 {
 	program_state_load(state);
 	ai_player_reset();
+	autobomb_reset();
 	replay_taint();    /* (not a replay: the inputs before it are not this game's) */
 	widgets_state_load(panels);
 	free_play_reset();

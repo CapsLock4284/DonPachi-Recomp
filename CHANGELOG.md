@@ -10,7 +10,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **Autobomb** (GAME OPTIONS > AUTOBOMB, off by default): when your ship is about to be hit, a bomb goes off by
   itself, as in many newer shooters. It only fires if you have a bomb left and the bomb will really save you: the
   game looks a few frames ahead each frame to check. It is an assist, so games played with it on don't count for
-  high scores, achievements or statistics. Replays keep its bombs.
+  high scores, achievements or statistics. Replays keep its bombs. It sets off a normal bomb, not the laser bomb you
+  get by holding the shot into it: it lets go of the shot for one frame first, and only falls back to the laser bomb
+  when the hit is too close for that.
 
 ### Fixed
 - The statistics' BOMBS USED and BOMB ITEMS never counted, and the NO BOMBS NEEDED achievement could be earned while

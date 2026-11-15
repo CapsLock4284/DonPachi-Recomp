@@ -19,6 +19,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - The statistics' BOMBS USED and BOMB ITEMS never counted, and the NO BOMBS NEEDED achievement could be earned while
   bombing: the bomb count was read from the wrong half of its memory word.
 
+### Behind the scenes
+- 158 more names in the decompiled code: the routine of each of the game's 167 object types (enemies, their parts and
+  effects), named after its type and the areas it was seen in, with the three already known (the heavy planes, the
+  hover boat, the extend building); and the enemies' parts' script commands, by what each does. The game itself is
+  unchanged.
+
 ## v0.8.0 (2026-11-14)
 
 ### New

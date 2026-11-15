@@ -609,21 +609,42 @@
 # read at 027E26: 9 entries
 027E2C  data  jump_table_027E2C  record=4 count=9 code=0
 
-# ======== the second script interpreter (animation commands), read from the listing ========
-# 013596-0135C6: a timer at +10 of the object counts down; at zero the next word is read through the pointer at +14. A
-# positive word is a new timer (and a value stored at +4); a negative one is a command, number = bits 1-4 of the word
-# (0135B6 "lea $136de.l, A3", "andi.w #$1e, D1", "jsr (A3,D1.w)"). Commands 10-15 all go to 013790
-01371E  func  anim_command_00
-013724  func  anim_command_01
-01372C  func  anim_command_02
-013742  func  anim_command_03
-013756  func  anim_command_04
-01375C  func  anim_command_05
-013762  func  anim_command_06
-013774  func  anim_command_07
-01377C  func  anim_command_08
-013786  func  anim_command_09
-013790  func  anim_command_none
+# ======== the second script interpreter: the enemies' parts' commands (run_part), read from the listing ========
+# 013596-0135C6: a timer at +10 of the part counts down; at zero the next word is read through the pointer at +14. A
+# positive word is a new timer (and the part's sprite, stored at +4); a negative one is a command, number = bits 1-4 of
+# the word (0135B6 "lea $136de.l, A3", "andi.w #$1e, D1", "jsr (A3,D1.w)"), through a table of 16 branches (0136DE-
+# 01371D, part_cmd_jump_00-0F). Commands 10-15 all go to 013790. Named 14-11-2026 from what each does to the part's
+# record: +0 bit 0 alive (cleared: the part ends, or starts again if +1 bit 7), +1 bit 5 moving (+1A speed, +1B way),
+# +6 / +8 its place (up the picture / across it: +8 the other way round when +3 bit 2 mirrors the part); the
+# command's operands follow it in the script
+# the 16 branches of the table (bra.w, 4 bytes each), one a command
+0136DE  func  part_cmd_jump_00
+0136E2  func  part_cmd_jump_01
+0136E6  func  part_cmd_jump_02
+0136EA  func  part_cmd_jump_03
+0136EE  func  part_cmd_jump_04
+0136F2  func  part_cmd_jump_05
+0136F6  func  part_cmd_jump_06
+0136FA  func  part_cmd_jump_07
+0136FE  func  part_cmd_jump_08
+013702  func  part_cmd_jump_09
+013706  func  part_cmd_jump_0A
+01370A  func  part_cmd_jump_0B
+01370E  func  part_cmd_jump_0C
+013712  func  part_cmd_jump_0D
+013716  func  part_cmd_jump_0E
+01371A  func  part_cmd_jump_0F
+01371E  func  part_cmd_end  # the part ends: +0 bit 0 cleared
+013724  func  part_cmd_toggle_moving  # +1 bit 5: moving (by +1A, +1B) or not
+01372C  func  part_cmd_set_02  # +2 (byte) from the operand's high byte (not always: on bits 1-2 of D0)
+013742  func  part_cmd_set_03  # +3 (byte: bit 2 mirrored) from the operand's low byte (not always: on bits 0-2 of D0)
+013756  func  part_cmd_set_0A  # +A (word) from the operand
+01375C  func  part_cmd_set_0C  # +C (long) from the operand
+013762  func  part_cmd_move_across  # +8 moved by the operand (the other way when mirrored)
+013774  func  part_cmd_move_up  # +6 moved by the operand
+01377C  func  part_cmd_set_word  # a word of the part's record (offset, value)
+013786  func  part_cmd_set_byte  # a byte of the part's record (offset, value)
+013790  func  part_cmd_nop  # commands 10-15: nothing
 
 # 013674-01368C: two bits of the word at +2 of the object (bits 4-5) pick one of four jmp stubs of 6 bytes
 # ("lea $13692.l, A3", "jmp (A3,D1.w)"). Two of them go to the same place
@@ -977,3 +998,143 @@
 # at 0136DE, a positive one the next timer and the part's sprite, +4), its movement (+1A speed, +1B way:
 # move_by_angle), its hit points (+18)
 013586  func  run_part
+
+# ======== more names (14-11-2026): the object types' routines ========
+# object_types (01275E) gives each of the 167 types the routine its objects' task runs each frame (+4 of its record):
+# 138 routines, some shared by several types. Each is named after its (first) type, in hex as the object's +C byte
+# has it; three are known (the achievements': $13 the heavy planes, $14 the hover boat, $70 the extend building).
+# "Seen": the types in use in each area of the first loop (training to its start, the simple player with its shield
+# on, 12,000 frames: areas 6-10 bring the same); types not seen there come later in the area, in the second loop,
+# with the bosses' parts, or not at all
+00D1CE  func  object_type_17  # type $17
+00D2B4  func  object_type_04  # types $04, $05, $06, $07; seen in areas 1, 3, 4
+00D61C  func  object_type_08  # types $08, $09; seen in area 3
+00D902  func  object_type_0A  # type $0A
+00DBF6  func  object_type_4B  # types $4B, $7C
+00DD0C  func  object_type_0B  # type $0B; seen in areas 1, 5
+00DFCE  func  object_type_0D  # type $0D
+00E322  func  object_type_0E  # type $0E; seen in area 5
+00E6E0  func  object_type_0F  # type $0F; seen in area 3
+00ECEA  func  object_type_10  # type $10; seen in area 1
+00F156  func  object_type_11  # type $11; seen in areas 1, 2, 3, 4, 5
+00F592  func  object_type_12  # type $12; seen in area 3
+00FB78  func  object_type_13_heavy_plane  # type $13; seen in area 2
+01025C  func  object_type_14_hover_boat  # type $14; seen in area 3
+010580  func  object_type_15  # type $15; seen in area 3
+01092E  func  object_type_16  # type $16; seen in areas 1, 2, 3, 4, 5
+01148C  func  object_type_32  # type $32
+0116B4  func  object_type_55  # type $55; seen in area 4
+0117A0  func  object_type_5C  # type $5C; seen in area 2
+0117EE  func  object_type_5D  # type $5D
+011974  func  object_type_5E  # type $5E; seen in area 4
+011B48  func  object_type_1E  # type $1E; seen in area 4
+011B82  func  object_type_5F  # type $5F; seen in areas 3, 5
+011D8C  func  object_type_60  # type $60; seen in area 3
+011ECC  func  object_type_6B  # type $6B
+012056  func  object_type_7D  # type $7D
+0121DC  func  object_type_7E  # type $7E; seen in area 5
+012338  func  object_type_8C  # type $8C
+0123BE  func  object_type_97  # type $97; seen in area 5
+013A66  func  object_type_02  # types $02, $26, $27, $28, $29; seen in areas 3, 4
+013E1E  func  object_type_01  # type $01
+014024  func  object_type_03  # type $03; seen in area 3
+0142B0  func  object_type_18  # type $18; seen in areas 1, 2, 3, 4, 5
+014574  func  object_type_19  # type $19; seen in areas 2, 4
+0147B6  func  object_type_1A  # type $1A
+014BF4  func  object_type_1B  # type $1B; seen in areas 2, 4
+0153AA  func  object_type_1C  # type $1C
+015BA2  func  object_type_1D  # type $1D; seen in area 2
+016756  func  object_type_22  # type $22
+016920  func  object_type_23  # type $23; seen in area 1
+016A38  func  object_type_24  # type $24; seen in area 3
+016B90  func  object_type_20  # type $20; seen in area 4
+0170BA  func  object_type_21  # type $21; seen in area 3
+017394  func  object_type_2A  # type $2A
+017486  func  object_type_2B  # types $2B, $2C, $2D, $2E; seen in areas 1, 3
+0176E4  func  object_type_31  # type $31
+017AF4  func  object_type_33  # type $33; seen in areas 3, 4, 5
+017B3E  func  object_type_34  # type $34; seen in area 3
+017DD0  func  object_type_35  # type $35; seen in area 3
+018216  func  object_type_36  # type $36; seen in area 1
+018590  func  object_type_37  # types $37, $63; seen in areas 2, 4
+018912  func  object_type_38  # type $38; seen in areas 1, 3
+018BD6  func  object_type_39  # type $39; seen in area 1
+019164  func  object_type_3C  # type $3C
+0194A8  func  object_type_3D  # types $3D, $92, $93, $96; seen in areas 3, 5
+019A64  func  object_type_41  # type $41
+01A668  func  object_type_43  # type $43
+01B17A  func  object_type_45  # type $45; seen in areas 1, 2, 3
+01B1EC  func  object_type_46  # type $46
+01B2BE  func  object_type_47  # type $47; seen in area 3
+01B47A  func  object_type_48  # type $48; seen in area 3
+01B4E6  func  object_type_49  # type $49; seen in areas 2, 3
+01B6EE  func  object_type_4C  # type $4C; seen in area 5
+01BA3A  func  object_type_50  # type $50
+01BABC  func  object_type_51  # type $51; seen in area 4
+01BC62  func  object_type_52  # type $52; seen in area 4
+01BF3C  func  object_type_53  # type $53; seen in area 4
+01C31C  func  object_type_54  # type $54; seen in area 3
+01C604  func  object_type_44  # type $44; seen in area 2
+01C91E  func  object_type_56  # types $56, $6C, $6D; seen in areas 2, 3
+01CB68  func  object_type_62  # type $62
+01CDAC  func  object_type_1F  # type $1F
+01CF9E  func  object_type_7F  # type $7F; seen in area 4
+01D2E2  func  object_type_80  # type $80; seen in area 5
+01D810  func  object_type_81  # type $81; seen in area 5
+01DB16  func  object_type_82  # type $82
+01DD00  func  object_type_83  # type $83
+01DDE8  func  object_type_84  # type $84; seen in area 5
+01DEF6  func  object_type_85  # type $85
+01E090  func  object_type_86  # type $86
+01E258  func  object_type_87  # type $87
+01E6A2  func  object_type_8A  # type $8A; seen in area 4
+01EE20  func  object_type_8D  # type $8D; seen in area 1
+01F620  func  object_type_8E  # type $8E; seen in area 5
+01FEAC  func  object_type_9F  # type $9F
+01FFCE  func  object_type_88  # type $88; seen in area 5
+020276  func  object_type_9C  # type $9C
+0203A8  func  object_type_9D  # type $9D
+0205B0  func  object_type_9E  # type $9E
+02075E  func  object_type_25  # type $25
+022D4E  func  object_type_42  # type $42; seen in area 1
+023046  func  object_type_4F  # type $4F
+023146  func  object_type_5A  # type $5A; seen in area 3
+02333E  func  object_type_68  # type $68
+023556  func  object_type_64  # types $64, $72; seen in areas 3, 4
+023806  func  object_type_65  # type $65
+023C32  func  object_type_66  # type $66
+023D50  func  object_type_69  # type $69
+0258D4  func  object_type_3B  # type $3B
+026886  func  object_type_3F  # type $3F
+02697E  func  object_type_40  # type $40
+026AD8  func  object_type_61  # type $61; seen in area 3
+0284E8  func  object_type_5B  # type $5B
+02868A  func  object_type_67  # type $67
+037318  func  object_type_2F  # type $2F; seen in area 3
+0385B2  func  object_type_3E  # type $3E; seen in areas 1, 2, 3
+038D36  func  object_type_4D  # type $4D; seen in areas 2, 4
+03A39E  func  object_type_58  # type $58
+03A7C0  func  object_type_59  # type $59; seen in area 3
+03BF68  func  object_type_4E  # type $4E
+03C2F0  func  object_type_76  # type $76; seen in area 4
+03C68E  func  object_type_95  # type $95; seen in area 5
+03C804  func  object_type_77  # type $77
+03CA5A  func  object_type_78  # type $78; seen in area 5
+03CC62  func  object_type_79  # type $79; seen in area 5
+03CEB0  func  object_type_7A  # type $7A
+03DEE8  func  object_type_9B  # type $9B
+03F8D6  func  object_type_8B  # type $8B
+03F9B6  func  object_type_8F  # type $8F
+03FC74  func  object_type_94  # type $94; seen in area 5
+03FDC8  func  object_type_90  # type $90
+04000C  func  object_type_0C  # type $0C; seen in area 3
+040452  func  object_type_98  # type $98; seen in areas 4, 5
+040568  func  object_type_99  # type $99
+04084C  func  object_type_9A  # type $9A
+0425A6  func  object_type_73  # type $73
+042734  func  object_type_6F  # type $6F; seen in area 4
+042CC0  func  object_type_70_extend_building  # types $70, $75; seen in area 4
+043240  func  object_type_71  # types $71, $74; seen in area 4
+04347A  func  object_type_89  # type $89
+043676  func  object_type_6E  # type $6E; seen in area 2
+

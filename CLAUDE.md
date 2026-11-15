@@ -35,6 +35,18 @@ game (RAM addresses, routines); read the relevant part before starting on someth
 - **Keep `TODO.md` current:** add the owner's ideas when he gives them (marked "(owner)"), tick items off when done, with what
   was found.
 
+## Work in progress: the AI's high-score run
+
+- `tests/harness/ai_run.c` (a test tool, not in the game: the owner's choice) searches for the best run from save
+  states and saves it as a replay (`replays/`) to watch in REPLAYS. Its header has how it works, every result so far
+  and what was tried and didn't help; the code has the memory addresses (the chain, the bees, the hit records, the
+  ship's type, the scroll), area 1's 13 bees (from the shmups wiki's map) and the scroll-to-map formula.
+- `TODO.md`, the item "An AI-only run for the highest score", has each step with its result and the next steps.
+- Run (WSL, from the project folder): `TOOLS=ai_run sh tests/harness/build.sh`, then `tests/harness/bin/ai_run`;
+  `BEAM=` the plans kept (16 by default, 0 the old one-plan search), `CHAIN_W=` / `DAMAGE_W=` the worth's weights.
+- The owner's choices for it: ship type C; the laser first on high-health targets; every enemy killed, small chains
+  too; always take the bees (the laser shows them; a bomb shows them too); no cheats or help of any kind.
+
 ## Game decisions already made
 
 - Fast input timing is the default; the arcade board's timing is an option.

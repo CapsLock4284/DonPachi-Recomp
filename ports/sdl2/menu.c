@@ -93,6 +93,7 @@ enum
 	ITEM_DEBUG_TOOLS,             /* the debug tools page (from the game options): own_cheats.h's debug ones */
 	ITEM_FILTER,                  /* the pixel-art scaler over the picture (scaler.h) */
 	ITEM_AUTOBOMB,                /* a bomb set off for a ship about to be shot down (autobomb.h) */
+	ITEM_RENDERER,                /* how the picture reaches the screen (settings.h): from the next start */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -275,7 +276,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
-		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_ROTATE,
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_ROTATE,
 			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
@@ -537,6 +538,10 @@ static void change(int item, int step, bool wrap)
 	case ITEM_VSYNC:
 		in_use->vsync = file->vsync = !in_use->vsync;
 		host.apply_video();
+		break;
+	case ITEM_RENDERER:
+		in_use->renderer = file->renderer = cycle(in_use->renderer, RENDERERS, step, wrap);
+		menu_notice("USED FROM THE NEXT START");
 		break;
 	case ITEM_ROTATE:
 		in_use->rotate = file->rotate = cycle(in_use->rotate, ROTATIONS, step, wrap);
@@ -1035,6 +1040,9 @@ static const char *item_help(int item)
 			"IT HAS ITS OWN LINES (SCANLINES IS LEFT ASIDE). BEST IN FULL SCREEN.";
 	case ITEM_VSYNC:
 		return "SHOWS EACH PICTURE IN STEP WITH YOUR SCREEN: NO TEARING, MAYBE A LITTLE MORE LAG.";
+	case ITEM_RENDERER:
+		return "HOW THE PICTURE REACHES THE SCREEN. AUTO: DIRECT3D 12 ON WINDOWS, THE QUICKEST. "
+			"USED FROM THE NEXT START.";
 	case ITEM_ROTATE:
 		return "TURNS THE PICTURE FOR A SCREEN ON ITS SIDE (TATE).";
 	case ITEM_DEADZONE:
@@ -1525,7 +1533,7 @@ static const char *item_label(int item)
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
-		"FILTER", "AUTOBOMB"
+		"FILTER", "AUTOBOMB", "RENDERER"
 	};
 
 	if (is_hotkey_item(item))
@@ -1681,6 +1689,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_VSYNC:
 		snprintf(out, size, "%s", s->vsync ? "ON" : "OFF");
+		break;
+	case ITEM_RENDERER:
+		snprintf(out, size, "%s", settings_renderer_names[s->renderer]);
 		break;
 	case ITEM_ROTATE:
 		snprintf(out, size, "%s", s->rotate == ROTATE_NONE ? "OFF" : settings_rotate_names[s->rotate]);

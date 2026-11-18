@@ -156,7 +156,7 @@ The sections below: graphics options, the player features, accuracy checks, poli
   | opengl, borderless | straight to the screen | 1.4 ms | 1.5 ms |
   | **direct3d12, borderless** | straight to the screen | **1.4 ms** | 2.4 ms |
 
-  To do as DoDonPachi did: GRAPHICS > RENDERER and `[video] renderer` (auto, direct3d, direct3d11, direct3d12, opengl, software; used from the next start; `SDL_HINT_RENDER_DRIVER` before `SDL_CreateRenderer` in `ports/sdl2/main.c`, and in `rom_drop.c`'s window too), auto as direct3d12 on Windows (SDL falls back if the PC can't make it), the renderer in use written to the logs; then the same PresentMon runs on DonPachi to confirm (`PresentMon --process_name donpachi.exe --timed 20 --terminate_after_timed --output_file ...csv`, its PresentMode and MsUntilDisplayed columns), and the table in the README. With vsync off the picture can then tear (the compositor hid it): VSYNC ON stops that
+  Done (18-11-2026), as DoDonPachi did: GRAPHICS > RENDERER and `[video] renderer` (auto, direct3d, direct3d11, direct3d12, opengl, software; used from the next start; `SDL_HINT_RENDER_DRIVER` before `SDL_CreateRenderer` in `ports/sdl2/main.c`, and in `rom_drop.c`'s window too), auto as direct3d12 on Windows (SDL falls back if the PC can't make it), the renderer in use written to donpachi.log. Still to do: the same PresentMon runs on DonPachi to confirm (`PresentMon --process_name donpachi.exe --timed 20 --terminate_after_timed --output_file ...csv`, its PresentMode and MsUntilDisplayed columns), and the table in the README. With vsync off the picture can then tear (the compositor hid it): VSYNC ON stops that
 
 ## Other versions
 

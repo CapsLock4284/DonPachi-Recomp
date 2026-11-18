@@ -1271,6 +1271,19 @@ int main(int argc, char **argv)
 		fprintf(stderr, "SDL: %s\n", SDL_GetError());
 		return 1;
 	}
+	{
+		/* the renderer asked for (SDL falls back to another if it can't make it; the ROM drop screen's too). auto:
+		   on Windows Direct3D 12, which PresentMon showed reaching the screen on its own ("independent flip", 1.4 ms
+		   after the present on the owner's PC, in DoDonPachi's port); SDL's own choice there, Direct3D 9, goes
+		   through the compositor in a borderless window (27 ms) */
+		const char *driver = options.renderer > 0 ? settings_renderer_names[options.renderer] : NULL;
+#ifdef _WIN32
+		if (!driver)
+			driver = "direct3d12";
+#endif
+		if (driver)
+			SDL_SetHint(SDL_HINT_RENDER_DRIVER, driver);
+	}
 	if (options.version != DONPACHI_US && !program_has_version(options.version))
 	{
 		fprintf(stderr, "no Japanese program in this build: the US version\n");
@@ -1329,9 +1342,16 @@ int main(int argc, char **argv)
 	}
 	if (window && options.fullscreen && options.exclusive)
 		set_fullscreen();    /* (exclusive: at the desktop's mode, not the window's size) */
-	renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED) : NULL;
+	renderer = window ? SDL_CreateRenderer(window, -1,
+		options.renderer == RENDERERS - 1 ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED) : NULL;
 	if (!renderer)
 		renderer = window ? SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE) : NULL;
+	{
+		SDL_RendererInfo info;
+
+		if (renderer && SDL_GetRendererInfo(renderer, &info) == 0)
+			fprintf(stderr, "renderer %s (setting %s)\n", info.name, settings_renderer_names[options.renderer]);
+	}
 	texture = renderer ? SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
 		VIDEO_HEIGHT, VIDEO_WIDTH) : NULL;
 	for (int side = 0; side < 2 && texture; side++)

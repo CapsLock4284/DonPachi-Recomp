@@ -53,6 +53,9 @@ extern const char *const settings_scaling_names[VIDEO_SCALINGS];
 extern const char *const settings_scanline_names[4];
 extern const char *const settings_crt_names[3];
 extern const char *const settings_rotate_names[ROTATIONS];
+/* the renderers SDL can be asked for (settings_renderer_names[0], "auto": Direct3D 12 on Windows, main.c) */
+#define RENDERERS 6
+extern const char *const settings_renderer_names[RENDERERS];
 
 typedef struct
 {
@@ -96,6 +99,8 @@ typedef struct
 	int crt;                    /* the arcade monitor's look (crt.h): 0 off, 1 light, 2 full (its own lines then) */
 	int filter;                 /* the pixel-art scaler over the picture (scaler.h's SCALER_...): not with the CRT look */
 	bool vsync;
+	int renderer;               /* settings_renderer_names: 0 auto (Direct3D 12 on Windows), or the one asked for
+	                               (main.c; used from the next start) */
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
 	bool panels;                /* the side panels (widgets.h) beside the picture */
 	/* [sound] */

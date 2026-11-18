@@ -30,6 +30,8 @@ const char *const settings_scaling_names[VIDEO_SCALINGS] = { "fit", "integer", "
 const char *const settings_scanline_names[4] = { "off", "light", "medium", "heavy" };
 const char *const settings_crt_names[3] = { "off", "light", "full" };
 const char *const settings_rotate_names[ROTATIONS] = { "none", "right", "left" };
+const char *const settings_renderer_names[RENDERERS] = { "auto", "direct3d", "direct3d11", "direct3d12", "opengl",
+	"software" };
 
 static const char *const hotkey_names[HOTKEYS] = { "reset", "service_menu", "fast_forward", "save_state",
 	"load_state", "state_slot_previous", "state_slot_next" };
@@ -101,6 +103,7 @@ void settings_defaults(settings *s)
 	s->crt = 0;
 	s->filter = SCALER_OFF;
 	s->vsync = false;
+	s->renderer = 0;
 	s->rotate = ROTATE_NONE;
 	s->panels = true;
 	s->sound = true;
@@ -322,6 +325,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return (s->crt = name_of(value, settings_crt_names, 3)) >= 0 || (s->crt = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
 			return parse_bool(value, &s->vsync);
+		if (!SDL_strcasecmp(name, "renderer"))
+			return (s->renderer = name_of(value, settings_renderer_names, RENDERERS)) >= 0 || (s->renderer = 0, false);
 		if (!SDL_strcasecmp(name, "side_panels"))
 			return parse_bool(value, &s->panels);
 		if (!SDL_strcasecmp(name, "rotate"))
@@ -619,6 +624,11 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "filter = %s\n", scaler_key(s->filter));
 	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
 	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
+	fputs("; auto, direct3d (Direct3D 9), direct3d11, direct3d12, opengl or software: how the picture reaches the\n"
+		"; screen (donpachi.log names the one in use; one the PC lacks falls back to another). auto: direct3d12 on\n"
+		"; Windows, the quickest to show (about 1.5 ms after the frame is done; direct3d in a borderless window waits\n"
+		"; for Windows' compositor, about 27 ms). Used from the next start\n", file);
+	fprintf(file, "renderer = %s\n", settings_renderer_names[s->renderer]);
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);
 	fprintf(file, "rotate = %s\n", settings_rotate_names[s->rotate]);
 	fputs("; the panels beside the picture: the chain's gauge (left), the score against the #1 high score (right);\n"

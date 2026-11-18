@@ -158,6 +158,8 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
   Done (18-11-2026), as DoDonPachi did: GRAPHICS > RENDERER and `[video] renderer` (auto, direct3d, direct3d11, direct3d12, opengl, software; used from the next start; `SDL_HINT_RENDER_DRIVER` before `SDL_CreateRenderer` in `ports/sdl2/main.c`, and in `rom_drop.c`'s window too), auto as direct3d12 on Windows (SDL falls back if the PC can't make it), the renderer in use written to donpachi.log. Still to do: the same PresentMon runs on DonPachi to confirm (`PresentMon --process_name donpachi.exe --timed 20 --terminate_after_timed --output_file ...csv`, its PresentMode and MsUntilDisplayed columns), and the table in the README. With vsync off the picture can then tear (the compositor hid it): VSYNC ON stops that
 
+- [ ] **Side panels that fill the screen** (owner, 18-11-2026): the panels are a fixed 120 x 320 game pixels each, so the whole (picture, two panels, gaps: 496 x 320, about 1.55:1) is fitted to the screen's height and a wider screen is left with black at its sides (about 123 screen pixels each side at 1920 x 1080). To do as DoDonPachi's panels: the panels' width worked out from the screen's shape (at least 120; about 156 at 16:9), still at the picture's scale (nothing stretched): each widget laid out for "120 or wider" (text centred, bars and graphs to the width), the panel buffers and textures made again when the width changes (the window resized, full screen switched)
+
 ## Other versions
 
 The last step: once the US version plays and works the way it should.

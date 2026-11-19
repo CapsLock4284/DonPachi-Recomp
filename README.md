@@ -99,6 +99,27 @@ version: [CHANGELOG.md](CHANGELOG.md).
   cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
 
+## Display lag on Windows
+
+How the picture reaches the screen matters as much as the game's own timing. GRAPHICS > RENDERER (`[video] renderer`,
+used from the next start) picks it; AUTO is Direct3D 12 on Windows. Measured with PresentMon on the owner's PC
+(60 Hz monitor, vsync off, 20 seconds of play each, the first 2 seconds left out while the window took the focus):
+
+| Renderer and window | How Windows shows it | Finished frame to screen (median) | 95th percentile | Frames a second |
+|---|---|---|---|---|
+| direct3d, borderless (SDL's own choice before) | through the compositor | 27.0 ms | 34.4 ms | 57.55 |
+| direct3d11, borderless or exclusive | waits for the monitor's refresh | 10.2 ms | 17.6 ms | 54.4 (drops frames) |
+| direct3d, exclusive | straight to the screen | 2.1 ms | 2.2 ms | 57.55 |
+| opengl, borderless | straight to the screen | 1.8 ms | 1.9 ms | 57.55 |
+| **direct3d12, borderless** (the default on Windows: auto) | straight to the screen | **1.7 ms** | 2.1 ms | 57.55 |
+
+- direct3d (Direct3D 9) in a window: Windows' compositor copies each picture before it is shown.
+- direct3d11: past the compositor, but it waits for the monitor's refresh as if vsync were on, and so falls behind
+  the board's 57.55 frames a second.
+- direct3d12 and opengl: straight to the screen in borderless full screen, as quick as exclusive full screen.
+
+With vsync off the picture can tear (a line where two frames meet); VSYNC ON stops that for a little delay.
+
 ## Building from source
 
 The decompiled C isn't in the repository (it comes from the ROM), so a build makes it from your own ROM set first.

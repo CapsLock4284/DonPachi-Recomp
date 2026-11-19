@@ -15,10 +15,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   the look-up off. This release is the last one you need to download by hand: from here on the game updates itself.
 - **Less display lag on Windows** (GRAPHICS > RENDERER, `[video] renderer`): the picture now reaches the screen
   through Direct3D 12 by default. Before, SDL chose Direct3D 9, which in a borderless window waits for Windows'
-  compositor: about 27 ms from a finished frame to the screen on the owner's PC, against about 1.5 ms now (measured
-  with PresentMon in DoDonPachi's port, which shares this code). RENDERER can also pick direct3d, direct3d11,
-  opengl or software, used from the next start; `donpachi.log` names the one in use. With vsync off you may now see
-  tearing (Windows' compositor hid it); VSYNC ON stops it for a little delay.
+  compositor: 27 ms from a finished frame to the screen on the owner's PC, against 1.7 ms now (measured with
+  PresentMon; the README has the table). RENDERER can also pick direct3d, direct3d11, opengl or software, used from
+  the next start; `donpachi.log` names the one in use. With vsync off you may now see tearing (Windows' compositor
+  hid it); VSYNC ON stops it for a little delay.
 
 ### Behind the scenes
 - The board runtime (`runtime/`) is now the separate Cave68kSDK project, included as a git submodule

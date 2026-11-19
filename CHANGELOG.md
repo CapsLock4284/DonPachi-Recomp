@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.10.0 (2026-11-18)
+
 ### New
 - **Updates from inside the game**: as it starts, the game looks up the newest release on GitHub (in the
   background; the game doesn't wait). If there is one, the main menu shows **UPDATE TO V...** at its top in blue;
@@ -19,6 +23,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
   PresentMon; the README has the table). RENDERER can also pick direct3d, direct3d11, opengl or software, used from
   the next start; `donpachi.log` names the one in use. With vsync off you may now see tearing (Windows' compositor
   hid it); VSYNC ON stops it for a little delay.
+- **Faster picture drawing**: the board's picture is now drawn in about a quarter of the time (the layers in one
+  pass, the sprites clipped once), which leaves more of each frame to spare on slower PCs. The pictures are the same,
+  checked frame by frame.
 
 ### Behind the scenes
 - The board runtime (`runtime/`) is now the separate Cave68kSDK project, included as a git submodule

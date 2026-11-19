@@ -82,6 +82,7 @@ void settings_defaults(settings *s)
 	s->hitbox = false;
 	s->save_high_scores = true;
 	s->big_hit = false;
+	s->check_updates = true;
 	s->slowdown = true;
 	s->autobomb = false;
 	s->main_menu = true;
@@ -276,6 +277,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->save_high_scores);
 		if (!SDL_strcasecmp(name, "big_hit_display"))
 			return parse_bool(value, &s->big_hit);
+		if (!SDL_strcasecmp(name, "check_updates"))
+			return parse_bool(value, &s->check_updates);
 		if (!SDL_strcasecmp(name, "slowdown"))
 			return parse_bool(value, &s->slowdown);
 		if (!SDL_strcasecmp(name, "autobomb"))
@@ -589,6 +592,10 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; the game's own hidden display (Up + Left, then A + Start in a game): the GP window's HIT count in the\n"
 		"; large font all the time, and the best chain shown between chains. Cosmetic only; set without any input\n", file);
 	fprintf(file, "big_hit_display = %s\n", bool_text(s->big_hit));
+	fputs("; true (the default): the newest release looked up on GitHub as the program starts; a newer one is offered\n"
+		"; on the main menu (UPDATE TO ...), downloaded and installed only when it is chosen (this file, the scores,\n"
+		"; the replays and the ROM are kept); false: never looked up\n", file);
+	fprintf(file, "check_updates = %s\n", bool_text(s->check_updates));
 	fputs("; the arcade's slowdown: when the screen is busy the board's 68000 can't finish a frame in time and the game\n"
 		"; runs slower, as on the real board (true); false: always full speed\n", file);
 	fprintf(file, "slowdown = %s\n", bool_text(s->slowdown));

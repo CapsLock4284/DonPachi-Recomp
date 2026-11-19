@@ -16,6 +16,7 @@
 #include "stats.h"
 #include "ui_sound.h"
 #include "scaler.h"
+#include "updater.h"
 
 #include "cave/cheats.h"
 #include "own_cheats.h"
@@ -54,7 +55,8 @@
 #define STICK_DEAD   16000
 
 enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_DEBUG, PAGE_FRONT, PAGE_TRAINING,
-	PAGE_ACHIEVEMENTS, PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE };
+	PAGE_ACHIEVEMENTS, PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE,
+	PAGE_UPDATE };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -94,6 +96,8 @@ enum
 	ITEM_FILTER,                  /* the pixel-art scaler over the picture (scaler.h) */
 	ITEM_AUTOBOMB,                /* a bomb set off for a ship about to be shot down (autobomb.h) */
 	ITEM_RENDERER,                /* how the picture reaches the screen (settings.h): from the next start */
+	ITEM_UPDATE, ITEM_UPDATE_YES, ITEM_UPDATE_NO,    /* the main menu's, a newer release found (updater.h) */
+	ITEM_CHECK_UPDATES,           /* the game options': the newest release looked up as the program starts */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -108,6 +112,8 @@ static const char *const action_labels[ACTIONS] = {
 };
 
 static menu_host host;
+static bool update_found;               /* a newer release was found: UPDATE TO ... on the main menu */
+static int update_listed = -1;          /* the updater's state the page's entries were made for */
 
 static bool is_action(int item)
 {
@@ -218,13 +224,30 @@ static void build_items(void)
 		static const int front_items[] = { ITEM_VERSION, ITEM_START_GAME, ITEM_TRAINING, ITEM_REPLAYS,
 			ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_SETTINGS, ITEM_QUIT };
 
+		if (update_found)
+			items[item_count++] = ITEM_UPDATE;    /* (first: seen at once) */
 		for (size_t index = 0; index < sizeof(front_items) / sizeof(front_items[0]); index++)
 			items[item_count++] = front_items[index];
+		update_listed = update_found;
+	}
+	else if (page == PAGE_UPDATE)
+	{
+		/* (asked; while it downloads and installs, only BACK: the download goes on) */
+		const int state = updater_state();
+
+		if (state == UPDATER_AVAILABLE || state == UPDATER_FAILED)
+		{
+			items[item_count++] = ITEM_UPDATE_YES;
+			items[item_count++] = ITEM_UPDATE_NO;
+		}
+		else
+			items[item_count++] = ITEM_BACK;
+		update_listed = state;
 	}
 	else if (page == PAGE_GAME)
 	{
 		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
-			ITEM_HISCORES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
+			ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -458,6 +481,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_BIG_HIT:
 		in_use->big_hit = file->big_hit = !in_use->big_hit;
+		break;
+	case ITEM_CHECK_UPDATES:
+		in_use->check_updates = file->check_updates = !in_use->check_updates;    /* (from the next start) */
 		break;
 	case ITEM_AUTOBOMB:
 		in_use->autobomb = file->autobomb = !in_use->autobomb;
@@ -734,7 +760,27 @@ static void choose(int item)
 		save();
 		break;
 	}
+	case ITEM_UPDATE:
+		page = PAGE_UPDATE;
+		selected = 0;
+		build_items();
+		break;
+	case ITEM_UPDATE_YES:
+		updater_download();    /* (on its thread: the page shows how far it is) */
+		build_items();
+		selected = 0;
+		break;
+	case ITEM_UPDATE_NO:
 	case ITEM_BACK:
+		if (page == PAGE_UPDATE)
+		{
+			/* (back to the main menu, on UPDATE) */
+			page = PAGE_FRONT;
+			build_items();
+			for (selected = 0; selected < item_count - 1 && items[selected] != ITEM_UPDATE; selected++)
+				;
+			break;
+		}
 		if (page == PAGE_REPLAY_MENU)
 		{
 			replays_page(replay_chosen);
@@ -1099,6 +1145,11 @@ static const char *item_help(int item)
 		return "THE DIFFICULTY FOR TRAINING ONLY: THE NORMAL GAME KEEPS ITS OWN.";
 	case ITEM_BIG_HIT:
 		return "THE ARCADE'S HIDDEN LARGE HIT COUNTER, ALWAYS ON (NORMALLY A SECRET STICK COMMAND).";
+	case ITEM_CHECK_UPDATES:
+		return "LOOKS FOR A NEWER VERSION ON GITHUB AS THE GAME STARTS. IT IS OFFERED ON THE MAIN MENU, AND ONLY "
+			"INSTALLED IF YOU SAY YES. FROM THE NEXT START.";
+	case ITEM_UPDATE:
+		return "A NEWER VERSION IS OUT: DOWNLOAD AND INSTALL IT (YOU ARE ASKED FIRST).";
 	case ITEM_AUTOBOMB:
 		return "A BOMB GOES OFF BY ITSELF WHEN YOUR SHIP IS ABOUT TO BE HIT, IF YOU HAVE ONE AND IT WILL SAVE YOU. "
 			"GAMES WITH IT ON DON'T COUNT FOR HIGH SCORES, ACHIEVEMENTS OR STATISTICS.";
@@ -1394,6 +1445,27 @@ void menu_tick(void)
 	if (!open)
 		return;
 	blink++;
+	if (updater_state() == UPDATER_AVAILABLE)
+		update_found = true;
+	if (page == PAGE_FRONT && update_listed != update_found)
+	{
+		/* (the check has found a newer release while the main menu was up: its entry added, the choice kept) */
+		const int was = items[selected];
+
+		build_items();
+		for (selected = 0; selected < item_count - 1 && items[selected] != was; selected++)
+			;
+	}
+	if (page == PAGE_UPDATE)
+	{
+		if (updater_state() == UPDATER_READY && host.install_update)
+			host.install_update();    /* (the files put in place and the program closed to start again, or FAILED) */
+		if (update_listed != updater_state())
+		{
+			build_items();
+			selected = 0;
+		}
+	}
 	if (capture >= 0)
 	{
 		if (--capture_frames <= 0)
@@ -1533,7 +1605,7 @@ static const char *item_label(int item)
 		"AREA", "START AT", "SHIP", "POWER", "RETRY ON MISS", "START TRAINING", "BOMBS", "TRAINING MENU", "HITBOX", "DIFFICULTY", "DIFFICULTY", "BIG HIT DISPLAY", "VERSION: USA", "ACHIEVEMENTS",
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
-		"FILTER", "AUTOBOMB", "RENDERER"
+		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES"
 	};
 
 	if (is_hotkey_item(item))
@@ -1563,6 +1635,15 @@ static const char *item_label(int item)
 		return achievements_name(item - ITEM_ACHIEVEMENT);
 	if (item == ITEM_VERSION && host.version && host.version() == 1)
 		return "VERSION: JAPAN";
+	if (item == ITEM_UPDATE)
+	{
+		static char label[40];
+
+		snprintf(label, sizeof(label), "UPDATE TO V%s", updater_latest());
+		return label;
+	}
+	if (item == ITEM_UPDATE_YES && updater_state() == UPDATER_FAILED)
+		return "TRY AGAIN";
 	return is_action(item) ? action_labels[item - ITEM_ACTION] : labels[item];
 }
 
@@ -1581,6 +1662,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_HISCORES:
 		snprintf(out, size, "%s", s->save_high_scores ? "ON" : "OFF");
+		break;
+	case ITEM_CHECK_UPDATES:
+		snprintf(out, size, "%s", s->check_updates ? "ON" : "OFF");
 		break;
 	case ITEM_BIG_HIT:
 		snprintf(out, size, "%s", s->big_hit ? "ON" : "OFF");
@@ -1743,14 +1827,14 @@ static void draw_front(uint32_t *out)
 	{
 		const bool chosen = index == selected;
 		const char *const label = item_label(items[index]);
-		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 128 + index * 19;
+		const int x = (PICTURE_W - (int)strlen(label) * 8) / 2, y = 128 + index * (item_count > 8 ? 16 : 19);
 
 		if (chosen)
 		{
 			put_glyph(out, x - 16, y, '>', GOLD, 1);
 			put_glyph(out, x + ((int)strlen(label) + 1) * 8, y, '<', GOLD, 1);
 		}
-		put_centre_y(out, y, label, chosen ? GOLD : WHITE);
+		put_centre_y(out, y, label, chosen ? GOLD : items[index] == ITEM_UPDATE ? CYAN : WHITE);
 	}
 	if (front_message > 0)
 	{
@@ -2010,6 +2094,66 @@ static void draw_replay_pages(uint32_t *out)
 	put_hints(out, "A: CHOOSE", "B: BACK");
 }
 
+/* the update's page: the versions, and what is asked or how far it is */
+static void draw_update(uint32_t *out)
+{
+	const int state = updater_state();
+	char line[64];
+	int y = (PANEL_TOP + 3) * 8;
+
+	put_centre(out, PANEL_TOP + 1, "UPDATE", GOLD);
+	snprintf(line, sizeof(line), "V%s  >  V%s", DONPACHI_VERSION, updater_latest());
+	put_centre_y(out, y, line, WHITE);
+	y += 24;
+	if (state == UPDATER_AVAILABLE)
+	{
+		put_centre_y(out, y, "DOWNLOAD AND INSTALL IT?", WHITE);
+		put_centre_y(out, y += 16, "THE GAME STARTS AGAIN", GREY);
+		put_centre_y(out, y += 16, "SETTINGS, SCORES, REPLAYS", GREY);
+		put_centre_y(out, y += 12, "AND THE ROM ARE KEPT", GREY);
+		put_centre_y(out, y += 16, "(NOTES: GITHUB RELEASES)", GREY);
+	}
+	else if (state == UPDATER_DOWNLOADING || state == UPDATER_READY)
+	{
+		const int percent = state == UPDATER_READY ? 100 : updater_progress();
+		const int left = PANEL_LEFT * 8 + 24, right = (PANEL_RIGHT + 1) * 8 - 24;
+
+		snprintf(line, sizeof(line), state == UPDATER_READY ? "INSTALLING..." : "DOWNLOADING  %d%%", percent);
+		put_centre_y(out, y, line, CYAN);
+		y += 20;
+		fill(out, left, y, right, y + 8, 0x2A2A44u);
+		fill(out, left, y, left + (right - left) * percent / 100, y + 8, GOLD);
+	}
+	else if (state == UPDATER_FAILED)
+	{
+		/* (why, in capitals, broken into lines of the panel's width) */
+		const char *why = updater_problem();
+
+		put_centre_y(out, y, "IT DID NOT WORK:", RED);
+		for (y += 16; *why && y < (PANEL_TOP + 16) * 8; y += 12)
+		{
+			size_t length = strlen(why), cut = length;
+
+			if (length > 26)
+			{
+				for (cut = 26; cut > 0 && why[cut] != ' '; cut--)
+					;
+				if (cut == 0)
+					cut = 26;
+			}
+			for (size_t at = 0; at < cut; at++)
+				line[at] = (char)toupper((unsigned char)why[at]);
+			line[cut] = '\0';
+			put_centre_y(out, y, line, WHITE);
+			why += cut;
+			while (*why == ' ')
+				why++;
+		}
+	}
+	draw_item_rows(out, (PANEL_TOP + 18) * 8);
+	put_hints(out, "A: CHOOSE", "B: BACK");
+}
+
 void menu_draw(const uint32_t *game, uint32_t *out)
 {
 	if (training_pending > 0 && --training_pending == 0)
@@ -2065,6 +2209,11 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else if (page == PAGE_REPLAY_MENU || page == PAGE_RENAME || page == PAGE_DELETE)
 	{
 		draw_replay_pages(out);
+		return;
+	}
+	else if (page == PAGE_UPDATE)
+	{
+		draw_update(out);
 		return;
 	}
 	else if (page == PAGE_SAVE_REPLAY)

@@ -99,6 +99,10 @@ FEATURES
   - Lifetime statistics (main menu > STATISTICS): games, play time, clears,
     bosses, deaths, bombs, bees, best chain and scores, per ship and per area
     (arcade games only, as the achievements)
+  - Updates: as it starts, the game looks for a newer release on GitHub. If
+    there is one, UPDATE TO V... shows at the top of the main menu: it asks
+    first, then downloads it, checks it and starts the game again. Your files
+    below are kept. GAME OPTIONS > CHECK FOR UPDATES turns the look-up off
 
 
 CHEATS
@@ -134,6 +138,8 @@ FILES THE GAME KEEPS BESIDE THE PROGRAM
                      itself, this says why, so it helps to send it with a report
   replays\           your replays (.dpreplay files: share them, or delete the
                      ones you don't want)
+  *.old, update_old.txt   left by an update for a moment: the program's old
+                     files, deleted when the game next starts
 
 Keep these if you move the game to another folder or computer. Don't share
 donpachi_usa.dat or donpachi_jpn.dat: they are the contents of the ROM sets.

@@ -7,6 +7,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 ## Unreleased
 
 ### New
+- **Updates from inside the game**: as it starts, the game looks up the newest release on GitHub (in the
+  background; the game doesn't wait). If there is one, the main menu shows **UPDATE TO V...** at its top in blue;
+  choosing it asks first, then downloads the release (checked against the SHA-256 GitHub publishes for it), puts
+  the new files in place and starts the game again. Your settings, high scores, replays, achievements, statistics
+  and the extracted ROM data are kept. GAME OPTIONS > CHECK FOR UPDATES (`check_updates` in `donpachi.ini`) turns
+  the look-up off. This release is the last one you need to download by hand: from here on the game updates itself.
 - **Less display lag on Windows** (GRAPHICS > RENDERER, `[video] renderer`): the picture now reaches the screen
   through Direct3D 12 by default. Before, SDL chose Direct3D 9, which in a borderless window waits for Windows'
   compositor: about 27 ms from a finished frame to the screen on the owner's PC, against about 1.5 ms now (measured

@@ -47,6 +47,8 @@ typedef struct
 	void (*save_training_replay)(void);    /* a training game's SAVE REPLAY */
 	int (*version)(void);              /* the game's version: 0 the US one, 1 the Japanese one (rom_set.h) */
 	bool (*set_version)(int version);  /* the game to that version, from its reset: false if it could not be */
+	void (*install_update)(void);      /* the update downloaded (updater.h): installed and the program closed to
+	                                      start again, or updater_state() FAILED (the menu says why) */
 } menu_host;
 
 void menu_init(const menu_host *host);

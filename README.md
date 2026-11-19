@@ -68,6 +68,10 @@ it in a `cheats` folder beside the program, as `cheats/donpachi.xml`; its cheats
 The Cheats page also has **AI PLAYER 2**, and Game Options > **Debug Tools** brings back the developers' own debug
 mode and RAM editor, still in the arcade program (the page lists their controls).
 
+**Updates:** from version 0.10.0 on, the game looks up the newest release as it starts and offers it on the main
+menu (UPDATE TO V...): it asks first, then downloads it, checks it and starts again, keeping your settings, scores,
+replays and the ROM data. GAME OPTIONS > CHECK FOR UPDATES turns the look-up off.
+
 The release's `README.txt` has the controls, hotkeys and the list of files the game keeps. What's new in each
 version: [CHANGELOG.md](CHANGELOG.md).
 

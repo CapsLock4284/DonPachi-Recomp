@@ -76,6 +76,7 @@
 #include "rom_drop.h"
 #include "hitbox.h"
 #include "training.h"
+#include "updater.h"
 #include "replay.h"
 #include "stats.h"
 #include "ui_sound.h"
@@ -1186,6 +1187,30 @@ static void menu_quit(void)
 	running = 0;
 }
 
+/* ---- the update (updater.h) ---- */
+
+/* the releases' repository on GitHub, and the end of the package's name for this system (tools/make_release.ps1) */
+#ifndef UPDATE_REPOSITORY
+#define UPDATE_REPOSITORY "CapsLock4284/DonPachi-Recomp"
+#endif
+#ifdef _WIN32
+#define UPDATE_PACKAGE "-win64.zip"
+#else
+#define UPDATE_PACKAGE "-linux-x64.tar.gz"
+#endif
+
+static bool update_restart;             /* installed: the new program started as this one closes */
+
+/* the update downloaded: its files put in place and the program closed to start again (or the menu says why not) */
+static void menu_install_update(void)
+{
+	if (updater_install())
+	{
+		update_restart = true;
+		running = 0;    /* (the files saved as the program closes, then the new one started) */
+	}
+}
+
 #define CHEATS_MAX 16
 
 int main(int argc, char **argv)
@@ -1314,6 +1339,20 @@ int main(int argc, char **argv)
 	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
 	hiscores_open();
 	{
+		/* the files an update left (.old) deleted; the newest release looked up (on its thread: the game goes on) */
+		char *const base = SDL_GetBasePath();
+
+		if (base)
+		{
+			updater_cleanup(base);
+#ifdef DONPACHI_VERSION
+			if (options.check_updates)
+				updater_check(base, UPDATE_REPOSITORY, UPDATE_PACKAGE, DONPACHI_VERSION);
+#endif
+			SDL_free(base);
+		}
+	}
+	{
 		char path[1024];
 
 		snprintf(path, sizeof(path), "%sdonpachi.achievements", paths_folder());
@@ -1393,6 +1432,7 @@ int main(int argc, char **argv)
 		menu.save_training_replay = menu_save_training_replay;
 		menu.version = menu_version;
 		menu.set_version = switch_version;
+		menu.install_update = menu_install_update;
 		menu_init(&menu);
 		if (options.main_menu)
 			menu_open_front();
@@ -1626,5 +1666,7 @@ int main(int argc, char **argv)
 		SDL_CloseAudioDevice(audio);
 	scaler_quit();
 	SDL_Quit();
+	if (update_restart && !updater_restart(argv))
+		fprintf(stderr, "updated: the new program could not be started, start it again\n");
 	return 0;
 }

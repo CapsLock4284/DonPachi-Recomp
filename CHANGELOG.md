@@ -11,6 +11,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   pixel in a small green cross. The game tests a bullet only by that point, the middle of its sprite, so a bullet
   hits you only when its point gets inside your hitbox, however big it looks: with HITBOX on you see exactly what
   can hit you. Drawn over the picture only; the game is not changed.
+- **Both versions from the first run**: a merged `donpachi.zip` (with the Japanese set's files in it) or `donpachij.zip`
+  beside it now gives the Japanese version's data on the first run too, nothing more asked; and when the first run's
+  window has read `donpachi.zip`, it asks for `donpachij.zip` as well (Enter or a click skips it). So choosing JAPAN on
+  the main menu no longer opens a window over it, unless the Japanese set was skipped.
 
 ## v0.11.0 (2026-11-20)
 

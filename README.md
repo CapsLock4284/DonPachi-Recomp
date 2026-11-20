@@ -56,8 +56,10 @@ It's on by default. GAME OPTIONS > SLOWDOWN turns it off if you'd rather play at
    (`donpachi_usa.dat`, beside the program); after that the .zip isn't needed. Merged and non-merged MAME sets both work.
 
 **The Japanese version:** VERSION on the main menu switches to the original Japanese release (MAME's `donpachij`,
-Ver. 1.01, with its smaller hitbox). The first time it needs `donpachij.zip` (beside `donpachi.zip` in the `rom` folder,
-or dropped on the window that asks); it is extracted to `donpachi_jpn.dat`. Each version keeps its own high scores and
+Ver. 1.01, with its smaller hitbox). Its data is taken on the first run with the US one when the set is there: a
+merged `donpachi.zip` (with donpachij's files in it) or `donpachij.zip` beside it in the `rom` folder; the first run's
+window, after the US set, asks for `donpachij.zip` too (or skip it). Otherwise choosing it the first time asks for
+`donpachij.zip` (dropped on the window that asks). It is extracted to `donpachi_jpn.dat`. Each version keeps its own high scores and
 arcade settings; achievements and statistics are shared. To build it in, decompile it too:
 `python tools/decompile.py --set japan` (writes `src_jpn/`), then build as usual.
 

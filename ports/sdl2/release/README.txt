@@ -34,9 +34,11 @@ Then, on both:
 
 THE JAPANESE VERSION
 The game also has the original Japanese release (MAME's donpachij, Ver. 1.01),
-with its smaller hitbox. Choose VERSION on the main menu. The first time, it
-needs MAME's donpachij.zip: put it beside donpachi.zip in the rom folder, or
-drag it onto the window that asks for it. It is saved as donpachi_jpn.dat and
+with its smaller hitbox. Choose VERSION on the main menu. Its data is taken on
+the first run along with the US one if you have it: a merged donpachi.zip, or
+donpachij.zip beside donpachi.zip in the rom folder, or dropped on the first
+run's window after donpachi.zip (or skipped there). Otherwise the first time you
+choose it, it asks for MAME's donpachij.zip: drag it onto the window that asks. It is saved as donpachi_jpn.dat and
 the .zip isn't needed after that. Each version keeps its own high scores and
 arcade settings; the achievements and statistics are shared. Replays remember
 their version and switch to it when you watch them. The game starts in the

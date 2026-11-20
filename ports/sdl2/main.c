@@ -300,13 +300,24 @@ static const char *const data_files[DONPACHI_VERSIONS] = { "donpachi_usa.dat", "
 static bool data_extracted;
 static bool version_fell_back;    /* the settings' Japanese version not there at the start: the US one */
 
+/* the US data just extracted (the first run): the Japanese version's too if its set is there, so that choosing JAPAN
+   later needs no window (a build without the Japanese program: nothing). Not when its data is there already */
+static bool japan_wanted(const char *japan_path)
+{
+	FILE *const file = program_has_version(DONPACHI_JAPAN) ? fopen(japan_path, "rb") : NULL;
+
+	if (file)
+		fclose(file);
+	return program_has_version(DONPACHI_JAPAN) && !file;
+}
+
 /* The version's extracted data beside the program; without it (the first run, or a damaged file), the ROM set ('rom'
    in the settings), then its contents saved as the data for next time. 'rom_given': the command line's --rom, read
    (and extracted) whatever data there is. The Japanese set shares 7 of its 9 chips with the US one: with only
    donpachij.zip at hand, the rest is the US set's (its data, read first: rom_set_load_japan_over) */
 static const char *game_data_open(int version, bool rom_given)
 {
-	char path[1024];
+	char path[1024], japan_path[1024];
 	const char *data_problem = "--rom given", *rom_problem, *save_problem;
 
 	snprintf(path, sizeof(path), "%s%s", paths_folder(), data_files[version]);
@@ -325,7 +336,17 @@ static const char *game_data_open(int version, bool rom_given)
 		bool saved;
 
 		fprintf(stderr, "%s (%s): the ROM set is asked for\n", rom_problem, data_problem);
-		if (!rom_drop_screen_version(path, version == DONPACHI_JAPAN
+		snprintf(japan_path, sizeof(japan_path), "%s%s", paths_folder(), data_files[DONPACHI_JAPAN]);
+		if (version == DONPACHI_US && japan_wanted(japan_path))
+		{
+			/* (the first run: the US set, then the Japanese one in the same window, or both from a merged set) */
+			bool japan_saved;
+
+			if (!rom_drop_screen_both(path, japan_path, "NO DONPACHI_USA.DAT, AND NO DONPACHI.ZIP IN THE 'ROM' FOLDER",
+					&saved, &japan_saved))
+				return "";
+		}
+		else if (!rom_drop_screen_version(path, version == DONPACHI_JAPAN
 				? "NO DONPACHI_JPN.DAT, AND NO DONPACHIJ.ZIP IN THE 'ROM' FOLDER"
 				: "NO DONPACHI_USA.DAT, AND NO DONPACHI.ZIP IN THE 'ROM' FOLDER", &saved, version))
 			return "";    /* (the window closed: no game, no message) */
@@ -338,6 +359,9 @@ static const char *game_data_open(int version, bool rom_given)
 	{
 		data_extracted = true;
 		fprintf(stderr, "the game's data extracted from %s into %s\n", options.rom, path);
+		snprintf(japan_path, sizeof(japan_path), "%s%s", paths_folder(), data_files[DONPACHI_JAPAN]);
+		if (version == DONPACHI_US && japan_wanted(japan_path))
+			rom_drop_japan_too(options.rom, path, japan_path);    /* (a merged set, or donpachij.zip beside it) */
 	}
 	return NULL;
 }

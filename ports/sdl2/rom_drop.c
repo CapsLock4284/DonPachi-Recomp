@@ -181,17 +181,29 @@ static void describe_missing(char *out, size_t size)
 		asked == DONPACHI_JAPAN ? "DONPACHIJ.ZIP" : "DONPACHI.ZIP");
 }
 
+static bool japan_optional;    /* the first run's second step: the US set read, donpachij.zip asked for, skippable */
+
 static void draw(SDL_Renderer *renderer, const char *status, uint32_t status_colour, const char *why)
 {
 	set_colour(renderer, BACKGROUND);
 	SDL_RenderClear(renderer);
 	text_centred(renderer, 70 + 4, "DONPACHI", 8, 0x301000u);    /* (its shadow) */
 	text_centred(renderer, 70, "DONPACHI", 8, GOLD);
-	text_centred(renderer, 170, asked == DONPACHI_JAPAN ? "DROP THE JAPANESE ROM SET HERE"
-		: "DROP THE ARCADE ROM SET HERE", 3, WHITE);
-	text_centred(renderer, 210, asked == DONPACHI_JAPAN ? "DONPACHIJ.ZIP: MAME'S SET, JAPAN VERSION"
-		: "DONPACHI.ZIP: MAME'S SET, US VERSION", 2, GREY);
-	text_centred(renderer, 232, "THE GAME TAKES ITS DATA FROM IT, ONCE.", 2, GREY);
+	if (japan_optional)
+	{
+		text_centred(renderer, 150, "US VERSION READY", 3, GREEN);
+		text_centred(renderer, 190, "NOW DROP THE JAPANESE SET TOO (IF YOU HAVE IT)", 2, WHITE);
+		text_centred(renderer, 214, "DONPACHIJ.ZIP: MAME'S SET, JAPAN VERSION", 2, GREY);
+		text_centred(renderer, 238, "PRESS ENTER OR CLICK TO SKIP: YOU CAN ADD IT LATER.", 2, GREY);
+	}
+	else
+	{
+		text_centred(renderer, 170, asked == DONPACHI_JAPAN ? "DROP THE JAPANESE ROM SET HERE"
+			: "DROP THE ARCADE ROM SET HERE", 3, WHITE);
+		text_centred(renderer, 210, asked == DONPACHI_JAPAN ? "DONPACHIJ.ZIP: MAME'S SET, JAPAN VERSION"
+			: "DONPACHI.ZIP: MAME'S SET, US VERSION", 2, GREY);
+		text_centred(renderer, 232, "THE GAME TAKES ITS DATA FROM IT, ONCE.", 2, GREY);
+	}
 	if (status)
 	{
 		/* (its lines: the first in the status's colour, the next ones white, a last hint grey) */
@@ -228,7 +240,57 @@ static const char *read_dropped(const char *path)
 	return rom_set_load_japan_over(path);
 }
 
-bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved, int version)
+bool rom_drop_japan_too(const char *source, const char *us_data_path, const char *japan_data_path)
+{
+	/* where donpachij's files can be: the source itself (a merged donpachi.zip, or a folder with donpachij's files or
+	   donpachij.zip), a merged donpachi.zip in it (a folder), and the same for the folder the source is in */
+	char folder[1024], places[4][1100];
+	const char *problem = "no Japanese set";
+	bool saved = false;
+
+	snprintf(folder, sizeof(folder), "%s", source);
+	{
+		char *const slash = strrchr(folder, '/'), *const backslash = strrchr(folder, '\\');
+		char *const cut = slash > backslash ? slash : backslash;
+
+		if (cut)
+			*cut = '\0';
+		else
+			snprintf(folder, sizeof(folder), ".");
+	}
+	snprintf(places[0], sizeof(places[0]), "%s", source);
+	snprintf(places[1], sizeof(places[1]), "%s/%s.zip", source, rom_set_mame_name(DONPACHI_US));
+	snprintf(places[2], sizeof(places[2]), "%s", folder);
+	snprintf(places[3], sizeof(places[3]), "%s/%s.zip", folder, rom_set_mame_name(DONPACHI_US));
+	for (int place = 0; place < 4 && problem; place++)
+	{
+		/* (the US set as it was before each try: a try that fails may have changed some of it) */
+		if (place > 0 && rom_set_load_data_version(us_data_path, DONPACHI_US) != NULL)
+			break;
+		if (rom_set.program && rom_set.version == DONPACHI_US)
+			problem = rom_set_load_japan_over(places[place]);
+	}
+	if (problem == NULL)
+	{
+		const char *const save_problem = rom_set_save_data(japan_data_path);
+
+		saved = save_problem == NULL;
+		if (saved)
+			fprintf(stderr, "the Japanese version's data extracted too, into %s\n", japan_data_path);
+		else
+			fprintf(stderr, "the Japanese version's data was not saved (%s)\n", save_problem);
+	}
+	else
+		fprintf(stderr, "no Japanese set with it (%s): the Japanese version is asked for when chosen\n", problem);
+	/* (the US set loaded again, for the game to start with) */
+	if (rom_set_load_data_version(us_data_path, DONPACHI_US) != NULL)
+		rom_set_load_version(source, DONPACHI_US);
+	return saved;
+}
+
+/* the window; 'dropped' (if not NULL): the path of the set that was read */
+static bool drop_window(const char *data_path, const char *why, bool *saved, int version, char *dropped,
+	size_t dropped_size)
 {
 	SDL_Window *const window = SDL_CreateWindow("DonPachi: the ROM set", SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED, WINDOW_W, WINDOW_H, 0);
@@ -281,6 +343,8 @@ bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved
 					fprintf(stderr, "the game's data was not saved: %s\n", save_problem);
 				*saved = save_problem == NULL;
 				loaded = true;
+				if (dropped)
+					snprintf(dropped, dropped_size, "%s", event.drop.file);
 				draw(renderer, "FOUND IT! STARTING...", GREEN, NULL);
 				SDL_Delay(700);
 			}
@@ -300,4 +364,82 @@ bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	return loaded;
+}
+
+bool rom_drop_screen_version(const char *data_path, const char *why, bool *saved, int version)
+{
+	return drop_window(data_path, why, saved, version, NULL, 0);
+}
+
+bool rom_drop_screen_both(const char *data_path, const char *japan_data_path, const char *why, bool *saved,
+	bool *japan_saved)
+{
+	SDL_Window *window;
+	SDL_Renderer *renderer;
+	char dropped[1024] = "", status[400] = "";
+	uint32_t status_colour = WHITE;
+	bool done = false;
+
+	*japan_saved = false;
+	/* the US set first, as before (its window: the set dropped, read and saved) */
+	if (!drop_window(data_path, why, saved, DONPACHI_US, dropped, sizeof(dropped)))
+		return false;
+	if (!*saved)
+		return true;    /* (no data written: the Japanese one would have nothing to go over next time) */
+	/* a merged set (or donpachij.zip beside the dropped one): both, at once */
+	if ((*japan_saved = rom_drop_japan_too(dropped, data_path, japan_data_path)))
+		return true;
+	/* else the same window again: donpachij.zip, or skip */
+	window = SDL_CreateWindow("DonPachi: the ROM set", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_W,
+		WINDOW_H, 0);
+	if (!window)
+		return true;
+	window_icon_set(window);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!renderer)
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+	if (!renderer)
+	{
+		SDL_DestroyWindow(window);
+		return true;
+	}
+	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+	japan_optional = true;
+	asked = DONPACHI_JAPAN;
+	while (!done)
+	{
+		SDL_Event event;
+
+		draw(renderer, status[0] ? status : NULL, status_colour, NULL);
+		if (!SDL_WaitEventTimeout(&event, 250))
+			continue;
+		if (event.type == SDL_QUIT
+				|| (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE)
+				|| event.type == SDL_MOUSEBUTTONDOWN
+				|| (event.type == SDL_KEYDOWN && (event.key.keysym.sym == SDLK_RETURN
+					|| event.key.keysym.sym == SDLK_KP_ENTER || event.key.keysym.sym == SDLK_SPACE
+					|| event.key.keysym.sym == SDLK_ESCAPE)))
+			done = true;    /* (skipped: the US version starts; the Japanese set is asked for when chosen) */
+		else if (event.type == SDL_DROPFILE)
+		{
+			draw(renderer, "READING...", WHITE, NULL);
+			if (rom_drop_japan_too(event.drop.file, data_path, japan_data_path))
+			{
+				*japan_saved = true;
+				done = true;
+				draw(renderer, "FOUND IT! STARTING...", GREEN, NULL);
+				SDL_Delay(700);
+			}
+			else
+			{
+				snprintf(status, sizeof(status), "THAT ISN'T DONPACHIJ.ZIP (JAPAN). TRY ANOTHER,\nOR PRESS ENTER TO SKIP.");
+				status_colour = RED;
+			}
+			SDL_free(event.drop.file);
+		}
+	}
+	japan_optional = false;
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	return true;
 }

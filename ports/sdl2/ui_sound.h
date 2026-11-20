@@ -33,4 +33,23 @@ void ui_sound_mix(int16_t *samples, unsigned count);
 /* A sound is playing (the menu, with the game paused, queues it with silence) */
 int ui_sound_playing(void);
 
+/* The SOUND page's examples: a clip of the game's music, of its effects (shots and an explosion) and of a voice,
+   from the ROM set, played over and over while their volume is set, at its level as it is changed */
+typedef enum
+{
+	UI_PREVIEW_MUSIC,
+	UI_PREVIEW_EFFECTS,
+	UI_PREVIEW_VOICES,
+	UI_PREVIEWS,
+	UI_PREVIEW_NONE = -1
+} ui_preview;
+
+/* That one playing (from its start, if another or none was) */
+void ui_sound_preview(ui_preview preview);
+
+void ui_sound_preview_stop(void);
+
+/* The example playing mixed into 'count' samples, at its group's level (levels: music, effects, voices, 0-1) */
+void ui_sound_mix_preview(int16_t *samples, unsigned count, const float levels[UI_PREVIEWS]);
+
 #endif

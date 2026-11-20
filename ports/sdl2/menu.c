@@ -342,6 +342,7 @@ static void save(void)
 
 static void close_menu(void)
 {
+	ui_sound_preview_stop();
 	open = false;
 	front = false;    /* (a game goes on: START GAME, or the service menu's reset) */
 	just_closed = true;
@@ -522,8 +523,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	}
 	case ITEM_VOLUME:
-		in_use->volume = wrap && in_use->volume >= 100 ? 0 : SDL_clamp(in_use->volume + step * 10, 0, 100);
+		in_use->volume = wrap && in_use->volume >= 100 ? 0 : SDL_clamp(in_use->volume + step * 5, 0, 100);
 		file->volume = in_use->volume;
+		ui_sound_preview(UI_PREVIEW_MUSIC);    /* (heard as it changes: the music, at the volume being set) */
 		break;
 	case ITEM_MUSIC_VOLUME:
 	case ITEM_EFFECTS_VOLUME:
@@ -535,8 +537,11 @@ static void change(int item, int step, bool wrap)
 		int *const kept = item == ITEM_MUSIC_VOLUME ? &file->music_volume
 			: item == ITEM_EFFECTS_VOLUME ? &file->effects_volume : &file->voices_volume;
 
-		*now = wrap && *now >= 100 ? 0 : SDL_clamp(*now + step * 10, 0, 100);
+		*now = wrap && *now >= 100 ? 0 : SDL_clamp(*now + step * 5, 0, 100);
 		*kept = *now;
+		/* (heard as it changes: an example of the group, at its level) */
+		ui_sound_preview(item == ITEM_MUSIC_VOLUME ? UI_PREVIEW_MUSIC : item == ITEM_EFFECTS_VOLUME
+			? UI_PREVIEW_EFFECTS : UI_PREVIEW_VOICES);
 		break;
 	}
 	case ITEM_SCALE:
@@ -998,7 +1003,8 @@ static void navigate(int nav)
 			player ^= 1;
 		else
 			change(item, nav == NAV_RIGHT ? 1 : -1, false);
-		ui_sound_play(UI_SOUND_MOVE);
+		if (page != PAGE_SOUND)
+			ui_sound_play(UI_SOUND_MOVE);    /* (the SOUND page: its example is heard instead) */
 		break;
 	case NAV_CHOOSE:
 		ui_sound_play(item == ITEM_BACK || item == ITEM_RESUME ? UI_SOUND_BACK : UI_SOUND_CHOOSE);
@@ -1482,6 +1488,15 @@ void menu_tick(void)
 	if (!open)
 		return;
 	blink++;
+	{
+		/* the SOUND page's example stops as its entry is left (another entry, page or the menu closed) */
+		static int previewed = -1;
+		const int now = page == PAGE_SOUND ? items[selected] : -1;
+
+		if (now != previewed)
+			ui_sound_preview_stop();
+		previewed = now;
+	}
 	if (updater_state() == UPDATER_AVAILABLE)
 		update_found = true;
 	if (page == PAGE_FRONT && update_listed != update_found)

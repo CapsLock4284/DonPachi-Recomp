@@ -431,6 +431,13 @@ static void audio_menu_frame(void)
 	if (SDL_GetQueuedAudioSize(audio) > audio_bytes(AUDIO_MOST_MS))
 		audio_restart();
 	ui_sound_mix(samples, count);
+	{
+		/* (the SOUND page's example, at the level being set: the music's for VOLUME's too) */
+		const float levels[UI_PREVIEWS] = { (float)options.music_volume / 100.0f,
+			(float)options.effects_volume / 100.0f, (float)options.voices_volume / 100.0f };
+
+		ui_sound_mix_preview(samples, count, levels);
+	}
 	if (options.volume < 100)
 		for (unsigned index = 0; index < count; index++)
 			samples[index] = (int16_t)(samples[index] * options.volume / 100);

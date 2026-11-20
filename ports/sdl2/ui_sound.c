@@ -136,3 +136,149 @@ int ui_sound_playing(void)
 {
 	return playing_left > 0;
 }
+
+/* ---- the SOUND page's examples ---- */
+
+#define CHIP0_RATE    (4220000.0 / 4.0 / 132.0)          /* the music chip's samples a second: 7992.4 */
+#define PREVIEW_MOST  (CAVE_SOUND_RATE * 8u)             /* the longest: 8 seconds */
+
+/* a piece of an example: a sound of one of the chips (its place in the chip's region, nibbles, the volume the game
+   plays it at in 32nds), from 'at_ms' into the example */
+typedef struct
+{
+	int chip;
+	uint32_t at, nibbles;
+	int volume;
+	unsigned at_ms;
+} preview_part;
+
+static const preview_part music_parts[] = {
+	{ 0, 0x0A0000u, 63000u, 11, 0 },        /* a stage's music (its first 8 s) */
+};
+static const preview_part effects_parts[] = {
+	{ 1, 0x000400u, 1964u, 6, 0 },          /* the shot, three times */
+	{ 1, 0x000400u, 1964u, 6, 150 },
+	{ 1, 0x000400u, 1964u, 6, 300 },
+	{ 1, 0x001C06u, 9364u, 6, 500 },        /* (two of the most played: an enemy shot down) */
+	{ 1, 0x020400u, 13330u, 16, 900 },
+};
+static const preview_part voice_parts[] = {
+	{ 1, 0x0B0400u, 52176u, 32, 0 },        /* area 1's voice */
+};
+static const struct
+{
+	const preview_part *parts;
+	int count;
+	unsigned length_ms;    /* (with the silence before it plays again) */
+} previews[UI_PREVIEWS] = {
+	{ music_parts, 1, 8000 },
+	{ effects_parts, 5, 2600 },
+	{ voice_parts, 1, 4300 },
+};
+
+static int16_t *preview_samples[UI_PREVIEWS];
+static unsigned preview_lengths[UI_PREVIEWS];
+static int preview_playing = UI_PREVIEW_NONE;
+static unsigned preview_at;
+
+/* the example made at 48 kHz, once: its parts decoded (as the chips do, at their volume, the music chip's as the
+   runtime mixes it: 1.6) and added */
+static bool preview_make(ui_preview preview)
+{
+	const unsigned length = (unsigned)((uint64_t)previews[preview].length_ms * CAVE_SOUND_RATE / 1000u);
+	float *sum;
+
+	if (preview_samples[preview])
+		return true;
+	if (!rom_set.oki[0] || !rom_set.oki[1] || length > PREVIEW_MOST)
+		return false;
+	sum = calloc(length, sizeof(float));
+	if (!sum)
+		return false;
+	for (int index = 0; index < previews[preview].count; index++)
+	{
+		const preview_part *const part = &previews[preview].parts[index];
+		const uint8_t *const region = rom_set.oki[part->chip] + REGION_SKIP;
+		const uint32_t size = (part->chip ? DONPACHI_OKI2_SIZE : DONPACHI_OKI1_SIZE) - REGION_SKIP;
+		const double rate = part->chip ? CHIP_RATE : CHIP0_RATE;
+		const float gain = part->chip ? 1.0f : 1.6f;
+		const unsigned first = (unsigned)((uint64_t)part->at_ms * CAVE_SOUND_RATE / 1000u);
+		uint32_t nibbles = part->nibbles;
+		int signal = 0, step = 0;
+		float *chip;
+
+		if (part->at >= size)
+			continue;
+		if (part->at + nibbles / 2u > size)
+			nibbles = 2u * (size - part->at);
+		if (!(chip = malloc(sizeof(float) * (nibbles + 1u))))
+			continue;
+		for (uint32_t n = 0; n < nibbles; n++)
+		{
+			const int nibble = (region[part->at + n / 2u] >> ((n & 1u) ? 0 : 4)) & 15;
+
+			signal += diff(step, nibble);
+			signal = signal > 2047 ? 2047 : signal < -2048 ? -2048 : signal;
+			step += index_shift[nibble & 7];
+			step = step > 48 ? 48 : step < 0 ? 0 : step;
+			chip[n] = (float)(signal * part->volume) / (2048.0f * 32.0f) * gain;
+		}
+		chip[nibbles] = 0.0f;
+		for (unsigned out = first; out < length; out++)
+		{
+			const double position = (out - first) * rate / CAVE_SOUND_RATE;
+			const unsigned below = (unsigned)position;
+			double fraction;
+
+			if (below >= nibbles)
+				break;
+			fraction = position - below;
+			sum[out] += (float)(chip[below] + (chip[below + 1u < nibbles ? below + 1u : below] - chip[below]) * fraction);
+		}
+		free(chip);
+	}
+	if (!(preview_samples[preview] = malloc(sizeof(int16_t) * length)))
+	{
+		free(sum);
+		return false;
+	}
+	for (unsigned out = 0; out < length; out++)
+	{
+		const float value = sum[out] * 32767.0f;
+
+		preview_samples[preview][out] = (int16_t)(value > 32767.0f ? 32767 : value < -32768.0f ? -32768 : (int)value);
+	}
+	preview_lengths[preview] = length;
+	free(sum);
+	return true;
+}
+
+void ui_sound_preview(ui_preview preview)
+{
+	if (preview < 0 || preview >= UI_PREVIEWS || preview == preview_playing || !preview_make(preview))
+		return;
+	preview_playing = preview;
+	preview_at = 0;
+}
+
+void ui_sound_preview_stop(void)
+{
+	preview_playing = UI_PREVIEW_NONE;
+}
+
+void ui_sound_mix_preview(int16_t *samples, unsigned count, const float levels[UI_PREVIEWS])
+{
+	float level;
+
+	if (preview_playing == UI_PREVIEW_NONE)
+		return;
+	level = levels[preview_playing];
+	for (unsigned index = 0; index < count; index++)
+	{
+		const int sum = samples[index] + (int)(preview_samples[preview_playing][preview_at] * level);
+
+		samples[index] = (int16_t)(sum > 32767 ? 32767 : sum < -32768 ? -32768 : sum);
+		if (++preview_at >= preview_lengths[preview_playing])
+			preview_at = 0;    /* (over and over) */
+	}
+}

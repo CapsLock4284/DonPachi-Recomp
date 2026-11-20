@@ -1759,6 +1759,7 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_DEBUG_TOOLS:
 	case ITEM_ACHIEVEMENTS:
 	case ITEM_STATISTICS:
+	case ITEM_SOUND:
 		snprintf(out, size, ">");
 		break;
 	case ITEM_T_AREA:

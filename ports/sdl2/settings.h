@@ -71,6 +71,7 @@ typedef struct
 	bool arcade_timing;
 	int fast_forward_speed;     /* 2-16 */
 	bool hitbox;                /* the ships' hitboxes shown */
+	bool bullets;               /* the enemies' bullets' points shown: what the game tests against the ships (hitbox.h) */
 	bool save_high_scores;      /* the high score table kept in donpachi.hiscore (hiscore.h) */
 	bool big_hit;               /* the GP window's large HIT count always on, the best chain shown between chains */
 	bool check_updates;         /* the newest release looked up as the program starts (updater.h); true by default */

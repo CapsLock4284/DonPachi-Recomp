@@ -80,6 +80,7 @@ void settings_defaults(settings *s)
 	s->arcade_timing = false;
 	s->fast_forward_speed = 4;
 	s->hitbox = false;
+	s->bullets = false;
 	s->save_high_scores = true;
 	s->big_hit = false;
 	s->check_updates = true;
@@ -274,6 +275,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_int(value, 2, 16, &s->fast_forward_speed);
 		if (!SDL_strcasecmp(name, "hitbox"))
 			return parse_bool(value, &s->hitbox);
+		if (!SDL_strcasecmp(name, "bullets"))
+			return parse_bool(value, &s->bullets);
 		if (!SDL_strcasecmp(name, "save_high_scores"))
 			return parse_bool(value, &s->save_high_scores);
 		if (!SDL_strcasecmp(name, "big_hit_display"))
@@ -593,6 +596,9 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "fast_forward_speed = %d\n", s->fast_forward_speed);
 	fputs("; a white dot over each ship: its hitbox, the box the game tests bullets and enemies against\n", file);
 	fprintf(file, "hitbox = %s\n", bool_text(s->hitbox));
+	fputs("; the enemies' bullets' points shown (a white pixel in a green cross): a bullet hits a ship as its point comes\n"
+		"; inside the ship's hitbox, so what is outside the white box can't hit; only drawn over the picture\n", file);
+	fprintf(file, "bullets = %s\n", bool_text(s->bullets));
 	fputs("; the high score table kept in donpachi.hiscore beside the program (the arcade board forgets it when it is\n"
 		"; switched off). Not saved while cheats are on\n", file);
 	fprintf(file, "save_high_scores = %s\n", bool_text(s->save_high_scores));

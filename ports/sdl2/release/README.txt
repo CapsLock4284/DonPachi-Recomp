@@ -82,6 +82,8 @@ FEATURES
     3x and 4x, and MMPX, smoothing the picture's edges while keeping it sharp
   - Save states, fast forward, hitbox display, scanlines, borderless or exclusive
     full screen, difficulty and the arcade's hidden big HIT display in GAME OPTIONS
+  - Bullet points (GAME OPTIONS > BULLETS): the one point of each enemy bullet
+    the game tests; a bullet hits only when that point is inside your hitbox
   - Autobomb (GAME OPTIONS > AUTOBOMB): a bomb goes off by itself when your ship
     is about to be hit, if you have one (an assist: those games don't count for
     high scores, achievements or statistics)

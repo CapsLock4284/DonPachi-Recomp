@@ -1,7 +1,7 @@
 /**
  *    Name:        hitbox.h
  *    Description: the ships' hitboxes shown over the picture: a white glowing dot, the box the game itself tests
- *                 bullets and enemies against
+ *                 bullets and enemies against; and the bullets' points, what it tests
  *    Version:     0.1.0 (draft)
  *    Created:     09-11-2026
  *
@@ -15,16 +15,22 @@
  *    The record is in play before the ship is on the screen (from the ship select, where the game's first area
  *    begins, before the ship flies in), so a box is drawn only while the ship's own sprite (its code, the record's
  *    +04) is in the sprite bank shown, near it, during play: from its third frame there, kept 8 frames past it.
+ *    The bullets (BULLETS): the 75 records from $104E94, $40 bytes each, that ship_hit_test goes through: one counts
+ *    while its +00's top byte has bit 7 (in play) and bit 0, and not bit 4 (it has hit); its point is +06, +08, as a
+ *    ship's position (the test moves both by $800, the same). Each one's point is drawn, a white pixel in a green
+ *    cross: a bullet hits as that point comes inside a ship's box.
  */
 #ifndef DONPACHI_HITBOX_H
 #define DONPACHI_HITBOX_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /* After each of the game's frames: both ships' boxes, kept for a few frames */
 void hitbox_record(void);
 
-/* The boxes of 'frames_ago' frames ago drawn on 'picture' (240 x 320, as the cabinet shows it) */
-void hitbox_draw(uint32_t *picture, int frames_ago);
+/* The boxes of 'frames_ago' frames ago drawn on 'picture' (240 x 320, as the cabinet shows it): the ships', the
+   bullets' points, as asked */
+void hitbox_draw(uint32_t *picture, int frames_ago, bool ships, bool bullets);
 
 #endif

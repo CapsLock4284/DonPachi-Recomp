@@ -100,6 +100,7 @@ enum
 	ITEM_CHECK_UPDATES,           /* the game options': the newest release looked up as the program starts */
 	ITEM_SOUND,                   /* the sound's page: VOLUME, and MUSIC, EFFECTS and VOICES on their own */
 	ITEM_MUSIC_VOLUME, ITEM_EFFECTS_VOLUME, ITEM_VOICES_VOLUME,
+	ITEM_BULLETS,                 /* the game options': the enemies' bullets' points shown (hitbox.h) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -256,8 +257,8 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_FAST_SPEED, ITEM_BIG_HIT, ITEM_SERVICE, ITEM_FREE_PLAY,
-			ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_FAST_SPEED, ITEM_BIG_HIT,
+			ITEM_BULLETS, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -486,6 +487,9 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_HITBOX:
 		in_use->hitbox = file->hitbox = !in_use->hitbox;
+		break;
+	case ITEM_BULLETS:
+		in_use->bullets = file->bullets = !in_use->bullets;
 		break;
 	case ITEM_HISCORES:
 		in_use->save_high_scores = file->save_high_scores = !in_use->save_high_scores;
@@ -1090,6 +1094,8 @@ static const char *item_help(int item)
 		return "HOW FAST THE FAST FORWARD KEY RUNS THE GAME WHILE HELD.";
 	case ITEM_HITBOX:
 		return "SHOWS YOUR SHIP'S REAL HITBOX: THE SMALL BOX THE GAME TESTS BULLETS AGAINST.";
+	case ITEM_BULLETS:
+		return "MARKS THE POINT OF EACH ENEMY BULLET THE GAME TESTS: IT HITS ONLY IF THAT POINT GETS INSIDE YOUR HITBOX.";
 	case ITEM_VOLUME:
 		return "ALL OF THE SOUND: THE MUSIC, THE EFFECTS AND THE VOICES TOGETHER.";
 	case ITEM_SOUND:
@@ -1658,7 +1664,7 @@ static const char *item_label(int item)
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
-		"EFFECTS", "VOICES"
+		"EFFECTS", "VOICES", "BULLETS"
 	};
 
 	if (is_hotkey_item(item))
@@ -1712,6 +1718,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_HITBOX:
 		snprintf(out, size, "%s", s->hitbox ? "ON" : "OFF");
+		break;
+	case ITEM_BULLETS:
+		snprintf(out, size, "%s", s->bullets ? "ON" : "OFF");
 		break;
 	case ITEM_HISCORES:
 		snprintf(out, size, "%s", s->save_high_scores ? "ON" : "OFF");
@@ -2317,7 +2326,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	{
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
 		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15)
-			: page == PAGE_GAME ? 13 : 16;    /* (the game options: their note under them as well, above the hints) */
+			: page == PAGE_GAME ? 12 : 16;    /* (the game options: their note under them as well, above the hints) */
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8 + (page == PAGE_SAVE_REPLAY ? 32 : 0);    /* (the question above) */
 		int cheats_total = 0;

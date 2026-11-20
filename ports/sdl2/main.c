@@ -520,10 +520,12 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
 {
 	static uint32_t marked[VIDEO_WIDTH * VIDEO_HEIGHT];
 
-	if (!options.hitbox && !(training_active && options.training_hitbox))
+	const bool ships = options.hitbox || (training_active && options.training_hitbox);
+
+	if (!ships && !options.bullets)
 		return pixels;
 	memcpy(marked, pixels, sizeof(marked));
-	hitbox_draw(marked, options.arcade_timing ? 2 : 1);
+	hitbox_draw(marked, options.arcade_timing ? 2 : 1, ships, options.bullets);
 	return marked;
 }
 

@@ -6,7 +6,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### New
+- **Bullet points** (GAME OPTIONS > BULLETS, `[game] bullets`, off by default): each enemy bullet's point, a white
+  pixel in a small green cross. The game tests a bullet only by that point, the middle of its sprite, so a bullet
+  hits you only when its point gets inside your hitbox, however big it looks: with HITBOX on you see exactly what
+  can hit you. Drawn over the picture only; the game is not changed.
 
 ## v0.11.0 (2026-11-20)
 

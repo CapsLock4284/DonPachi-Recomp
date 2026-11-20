@@ -106,7 +106,10 @@ typedef struct
 	bool panels;                /* the side panels (widgets.h) beside the picture */
 	/* [sound] */
 	bool sound;
-	int volume;                 /* 0-100 */
+	int volume;                 /* 0-100: all of the sound */
+	int music_volume;           /* 0-100 each: the music, the sound effects and the voices on their own (the board's */
+	int effects_volume;         /* description says which sound is which: cave/board.h), under 'volume' */
+	int voices_volume;
 	/* [files] */
 	char rom[512];
 	char eeprom[512];           /* empty: donpachi.eeprom beside the program */

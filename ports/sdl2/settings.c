@@ -109,6 +109,7 @@ void settings_defaults(settings *s)
 	s->panels = true;
 	s->sound = true;
 	s->volume = 100;
+	s->music_volume = s->effects_volume = s->voices_volume = 100;
 	snprintf(s->rom, sizeof(s->rom), "rom");
 	snprintf(s->cheats, sizeof(s->cheats), "cheats/donpachi.xml");
 	for (int player = 0; player < 2; player++)
@@ -343,6 +344,12 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_bool(value, &s->sound);
 		if (!SDL_strcasecmp(name, "volume"))
 			return parse_int(value, 0, 100, &s->volume);
+		if (!SDL_strcasecmp(name, "music"))
+			return parse_int(value, 0, 100, &s->music_volume);
+		if (!SDL_strcasecmp(name, "effects"))
+			return parse_int(value, 0, 100, &s->effects_volume);
+		if (!SDL_strcasecmp(name, "voices"))
+			return parse_int(value, 0, 100, &s->voices_volume);
 		return false;
 	}
 	if (!SDL_strcasecmp(section, "hotkeys"))
@@ -644,8 +651,13 @@ const char *settings_save(const settings *s, const char *path)
 
 	fputs("[sound]\n", file);
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));
-	fputs("; 0 to 100\n", file);
-	fprintf(file, "volume = %d\n\n", s->volume);
+	fputs("; 0 to 100: all of the sound\n", file);
+	fprintf(file, "volume = %d\n", s->volume);
+	fputs("; 0 to 100 each, under the volume: the music, the sound effects (shots, explosions, items) and the voices\n",
+		file);
+	fprintf(file, "music = %d\n", s->music_volume);
+	fprintf(file, "effects = %d\n", s->effects_volume);
+	fprintf(file, "voices = %d\n\n", s->voices_volume);
 
 	fputs("[hotkeys]\n", file);
 	fputs("; the board's reset (keys, then the gamepad's buttons, either player's)\n", file);

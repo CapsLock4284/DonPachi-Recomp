@@ -6,12 +6,17 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.11.0 (2026-11-20)
+
 ### New
 - **Separate volumes for the music, the sound effects and the voices** (SETTINGS > SOUND, `[sound]` in
   `donpachi.ini`): VOLUME sets all of it as before; MUSIC, EFFECTS and VOICES set each on its own, under it, in
   steps of 5%. While you change one, an example plays at the level you are setting (a piece of a stage's music, shots
-  and an explosion, a voice), over and over until you move off it. Players asked for it. The game itself is untouched: only what you hear changes (checked: the board the same, frame by
-  frame, whatever the levels; at 100% the sound the same as before, sample for sample).
+  and an explosion, a voice), over and over until you move off it. Players asked for it. The game itself is
+  untouched: only what you hear changes (checked: the board the same, frame by frame, whatever the levels; at 100%
+  the sound the same as before, sample for sample).
 
 ### Fixed
 - **A crackle in the sound during a stage with autobomb on.** Autobomb looks a few frames ahead every frame to see
@@ -19,6 +24,7 @@ notes). The release zip carries this file as `CHANGES.txt`.
   own filters went on to where the look ahead had got, so each real frame started with a jump: a crackle whenever
   something was playing. The look ahead's frames now leave the sound alone (checked: with autobomb on, the sound is
   now the same as with it off).
+- **The SOUND entry in SETTINGS had no ">"** to show it opens a page, as the others do.
 
 ## v0.10.0 (2026-11-18)
 

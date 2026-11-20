@@ -62,6 +62,9 @@ static void run_ahead(int frames, int plan_for, int let_go, int bomb_at, int sho
 	const uint16_t in0 = cave_board.in0, in1 = cave_board.in1;
 
 	shot_down[0] = shot_down[1] = 0;
+	/* (frames thrown away: the sound's own state, its filters and resampler, left as the real frames had it; were
+	   they mixed, the next real frame would start from where the look ahead got to, a click each frame) */
+	cave_sound_quiet = true;
 	for (int frame = 1; frame <= frames; frame++)
 	{
 		if (plan_for >= 0 && frame == let_go)
@@ -76,6 +79,7 @@ static void run_ahead(int frames, int plan_for, int let_go, int bomb_at, int sho
 			if (!shot_down[player] && !flying(player))
 				shot_down[player] = frame;
 	}
+	cave_sound_quiet = false;
 	if (laser)
 		*laser = laser_bomb();
 }

@@ -13,6 +13,13 @@ notes). The release zip carries this file as `CHANGES.txt`.
   and an explosion, a voice), over and over until you move off it. Players asked for it. The game itself is untouched: only what you hear changes (checked: the board the same, frame by
   frame, whatever the levels; at 100% the sound the same as before, sample for sample).
 
+### Fixed
+- **A crackle in the sound during a stage with autobomb on.** Autobomb looks a few frames ahead every frame to see
+  whether a ship is about to be hit, then puts the board back; those frames' sound was thrown away, but the sound's
+  own filters went on to where the look ahead had got, so each real frame started with a jump: a crackle whenever
+  something was playing. The look ahead's frames now leave the sound alone (checked: with autobomb on, the sound is
+  now the same as with it off).
+
 ## v0.10.0 (2026-11-18)
 
 ### New

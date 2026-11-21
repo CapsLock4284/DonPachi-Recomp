@@ -216,6 +216,7 @@ static void hotkeys(void)
 			replay_keep(false);    /* (a game reset part way: not kept) */
 			program_reset();
 			replay_reset();
+			crash_log_reset(program_slowdown(), (int)rom_set.version);
 			free_play_reset();
 			hiscore_reset();
 			ai_player_reset();
@@ -769,6 +770,7 @@ static void menu_reset(bool service_menu)
 	replay_keep(false);    /* (one waiting was answered before this: see the menu's MAIN MENU) */
 	program_reset();
 	replay_reset();
+	crash_log_reset(program_slowdown(), (int)rom_set.version);
 	free_play_reset();
 	hiscore_reset();
 	ai_player_reset();
@@ -938,6 +940,7 @@ static void state_put_back(const program_state *state, const void *panels)
 	ai_player_reset();
 	autobomb_reset();
 	replay_taint();    /* (not a replay: the inputs before it are not this game's) */
+	crash_log_not_replayable("a save state was put back");
 	widgets_state_load(panels);
 	free_play_reset();
 	hiscore_state_loaded();
@@ -971,6 +974,7 @@ static bool menu_training(void)
 	free_play_reset();
 	service_held = 0;
 	replay_taint();    /* (training: run to the place by the port, not a replay) */
+	crash_log_not_replayable("a training game (the game run to its place unrecorded)");
 	if ((problem = training_prepare(&setup)) != NULL)
 	{
 		fprintf(stderr, "training: %s\n", problem);
@@ -1168,6 +1172,8 @@ static bool menu_play_replay(const char *file)
 		menu_notice("REPLAY NOT PLAYABLE");
 		return false;
 	}
+	crash_log_reset(program_slowdown(), (int)rom_set.version);
+	crash_log_not_replayable("a replay playing (its own file plays it again)");
 	free_play_reset();
 	widgets_reset();
 	if (replay_playing_training())
@@ -1260,11 +1266,11 @@ int main(int argc, char **argv)
 	Uint64 next, period;
 
 	{
-		/* donpachi.log beside the program (Windows: stderr; a crash written there) */
+		/* donpachi.log beside the program (Windows: stderr; a crash written there, with the run's inputs) */
 		char log_path[1100];
 
 		snprintf(log_path, sizeof(log_path), "%sdonpachi.log", paths_folder());
-		crash_log_start(log_path);
+		crash_log_start(log_path, paths_folder());
 	}
 	/* the settings file, then the command line over it */
 	settings_defaults(&options);
@@ -1487,6 +1493,7 @@ int main(int argc, char **argv)
 
 	program_set_slowdown(options.slowdown);    /* (the arcade's slowdown, as the settings have it) */
 	replay_reset();    /* (the board as it starts: recorded from here) */
+	crash_log_reset(program_slowdown(), (int)rom_set.version);    /* (the run's inputs kept from its first frame) */
 	period = SDL_GetPerformanceFrequency() * CAVE_FRAME_USEC / 1000000u;
 	next = SDL_GetPerformanceCounter() + period;
 	while (running)
@@ -1573,6 +1580,7 @@ int main(int argc, char **argv)
 			/* the slowdown changed in the menu: the frames fall another way from here, so no replay of this run */
 			program_set_slowdown(options.slowdown);
 			replay_taint();
+			crash_log_slowdown(options.slowdown);
 		}
 		{
 			/* fast forward, while its key or button is held: fast_forward_speed of the game's frames in this one,
@@ -1619,11 +1627,15 @@ int main(int argc, char **argv)
 				if (options.autobomb)
 					autobomb_frame(!own_cheats_ai_on());    /* (the AI player bombs for itself) */
 				replay_input(cave_board.in0, cave_board.in1, options.big_hit ? REPLAY_BIG_HIT : 0u);
+				crash_log_frame(options.big_hit ? CRASH_LOG_BIG_HIT : 0u);
 				program_run_frame();
 				big_hit_frame();
 				cheats_apply();
 				if (cheats_any_on())
+				{
 					replay_taint();
+					crash_log_not_replayable("a cheat was on");
+				}
 				if (fast || boot)
 					cave_sound_drop();
 				else
@@ -1638,6 +1650,7 @@ int main(int argc, char **argv)
 				{
 					replay_patch(0x101846u, 0x5Au);    /* (the table) */
 					replay_patch(0x101782u, 4u);       /* (the HUD's HIGH) */
+					crash_log_table(hiscore_put_back_table());
 				}
 				if (training_frame())
 					break;    /* (the training page is up: the game paused) */
@@ -1699,6 +1712,7 @@ int main(int argc, char **argv)
 		replay_stop();
 	eeprom_keep(true);
 	stats_save();
+	crash_log_finish();
 	if (audio)
 		SDL_CloseAudioDevice(audio);
 	scaler_quit();

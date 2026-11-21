@@ -15,6 +15,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   beside it now gives the Japanese version's data on the first run too, nothing more asked; and when the first run's
   window has read `donpachi.zip`, it asks for `donpachij.zip` as well (Enter or a click skips it). So choosing JAPAN on
   the main menu no longer opens a window over it, unless the Japanese set was skipped.
+- **A crash report you can send**: if the game ever stops by itself, a message now says so (Windows) instead of the
+  window just closing, and two files are left beside the program: `donpachi.log` (what happened) and
+  `donpachi_crash_DATE_TIME.inp` (your inputs since the last reset, so the run can be played again up to the crash and
+  the problem found). Sending both with a report helps. The log of the run before is kept as `donpachi_previous.log`.
 
 ## v0.11.0 (2026-11-20)
 

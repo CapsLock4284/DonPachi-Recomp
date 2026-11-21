@@ -20,6 +20,8 @@
 
 #include <stdbool.h>
 
+#define HISCORE_TABLE_SIZE 0x5Au    /* $101846-$10189F */
+
 /* The file ('path', or NULL: donpachi.hiscore beside the program), read now: NULL, or what was wrong with it (a
    file that is not there is no problem: the game keeps its defaults until there is one) */
 const char *hiscore_open(const char *path);
@@ -38,5 +40,11 @@ void hiscore_frame(bool enabled, bool saving);
 /* The file's table was put back in the game's memory (at boot) since the last call: once (a replay records what was
    written: $101846-$10189F and the HUD's HIGH) */
 bool hiscore_take_put_back(void);
+
+/* The table put back after the boot (the file's), for the crash log's run (crash_log.h): HISCORE_TABLE_SIZE bytes */
+const unsigned char *hiscore_put_back_table(void);
+
+/* The table to put back given, in place of a file's (tests/harness/replay_crash: a run's), or NULL for none */
+void hiscore_use_table(const unsigned char *table);
 
 #endif

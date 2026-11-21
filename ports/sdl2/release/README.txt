@@ -142,6 +142,9 @@ FILES THE GAME KEEPS BESIDE THE PROGRAM
   donpachi.stats     your lifetime statistics
   donpachi.log       the program's messages (Windows): if the game ever closes by
                      itself, this says why, so it helps to send it with a report
+  donpachi_previous.log   the same from the time before
+  donpachi_crash_*.inp    left only if the game stopped by itself: your inputs
+                     up to it, to play the run again (send it with the log)
   replays\           your replays (.dpreplay files: share them, or delete the
                      ones you don't want)
   *.old, update_old.txt   left by an update for a moment: the program's old

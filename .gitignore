@@ -21,5 +21,7 @@ symbols - Copy*.txt
 *.eeprom
 *.dpreplay
 *.log
+# a run's inputs left by a stop or crash (ports/sdl2/crash_log.h)
+*.inp
 /mamereplay/
 /CLAUDE.md

@@ -19,7 +19,7 @@
 #include <string.h>
 
 #define TABLE       0x101846u
-#define TABLE_SIZE  0x5Au           /* to $10189F */
+#define TABLE_SIZE  HISCORE_TABLE_SIZE    /* to $10189F */
 #define HUD_HIGH    0x101782u
 
 static const char magic[8] = { 'D', 'P', 'H', 'I', 'S', 'C', '0', '1' };
@@ -117,6 +117,18 @@ void hiscore_state_loaded(void)
 		for (uint32_t at = 0; at < 4u; at++)
 			*cave_work_ram_byte(HUD_HIGH + at) = file_table[at];
 	read_table(saved);
+}
+
+const unsigned char *hiscore_put_back_table(void)
+{
+	return file_table;
+}
+
+void hiscore_use_table(const unsigned char *table)
+{
+	have_file = table != NULL;
+	if (table)
+		memcpy(file_table, table, TABLE_SIZE);
 }
 
 bool hiscore_take_put_back(void)

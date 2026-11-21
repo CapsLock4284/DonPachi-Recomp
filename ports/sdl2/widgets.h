@@ -21,6 +21,8 @@
  *                         its own way for each boss (widgets.c)
  *      $101A32 (low byte) the rank, 0-63      $101A2E / $101A30  the lives      $10217A / $1021BA  the bombs
  *      $106E14 bit 15     a bomb going off
+ *      $104E94            the enemies' bullets (75 of $40 bytes: +00 with bits 15 and 8, not 12, in play), counted for the
+ *                         right panel's BULLETS (hitbox.c's records)
  *    The game is not touched: the panels only read.
  */
 #ifndef DONPACHI_WIDGETS_H

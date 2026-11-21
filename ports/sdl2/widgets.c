@@ -440,6 +440,25 @@ static void draw_toast(panel *p)
 	}
 }
 
+/* the enemies' bullets on the screen, as the game tests them against the ship (hitbox.c's): their records at $104E94,
+   75 of $40 bytes, one in play where +00 has bit 15 and bit 8 and not bit 12 (one that has hit) */
+#define BULLETS       0x104E94u
+#define BULLET_SIZE   0x40u
+#define BULLETS_MOST  75
+
+static unsigned bullets_now;    /* (counted on the frames that aren't slowed) */
+
+static unsigned count_bullets(void)
+{
+	unsigned count = 0;
+
+	if (word(0x1018ECu) != 7u)
+		return 0;    /* (only in play: the records keep their last values otherwise) */
+	for (uint32_t index = 0; index < BULLETS_MOST; index++)
+		count += (word(BULLETS + BULLET_SIZE * index) & 0x9100u) == 0x8100u;
+	return count;
+}
+
 void widgets_frame(void)
 {
 	const bool was_own = own_game;
@@ -458,6 +477,7 @@ void widgets_frame(void)
 		return;
 	}
 
+	bullets_now = count_bullets();
 	follow_game_mode();
 	if (own_game && !was_own)
 		widgets_begin_game();
@@ -1202,8 +1222,10 @@ static void draw_status(panel *p, int top)
 	}
 	else
 		draw_setting(p, top + ROW(0), "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
-	/* the board's own rapid fire: the EEPROM's "C BUTTON FULL-AUTO" (word 4, bit 2) */
-	draw_setting(p, top + ROW(1), "C AUTO", cave_board.eeprom.words[4] & 0x0004u ? "ON" : "OFF", WHITE);
+	/* the enemies' bullets on the screen (in place of C AUTO, the EEPROM's C button auto fire: as every game after
+	   DonPachi has it, it needn't be shown) */
+	snprintf(text, sizeof(text), "%u", bullets_now);
+	draw_setting(p, top + ROW(1), "BULLETS", text, bullets_now >= 50u ? YELLOW : WHITE);
 	draw_setting(p, top + ROW(2), "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
 	draw_setting(p, top + ROW(3), "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
 	/* the arcade's slowdown: off, or this game's share of frames slowed (on, before there is a game) */

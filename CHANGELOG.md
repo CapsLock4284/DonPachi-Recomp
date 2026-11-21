@@ -15,6 +15,8 @@ notes). The release zip carries this file as `CHANGES.txt`.
   beside it now gives the Japanese version's data on the first run too, nothing more asked; and when the first run's
   window has read `donpachi.zip`, it asks for `donpachij.zip` as well (Enter or a click skips it). So choosing JAPAN on
   the main menu no longer opens a window over it, unless the Japanese set was skipped.
+- **Bullets on screen** on the right side panel, in place of C AUTO (the C button's auto fire is how it is played
+  anyway): the number of enemy bullets the game is testing against your ship, yellow from 50.
 - **Filters by layer** (SETTINGS > GRAPHICS > BY LAYER, `[video] filter_layers`, off by default): the FILTER now
   runs on each of the game's layers and its sprites on their own, then puts them back together the way the arcade
   board does. Sprite outlines stay clean instead of smearing into a busy background, and lines that cross keep their

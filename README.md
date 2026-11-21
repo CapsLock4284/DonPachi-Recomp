@@ -119,7 +119,7 @@ shown. The help panel on the right explains the chosen one as well.
 | VSYNC | OFF, ON | On: no tearing, the picture waits for the monitor (a little more delay). Off (the default): the least delay |
 | RENDERER | AUTO, DIRECT3D, DIRECT3D11, DIRECT3D12, OPENGL, SOFTWARE | How the picture reaches the screen, used from the next start. AUTO is Direct3D 12 on Windows, the quickest to show |
 | ROTATE | OFF, RIGHT, LEFT | Turns the picture for a monitor on its side (TATE); the side panels are hidden then |
-| SIDE PANELS | ON, OFF | Panels in the empty space beside the picture on a wide screen: the chain, rank, your run, the area's bees and your controls on the left; the score graph, stage progress or the boss's health, and the settings in use on the right. They widen to fill the screen; the game's picture keeps its size |
+| SIDE PANELS | ON, OFF | Panels in the empty space beside the picture on a wide screen: the chain, rank, your run, the area's bees and your controls on the left; the score graph, stage progress or the boss's health, and the settings in use with the bullets on screen on the right. They widen to fill the screen; the game's picture keeps its size |
 | WINDOW SIZE | 1X to 8X | The window's size, as times the arcade's picture (3X by default) |
 | FULL SCREEN | OFF, BORDERLESS, EXCLUSIVE | BORDERLESS: a window over the whole screen, quick to switch away from. EXCLUSIVE: the display is the game's alone, which may lag a little less. F11 or Alt+Enter switches it too |
 

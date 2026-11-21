@@ -41,7 +41,7 @@ static void shot(const char *name)
 	menu_draw(game, out);
 	memset(help, 0, sizeof(help));
 	if (menu_help(&title, &text))
-		widgets_draw_help(help, title, text);
+		widgets_draw_help(help, WIDGET_W, title, text);
 	for (int y = 0; y < 320; y++)
 	{
 		memcpy(both + y * (240 + WIDGET_W), out + y * 240, 240 * sizeof(uint32_t));

@@ -3,7 +3,7 @@
  *    Description: the side panels: what the game is doing, from its memory, beside the picture on a wide screen:
  *                 the Get Point System's chain, the rank and the run's statistics (left); the score against the #1
  *                 high score, and the area, loop and how far through the stage, then the boss's health (right)
- *    Version:     0.1.0 (draft)
+ *    Version:     0.2.0 (draft)
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
@@ -29,15 +29,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define WIDGET_W    120     /* a panel, in the game's pixels: drawn at the picture's scale */
-#define WIDGET_H    320
-#define WIDGET_GAP  8       /* between the picture and a panel */
+#define WIDGET_W        120     /* a panel's least width, in the game's pixels: drawn at the picture's scale */
+#define WIDGET_MAX_W    256     /* and its most (a very wide screen keeps some black at its sides) */
+#define WIDGET_H        320
+#define WIDGET_GAP      8       /* between the picture and a panel */
 
 /* After each of the game's frames: what the graph keeps (the score's history, the stages' marks) */
 void widgets_frame(void);
 
-/* A panel of the menu's tooltip instead of the game's: the chosen entry's name and what it does, in lines that fit */
-void widgets_draw_help(uint32_t *pixels, const char *title, const char *text);
+/* A panel ('width' as widgets_draw's) of the menu's tooltip instead of the game's: the chosen entry's name and what it does, in lines that fit */
+void widgets_draw_help(uint32_t *pixels, int width, const char *title, const char *text);
 
 /* The bosses the panels saw shot down since the last call (1 a stage's boss, 2 the true boss, 4 a mid-boss: shot down,
    not flown off), for the statistics */
@@ -66,8 +67,10 @@ void widgets_set_status(const widgets_status *status);
 void *widgets_state_save(void);
 void widgets_state_load(const void *state);
 
-/* Both panels, WIDGET_W x WIDGET_H each, upright as the player sees them */
-void widgets_draw(uint32_t *left, uint32_t *right);
+/* Both panels, 'width' x WIDGET_H each (WIDGET_W to WIDGET_MAX_W: main.c works it out from the screen's shape, so
+   the panels fill a wider screen at the picture's scale), upright as the player sees them; a row is 'width' pixels.
+   Text keeps its place at the sides or in the middle, the bars, the graph and the rows of boxes spread to the width */
+void widgets_draw(uint32_t *left, uint32_t *right, int width);
 
 /* An achievement earned (achievements.h): "ACHIEVEMENT UNLOCKED" and its name over the right panel's top (never over
    the game) for 4 seconds of play; busy while one is shown, so the next waits */

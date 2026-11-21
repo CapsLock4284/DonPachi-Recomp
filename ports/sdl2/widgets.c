@@ -1,7 +1,7 @@
 /**
  *    Name:        widgets.c
  *    Description: the side panels (widgets.h)
- *    Version:     0.1.0 (draft)
+ *    Version:     0.2.0 (draft)
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
@@ -40,12 +40,13 @@
 typedef struct
 {
 	uint32_t *pixels;
+	int w;                      /* its width: WIDGET_W to WIDGET_MAX_W (a row is this many pixels) */
 } panel;
 
 static void dot(panel *p, int x, int y, uint32_t colour)
 {
-	if (x >= 0 && x < WIDGET_W && y >= 0 && y < WIDGET_H)
-		p->pixels[y * WIDGET_W + x] = colour;
+	if (x >= 0 && x < p->w && y >= 0 && y < WIDGET_H)
+		p->pixels[y * p->w + x] = colour;
 }
 
 static void box(panel *p, int x0, int y0, int x1, int y1, uint32_t colour)
@@ -116,7 +117,7 @@ static void put_text(panel *p, int x, int y, const char *text, uint32_t colour, 
 
 static void put_centre(panel *p, int y, const char *text, uint32_t colour, int size)
 {
-	put_text(p, (WIDGET_W - text_width(text, size)) / 2, y, text, colour, size);
+	put_text(p, (p->w - text_width(text, size)) / 2, y, text, colour, size);
 }
 
 static void put_right(panel *p, int right, int y, const char *text, uint32_t colour)
@@ -208,7 +209,7 @@ static bool in_play(int player)
 
 #define GRAPH_X     8
 #define GRAPH_Y     44
-#define GRAPH_W     104     /* points: one a column */
+#define GRAPH_W     104     /* points: one a column at the narrowest panel (a wider one spreads them: graph_x) */
 #define GRAPH_H     88
 #define MARKS       24
 
@@ -390,12 +391,12 @@ static void draw_toast(panel *p)
 	const uint32_t rim = TOAST_FRAMES - toast_frames < 30 && (TOAST_FRAMES - toast_frames) / 5 % 2 ? WHITE : GOLD;
 	char first[32], second[32] = "";
 
-	box(p, 4, top, WIDGET_W - 4, bottom, 0x14142Au);
-	outline(p, 4, top, WIDGET_W - 4, bottom, rim);
-	outline(p, 6, top + 2, WIDGET_W - 6, bottom - 2, FRAME);
+	box(p, 4, top, p->w - 4, bottom, 0x14142Au);
+	outline(p, 4, top, p->w - 4, bottom, rim);
+	outline(p, 6, top + 2, p->w - 6, bottom - 2, FRAME);
 	/* a little gold trophy: the cup, its handles, the stem and the base */
 	{
-		const int c = WIDGET_W / 2, y = top + 6;
+		const int c = p->w / 2, y = top + 6;
 
 		box(p, c - 5, y, c + 6, y + 6, GOLD);           /* the cup */
 		box(p, c - 4, y + 6, c + 5, y + 7, GOLD);
@@ -414,11 +415,11 @@ static void draw_toast(panel *p)
 	put_centre(p, top + 35, "UNLOCKED", GOLD, 1);
 	/* the name: on two lines when it is wider than the panel (at its last space that fits) */
 	snprintf(first, sizeof(first), "%s", toast_name);
-	if (text_width(first, 1) > WIDGET_W - 16)
+	if (text_width(first, 1) > p->w - 16)
 	{
 		char *space = NULL;
 
-		for (char *at = first; *at && text_width(first, 1) - text_width(at, 1) <= WIDGET_W - 16; at++)
+		for (char *at = first; *at && text_width(first, 1) - text_width(at, 1) <= p->w - 16; at++)
 			if (*at == ' ')
 				space = at;
 		if (space)
@@ -488,9 +489,9 @@ static void number(char *out, size_t size, uint32_t value)
 
 static void frame_panel(panel *p, const char *title)
 {
-	box(p, 0, 0, WIDGET_W, WIDGET_H, BACKGROUND);
-	outline(p, 0, 0, WIDGET_W, WIDGET_H, FRAME);
-	box(p, 1, 1, WIDGET_W - 1, 15, 0x14142Au);
+	box(p, 0, 0, p->w, WIDGET_H, BACKGROUND);
+	outline(p, 0, 0, p->w, WIDGET_H, FRAME);
+	box(p, 1, 1, p->w - 1, 15, 0x14142Au);
 	put_centre(p, 4, title, GOLD, 1);
 }
 
@@ -505,35 +506,41 @@ static void draw_chain(panel *p, int player, int top)
 
 	snprintf(text, sizeof(text), "%dP", player + 1);
 	put_text(p, 8, top, text, playing ? (player ? CYAN : ORANGE) : DIM, 1);
-	put_right(p, WIDGET_W - 8, top, "CHAIN", playing ? GREY : DIM);
+	put_right(p, p->w - 8, top, "CHAIN", playing ? GREY : DIM);
 	/* the hits, large, while the chain or its result is on */
 	snprintf(text, sizeof(text), "%u", playing && count ? count : 0u);
 	put_text(p, 8, top + 14, text, playing && count ? (timer ? GOLD : GREY) : DIM, 3);
 	put_text(p, 8 + text_width(text, 3) + 4, top + 30, "HIT", playing && count ? colour : DIM, 1);
 	/* the time left: 30 frames after a kill, draining, the frames left counted down inside it (30 frames: 0.52 s) */
-	outline(p, 8, top + 44, WIDGET_W - 8, top + 56, playing ? GREY : DIM);
-	filled = (int)((WIDGET_W - 18) * (timer > CHAIN_FRAMES ? CHAIN_FRAMES : timer) / CHAIN_FRAMES);
+	outline(p, 8, top + 44, p->w - 8, top + 56, playing ? GREY : DIM);
+	filled = (int)((p->w - 18) * (timer > CHAIN_FRAMES ? CHAIN_FRAMES : timer) / CHAIN_FRAMES);
 	if (playing && timer)
 	{
 		box(p, 9, top + 45, 9 + filled, top + 55, timer > 15 ? GREEN : timer > 7 ? YELLOW : RED);
 		snprintf(text, sizeof(text), "%u", timer);
-		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+		for (int at = 0, x = (p->w - text_width(text, 1)) / 2; text[at]; at++, x += 8)
 			put_char_split(p, x, top + 46, text[at], 0x10101Cu, WHITE, 9 + filled, 1);    /* (dark on the bar) */
 	}
 	/* its points so far, and the best chain */
 	put_text(p, 8, top + 62, "PTS", playing ? GREY : DIM, 1);
 	number(text, sizeof(text), playing ? bcd_long(chain_points[player]) : 0u);
-	put_right(p, WIDGET_W - 8, top + 62, text, colour);
+	put_right(p, p->w - 8, top + 62, text, colour);
 	put_text(p, 8, top + 74, "MAX", playing ? GREY : DIM, 1);
 	number(text, sizeof(text), playing ? word(bests[player]) : 0u);
-	put_right(p, WIDGET_W - 8, top + 74, text, colour);
+	put_right(p, p->w - 8, top + 74, text, colour);
 }
 
 #define CHAIN_HEIGHT 96     /* a player's chain, with the space before the next */
 
+/* the graph's box is the panel's width less 8 each side; point 'at' (0 to GRAPH_W) of it at this x */
+static int graph_x(const panel *p, int at)
+{
+	return GRAPH_X + at * (p->w - 2 * GRAPH_X) / GRAPH_W;
+}
+
 static void draw_graph(panel *p)
 {
-	const int bottom = GRAPH_Y + GRAPH_H;
+	const int bottom = GRAPH_Y + GRAPH_H, right = p->w - GRAPH_X;
 	float most = 1.0f;
 	char text[32];
 
@@ -542,34 +549,34 @@ static void draw_graph(panel *p)
 		for (int at = 0; at < graph.count; at++)
 			if (graph.played[player][at] && graph.points[player][at] > most)
 				most = graph.points[player][at];
-	box(p, GRAPH_X, GRAPH_Y, GRAPH_X + GRAPH_W, bottom, 0x000000u);
+	box(p, GRAPH_X, GRAPH_Y, right, bottom, 0x000000u);
 	for (int at = 0; at < graph.count; at++)
 	{
 		/* player 1: the area under the line, as the arcade ports' rank graphs */
 		const int height = graph.played[0][at] ? (int)(graph.points[0][at] / most * (float)GRAPH_H) : 0;
 
 		if (height > 0)
-			box(p, GRAPH_X + at, bottom - (height > GRAPH_H ? GRAPH_H : height), GRAPH_X + at + 1, bottom, ORANGE);
+			box(p, graph_x(p, at), bottom - (height > GRAPH_H ? GRAPH_H : height), graph_x(p, at + 1), bottom, ORANGE);
 	}
 	for (int at = 1; at < graph.count; at++)
 		if (graph.played[1][at] && graph.played[1][at - 1])
-			line(p, GRAPH_X + at - 1, bottom - 1 - (int)(graph.points[1][at - 1] / most * (float)(GRAPH_H - 1)),
-				GRAPH_X + at, bottom - 1 - (int)(graph.points[1][at] / most * (float)(GRAPH_H - 1)), CYAN);
+			line(p, graph_x(p, at - 1), bottom - 1 - (int)(graph.points[1][at - 1] / most * (float)(GRAPH_H - 1)),
+				graph_x(p, at), bottom - 1 - (int)(graph.points[1][at] / most * (float)(GRAPH_H - 1)), CYAN);
 	/* the 100% and 50% lines, the stages' marks */
-	for (int x = GRAPH_X; x < GRAPH_X + GRAPH_W; x += 2)
+	for (int x = GRAPH_X; x < right; x += 2)
 	{
 		dot(p, x, bottom - (int)((float)GRAPH_H / most), WHITE);
 		dot(p, x, bottom - (int)((float)GRAPH_H / most / 2.0f), GREY);
 	}
 	for (int mark = 0; mark < graph.mark_count; mark++)
 		for (int y = GRAPH_Y; y < bottom; y += 3)
-			dot(p, GRAPH_X + graph.marks[mark], y, DIM);
-	outline(p, GRAPH_X - 1, GRAPH_Y - 1, GRAPH_X + GRAPH_W + 1, bottom + 1, GREY);
+			dot(p, graph_x(p, graph.marks[mark]), y, DIM);
+	outline(p, GRAPH_X - 1, GRAPH_Y - 1, right + 1, bottom + 1, GREY);
 	/* (the top of the box: 100%, or the highest score's share when a player is past the #1) */
 	snprintf(text, sizeof(text), "%d%%", (int)(most * 100.0f + 0.5f));
-	put_right(p, WIDGET_W - 2, GRAPH_Y - 10, text, GREY);
+	put_right(p, p->w - 2, GRAPH_Y - 10, text, GREY);
 	put_text(p, GRAPH_X, bottom + 3, "ST", GREY, 1);
-	put_right(p, GRAPH_X + GRAPH_W, bottom + 3, "NOW", GREY);
+	put_right(p, right, bottom + 3, "NOW", GREY);
 
 	/* the percentage, as large as it goes, and the scores */
 	if (graph.running)
@@ -586,10 +593,10 @@ static void draw_graph(panel *p)
 	}
 	put_text(p, 8, bottom + 44, "TOP", GREY, 1);
 	number(text, sizeof(text), graph.running ? graph.target : bcd_long(TOP_SCORE));
-	put_right(p, WIDGET_W - 8, bottom + 44, text, WHITE);
+	put_right(p, p->w - 8, bottom + 44, text, WHITE);
 	put_text(p, 8, bottom + 56, "NOW", GREY, 1);
 	number(text, sizeof(text), graph.last_score[0]);
-	put_right(p, WIDGET_W - 8, bottom + 56, text, WHITE);
+	put_right(p, p->w - 8, bottom + 56, text, WHITE);
 }
 
 /* ---- the stage: the area (1-10), the loop, and how far through the stage, to its boss ---- */
@@ -875,29 +882,29 @@ static void draw_stage(panel *p, int top)
 	const bool known = own_game && stage < 5u && loop < 2u;
 	char text[32];
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	put_text(p, 8, top + 6, "AREA", known ? GREY : DIM, 1);
-	put_right(p, WIDGET_W - 8, top + 6, "LOOP", known ? GREY : DIM);
+	put_right(p, p->w - 8, top + 6, "LOOP", known ? GREY : DIM);
 	snprintf(text, sizeof(text), "%u", loop * 5u + stage + 1u);
 	put_text(p, 8, top + 16, known ? text : "-", known ? GOLD : DIM, 2);
 	snprintf(text, sizeof(text), "%u", loop + 1u);
-	put_text(p, WIDGET_W - 8 - text_width(known ? text : "-", 2), top + 16, known ? text : "-", known ? WHITE : DIM, 2);
+	put_text(p, p->w - 8 - text_width(known ? text : "-", 2), top + 16, known ? text : "-", known ? WHITE : DIM, 2);
 	/* how far through it: the bar fills to the boss; then the boss's health, emptying as it is shot */
-	outline(p, 8, top + 40, WIDGET_W - 8, top + 52, known ? GREY : DIM);
+	outline(p, 8, top + 40, p->w - 8, top + 52, known ? GREY : DIM);
 	if (known && boss.area == (int)(loop * 5u + stage) && boss.state != BOSS_NONE)
 	{
 		const bool fight = boss.state == BOSS_FIGHT;
 		/* (rounded up: 0% only when it is gone) */
 		const int left = !fight || boss.timed_out || boss.most <= 0 ? 0
 			: (int)((boss.health * 100 + boss.most - 1) / boss.most);
-		const int filled = (WIDGET_W - 18) * left / 100;
+		const int filled = (p->w - 18) * left / 100;
 
 		box(p, 9, top + 41, 9 + filled, top + 51, boss.type == BOSS_TRUE ? GOLD : RED);
 		if (fight && !boss.timed_out)
 			snprintf(text, sizeof(text), "%d%%", left);
 		else
 			snprintf(text, sizeof(text), "%s", boss.state == BOSS_DEFEATED ? "DEFEATED" : "TIME UP");    /* (or going) */
-		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+		for (int at = 0, x = (p->w - text_width(text, 1)) / 2; text[at]; at++, x += 8)
 			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
 		put_centre(p, top + 58, boss.type == BOSS_TRUE ? "TRUE BOSS" : "BOSS HEALTH", GREY, 1);
 		return;
@@ -906,14 +913,14 @@ static void draw_stage(panel *p, int top)
 	{
 		const bool fight = midboss.state == BOSS_FIGHT;
 		const int left = !fight || midboss.most <= 0 ? 0 : (int)((midboss.health * 100 + midboss.most - 1) / midboss.most);
-		const int filled = (WIDGET_W - 18) * left / 100;
+		const int filled = (p->w - 18) * left / 100;
 
 		box(p, 9, top + 41, 9 + filled, top + 51, ORANGE);
 		if (fight)
 			snprintf(text, sizeof(text), "%d%%", left);
 		else
 			snprintf(text, sizeof(text), "%s", midboss.state == BOSS_DEFEATED ? "DEFEATED" : "ESCAPED");
-		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+		for (int at = 0, x = (p->w - text_width(text, 1)) / 2; text[at]; at++, x += 8)
 			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
 		put_centre(p, top + 58, "MID-BOSS", GREY, 1);
 		return;
@@ -922,14 +929,14 @@ static void draw_stage(panel *p, int top)
 	{
 		const int scroll = (int16_t)word(SCROLL) - start_at[stage], end = boss_at[stage] - start_at[stage];
 		const int done = scroll <= 0 ? 0 : scroll >= end ? 100 : scroll * 100 / end;
-		const int filled = (WIDGET_W - 18) * done / 100;
+		const int filled = (p->w - 18) * done / 100;
 
 		box(p, 9, top + 41, 9 + filled, top + 51, done >= 100 ? RED : CYAN);
 		if (done >= 100)
 			snprintf(text, sizeof(text), "BOSS");
 		else
 			snprintf(text, sizeof(text), "%d%%", done);
-		for (int at = 0, x = (WIDGET_W - text_width(text, 1)) / 2; text[at]; at++, x += 8)
+		for (int at = 0, x = (p->w - text_width(text, 1)) / 2; text[at]; at++, x += 8)
 			put_char_split(p, x, top + 42, text[at], 0x10101Cu, WHITE, 9 + filled, 1);
 	}
 	put_centre(p, top + 58, "STAGE PROGRESS", known ? GREY : DIM, 1);
@@ -950,14 +957,14 @@ static void draw_rank(panel *p, int top)
 	const unsigned rank = word(RANK) & 0xFFu;
 	char text[16];
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	put_text(p, 8, top + 6, "RANK", known ? GREY : DIM, 1);
 	snprintf(text, sizeof(text), "%u/%u", known ? rank : 0u, RANK_MAX);
-	put_right(p, WIDGET_W - 8, top + 6, known ? text : "-", known ? WHITE : DIM);
-	outline(p, 8, top + 18, WIDGET_W - 8, top + 26, known ? GREY : DIM);
+	put_right(p, p->w - 8, top + 6, known ? text : "-", known ? WHITE : DIM);
+	outline(p, 8, top + 18, p->w - 8, top + 26, known ? GREY : DIM);
 	if (known)
 	{
-		const int filled = (WIDGET_W - 18) * (int)(rank > RANK_MAX ? RANK_MAX : rank) / RANK_MAX;
+		const int filled = (p->w - 18) * (int)(rank > RANK_MAX ? RANK_MAX : rank) / RANK_MAX;
 		/* green, to yellow at half, to red at the top */
 		const uint32_t colour = rank < 22u ? GREEN : rank < 43u ? YELLOW : RED;
 
@@ -986,17 +993,17 @@ static void draw_run(panel *p, int top, bool two)
 	char text[32];
 	int y = top + 6;
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	put_time(text, sizeof(text), run.frames);
 	put_text(p, 8, y, "TIME", label, 1);
-	put_right(p, WIDGET_W - 8, y, text, WHITE);
+	put_right(p, p->w - 8, y, text, WHITE);
 	y += 12;
 	put_text(p, 8, y, "BOMBS", label, 1);
 	if (two)
 		snprintf(text, sizeof(text), "%u / %u", run.bombs[0], run.bombs[1]);
 	else
 		snprintf(text, sizeof(text), "%u", run.bombs[0]);
-	put_right(p, WIDGET_W - 8, y, text, WHITE);
+	put_right(p, p->w - 8, y, text, WHITE);
 	y += 12;
 	{
 		unsigned total[2] = { 0, 0 };
@@ -1010,25 +1017,26 @@ static void draw_run(panel *p, int top, bool two)
 			snprintf(text, sizeof(text), "%u / %u", total[0], total[1]);
 		else
 			snprintf(text, sizeof(text), "%u", total[0]);
-		put_right(p, WIDGET_W - 8, y, text, WHITE);
+		put_right(p, p->w - 8, y, text, WHITE);
 		y += 12;
 	}
 	if (!two)
 	{
 		/* player 1's misses in each area: the loops one above the other */
 		const int now = own_game ? area_now() : -1;
+		const int step = (p->w - 16 - 19) / 4;    /* (the five columns across the panel: 21 apart at its narrowest) */
 
 		for (int column = 0; column < 5; column++)
 		{
 			char digit[2] = { (char)('1' + column), 0 };
 
-			put_char(p, 8 + column * 21 + 6, y, digit[0], DIM, 1);
+			put_char(p, 8 + column * step + 6, y, digit[0], DIM, 1);
 		}
 		y += 10;
 		for (int loop = 0; loop < 2; loop++, y += 13)
 			for (int column = 0; column < 5; column++)
 			{
-				const int area = loop * 5 + column, x = 8 + column * 21;
+				const int area = loop * 5 + column, x = 8 + column * step;
 				const unsigned misses = run.misses[0][area];
 
 				outline(p, x, y, x + 19, y + 11, area == now ? GOLD : FRAME);
@@ -1045,7 +1053,7 @@ static void draw_run(panel *p, int top, bool two)
 	}
 	number(text, sizeof(text), session_best);
 	put_text(p, 8, y, "BEST", label, 1);
-	put_right(p, WIDGET_W - 8, y, text, GOLD);
+	put_right(p, p->w - 8, y, text, GOLD);
 }
 
 /* ---- the bees: the area's 13, each greyed until it is taken ---- */
@@ -1107,8 +1115,8 @@ static void draw_bee(panel *p, int x, int y, bool taken)
 
 				r = g = b = grey;
 			}
-			if (x + column >= 0 && x + column < WIDGET_W && y + row >= 0 && y + row < WIDGET_H)
-				p->pixels[(y + row) * WIDGET_W + x + column] = r << 16 | g << 8 | b;
+			if (x + column >= 0 && x + column < p->w && y + row >= 0 && y + row < WIDGET_H)
+				p->pixels[(y + row) * p->w + x + column] = r << 16 | g << 8 | b;
 		}
 }
 
@@ -1117,13 +1125,14 @@ static void draw_bee(panel *p, int x, int y, bool taken)
 static void draw_bees(panel *p, int top)
 {
 	const unsigned taken = own_game && run.bee_area >= 0 ? run.bees[run.bee_area] : 0u;
+	const int step = (p->w - 16 - BEE_ICON) / 6;    /* (seven across the panel: 15 apart at its narrowest) */
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	for (int bee = 0; bee < BEES; bee++)
 	{
 		const int row = bee / 7, column = bee % 7;
 
-		draw_bee(p, 8 + column * 15 + row * 7, top + 5 + row * 14, (unsigned)bee < taken);    /* (the 6 of the second row centred) */
+		draw_bee(p, 8 + column * step + row * (step / 2), top + 5 + row * 14, (unsigned)bee < taken);    /* (the 6 of the second row centred) */
 	}
 }
 
@@ -1132,6 +1141,7 @@ static void draw_bees(panel *p, int top)
 static void draw_input(panel *p, int top, int player)
 {
 	const uint16_t held = (uint16_t)~(player ? cave_board.in1 : cave_board.in0);
+	const int left = (p->w - WIDGET_W) / 2;    /* (the stick and buttons, 104 wide, in the middle) */
 	const uint32_t frame = own_game ? GREY : DIM;
 	/* the stick: a 3 x 3 of cells, the one it points to lit */
 	const int dx = held & CAVE_LEFT ? -1 : held & CAVE_RIGHT ? 1 : 0, dy = held & CAVE_UP ? -1 : held & CAVE_DOWN ? 1 : 0;
@@ -1139,11 +1149,11 @@ static void draw_input(panel *p, int top, int player)
 		{ CAVE_BUTTON1, 'S' }, { CAVE_BUTTON2, 'B' }, { CAVE_BUTTON3, 'C' }
 	};
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	for (int row = -1; row <= 1; row++)
 		for (int column = -1; column <= 1; column++)
 		{
-			const int x = 8 + (column + 1) * 9, y = top + 6 + (row + 1) * 9;
+			const int x = left + 8 + (column + 1) * 9, y = top + 6 + (row + 1) * 9;
 
 			if (own_game && row == dy && column == dx)
 				box(p, x, y, x + 8, y + 8, row == 0 && column == 0 ? GREY : GOLD);
@@ -1152,7 +1162,7 @@ static void draw_input(panel *p, int top, int player)
 		}
 	for (int button = 0; button < 3; button++)
 	{
-		const int x = 44 + button * 24, y = top + 9;
+		const int x = left + 44 + button * 24, y = top + 9;
 		const bool on = own_game && (held & buttons[button].bit);
 
 		if (on)
@@ -1175,7 +1185,7 @@ void widgets_set_status(const widgets_status *now)
 static void draw_setting(panel *p, int y, const char *name, const char *value, uint32_t colour)
 {
 	put_text(p, 8, y, name, GREY, 1);
-	put_right(p, WIDGET_W - 8, y, value, colour);
+	put_right(p, p->w - 8, y, value, colour);
 }
 
 #define ROW(n)  (5 + 8 * (n))    /* the settings' lines, from the top of theirs */
@@ -1184,7 +1194,7 @@ static void draw_status(panel *p, int top)
 {
 	char text[16];
 
-	box(p, 8, top, WIDGET_W - 8, top + 1, FRAME);
+	box(p, 8, top, p->w - 8, top + 1, FRAME);
 	if (status.fast_forward > 0)
 	{
 		snprintf(text, sizeof(text), ">>%dX", status.fast_forward);
@@ -1214,10 +1224,11 @@ static void draw_status(panel *p, int top)
 	draw_setting(p, top + ROW(5), "AUTOBOMB", status.autobomb ? "ON" : "OFF", status.autobomb ? YELLOW : WHITE);
 }
 
-void widgets_draw(uint32_t *left, uint32_t *right)
+void widgets_draw(uint32_t *left, uint32_t *right, int width)
 {
 	panel p;
 
+	p.w = width < WIDGET_W ? WIDGET_W : width > WIDGET_MAX_W ? WIDGET_MAX_W : width;
 	p.pixels = left;
 	frame_panel(&p, "GET POINT");
 	{
@@ -1262,8 +1273,8 @@ void widgets_draw(uint32_t *left, uint32_t *right)
    after it */
 static int put_wrapped(panel *p, int y, const char *text, uint32_t colour)
 {
-	const int most = (WIDGET_W - 12) / 8;
-	char line[32];
+	const int most = (p->w - 12) / 8;
+	char line[40];
 
 	while (*text && y < WIDGET_H - 12)
 	{
@@ -1288,15 +1299,16 @@ static int put_wrapped(panel *p, int y, const char *text, uint32_t colour)
 	return y;
 }
 
-void widgets_draw_help(uint32_t *pixels, const char *title, const char *text)
+void widgets_draw_help(uint32_t *pixels, int width, const char *title, const char *text)
 {
 	panel p;
 	int y;
 
+	p.w = width < WIDGET_W ? WIDGET_W : width > WIDGET_MAX_W ? WIDGET_MAX_W : width;
 	p.pixels = pixels;
 	frame_panel(&p, "HELP");
 	y = put_wrapped(&p, 26, title, GOLD);
-	box(&p, 6, y + 2, WIDGET_W - 6, y + 3, FRAME);
+	box(&p, 6, y + 2, p.w - 6, y + 3, FRAME);
 	put_wrapped(&p, y + 10, text, WHITE);
 }
 

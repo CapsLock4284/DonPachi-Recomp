@@ -1,5 +1,6 @@
 /* panels_shot: a picture of the game as the port shows it on a wide screen: the left panel, the game, the right
-   panel (panels.ppm, 480 x 320). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
+   panel (panels.ppm, 480 x 320; WIDTH=W: panels W wide, WIDGET_W to WIDGET_MAX_W, as on a wider screen: 156 at
+   16:9, the picture 2W + 240 wide). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
      panels_shot AREA FRAMES [TOAST]     TOAST: an achievement's name, its pop-up shown (with "+2 MORE"); AI=1:
                                          player 2 flown by the computer (ai_player.h)
    e.g. panels_shot 2 1800 "ONE CREDIT CLEAR"   (the README's area 3 picture is panels_shot 2 1800) */
@@ -15,9 +16,10 @@ int main(int argc, char **argv)
 	const training_setup setup = { argc > 1 ? atoi(argv[1]) : 0, getenv("PLACE") ? atoi(getenv("PLACE")) : 0, 0,
 		TRAINING_POWER_MAX, false, 0 };
 	const long frames = argc > 2 ? atol(argv[2]) : 1800;
-	static uint32_t left[WIDGET_W * WIDGET_H], right[WIDGET_W * WIDGET_H];
+	static uint32_t left[WIDGET_MAX_W * WIDGET_H], right[WIDGET_MAX_W * WIDGET_H];
 	static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_HEIGHT];
-	static uint32_t out[480 * 320];
+	static uint32_t out[(2 * WIDGET_MAX_W + 240) * 320];
+	int width = getenv("WIDTH") ? atoi(getenv("WIDTH")) : WIDGET_W, all;
 
 	start_game();
 	training_prepare(&setup);
@@ -38,15 +40,17 @@ int main(int argc, char **argv)
 		if (argc > 3 && f == frames - 20)
 			widgets_toast(argv[3], 2);
 	}
-	widgets_draw(left, right);
+	width = width < WIDGET_W ? WIDGET_W : width > WIDGET_MAX_W ? WIDGET_MAX_W : width;
+	all = 2 * width + 240;
+	widgets_draw(left, right, width);
 	video_latch_sprites();
 	video_draw(frame);
 	video_rotated(frame, picture);
 	for (int y = 0; y < 320; y++)
-		for (int x = 0; x < 480; x++)
-			out[y * 480 + x] = x < 120 ? left[y * WIDGET_W + x]
-				: x < 360 ? picture[y * 240 + x - 120] : right[y * WIDGET_W + x - 360];
-	save_ppm("panels.ppm", out, 480, 320);
+		for (int x = 0; x < all; x++)
+			out[y * all + x] = x < width ? left[y * width + x]
+				: x < width + 240 ? picture[y * 240 + x - width] : right[y * width + x - width - 240];
+	save_ppm("panels.ppm", out, all, 320);
 	printf("panels.ppm: area %d after %ld frames\n", setup.area + 1, frames);
 	return 0;
 }

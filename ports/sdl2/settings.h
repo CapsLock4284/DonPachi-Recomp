@@ -100,6 +100,7 @@ typedef struct
 	int scanlines;              /* 0 off, 1 light, 2 medium, 3 heavy */
 	int crt;                    /* the arcade monitor's look (crt.h): 0 off, 1 light, 2 full (its own lines then) */
 	int filter;                 /* the pixel-art scaler over the picture (scaler.h's SCALER_...): not with the CRT look */
+	bool filter_layers;         /* the scaler on each layer and the sprites apart (layer_filter.h; not xBR's) */
 	bool vsync;
 	int renderer;               /* settings_renderer_names: 0 auto (Direct3D 12 on Windows), or the one asked for
 	                               (main.c; used from the next start) */

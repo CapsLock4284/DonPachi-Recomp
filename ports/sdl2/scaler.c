@@ -378,8 +378,12 @@ static void xbr_rows(int factor, int w, int from, int to, uint32_t *out)
    steps two pixels long smoothed too. No new colours: every output pixel is one of the input's ---- */
 
 /* the brightness MMPX breaks ties with: the channels' sum, plus one */
+static bool layer_planes;    /* (scaler_run_layer: an empty pixel, 0, the brightest) */
+
 static unsigned mmpx_luma(uint32_t c)
 {
+	if (layer_planes && c == 0u)
+		return 0x10000u;
 	return ((c >> 16) & 0xFFu) + ((c >> 8) & 0xFFu) + (c & 0xFFu) + 1u;
 }
 
@@ -583,6 +587,18 @@ void scaler_quit(void)
 	padded = NULL;
 	luma = NULL;
 	padded_w = padded_h = luma_w = luma_h = steps_w = 0;
+}
+
+bool scaler_by_layer(int scaler)
+{
+	return scaler == SCALER_SCALE2X || scaler == SCALER_SCALE3X || scaler == SCALER_MMPX;
+}
+
+void scaler_run_layer(int scaler, const uint32_t *in, int w, int h, uint32_t *out)
+{
+	layer_planes = true;
+	scaler_run(scaler, in, w, h, out);
+	layer_planes = false;
 }
 
 void scaler_run(int scaler, const uint32_t *in, int w, int h, uint32_t *out)

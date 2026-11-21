@@ -101,6 +101,7 @@ enum
 	ITEM_SOUND,                   /* the sound's page: VOLUME, and MUSIC, EFFECTS and VOICES on their own */
 	ITEM_MUSIC_VOLUME, ITEM_EFFECTS_VOLUME, ITEM_VOICES_VOLUME,
 	ITEM_BULLETS,                 /* the game options': the enemies' bullets' points shown (hitbox.h) */
+	ITEM_FILTER_LAYERS,           /* the filter on each layer and the sprites apart (layer_filter.h) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -310,7 +311,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
-		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_ROTATE,
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_FILTER_LAYERS, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_ROTATE,
 			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
@@ -583,6 +584,9 @@ static void change(int item, int step, bool wrap)
 	case ITEM_FILTER:
 		in_use->filter = file->filter = cycle(in_use->filter, SCALERS, step, wrap);
 		host.apply_video();
+		break;
+	case ITEM_FILTER_LAYERS:
+		in_use->filter_layers = file->filter_layers = !in_use->filter_layers;
 		break;
 	case ITEM_SCANLINES:
 		in_use->scanlines = file->scanlines = cycle(in_use->scanlines, 4, step, wrap);
@@ -1128,6 +1132,9 @@ static const char *item_help(int item)
 	case ITEM_FILTER:
 		return "PIXEL-ART SCALERS: SMOOTHER EDGES, STILL SHARP. SCALE2X/3X THE LIGHTEST, MMPX KEEPS THE ART'S LOOK, "
 			"XBR THE SMOOTHEST. NOT WITH THE CRT LOOK.";
+	case ITEM_FILTER_LAYERS:
+		return "THE FILTER ON EACH OF THE GAME'S LAYERS AND ITS SPRITES APART, THEN PUT TOGETHER: SHARPER SPRITE EDGES, "
+			"NOTHING SMEARED INTO THE BACKGROUND. SCALE2X, SCALE3X AND MMPX ONLY.";
 	case ITEM_SCANLINES:
 		return "DARK LINES ACROSS THE PICTURE, AS ON AN ARCADE SCREEN.";
 	case ITEM_CRT:
@@ -1664,7 +1671,7 @@ static const char *item_label(int item)
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
-		"EFFECTS", "VOICES", "BULLETS"
+		"EFFECTS", "VOICES", "BULLETS", "BY LAYER"
 	};
 
 	if (is_hotkey_item(item))
@@ -1828,6 +1835,11 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_FILTER:
 		snprintf(out, size, "%s", scaler_name(s->filter));
+		break;
+	case ITEM_FILTER_LAYERS:
+		/* (xBR blends: by layer it can't, so it stays on the whole picture) */
+		snprintf(out, size, "%s", !s->filter_layers ? "OFF" : scaler_by_layer(s->filter) || s->filter == SCALER_OFF
+			? "ON" : "NO (XBR)");
 		break;
 	case ITEM_SCANLINES:
 		snprintf(out, size, "%s", settings_scanline_names[s->scanlines]);

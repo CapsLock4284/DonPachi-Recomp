@@ -104,6 +104,7 @@ void settings_defaults(settings *s)
 	s->scanlines = 0;
 	s->crt = 0;
 	s->filter = SCALER_OFF;
+	s->filter_layers = false;
 	s->vsync = false;
 	s->renderer = 0;
 	s->rotate = ROTATE_NONE;
@@ -328,6 +329,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			s->filter = SCALER_OFF;
 			return false;
 		}
+		if (!SDL_strcasecmp(name, "filter_layers"))
+			return parse_bool(value, &s->filter_layers);
 		if (!SDL_strcasecmp(name, "crt"))
 			return (s->crt = name_of(value, settings_crt_names, 3)) >= 0 || (s->crt = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
@@ -642,6 +645,9 @@ const char *settings_save(const settings *s, const char *path)
 	fputs("; off, scale2x, scale3x, xbr2x, xbr3x, xbr4x or mmpx: a pixel-art scaler, smoothing the picture's edges while\n"
 		"; keeping it sharp (not with the CRT look)\n", file);
 	fprintf(file, "filter = %s\n", scaler_key(s->filter));
+	fputs("; true: the filter on each of the game's layers and its sprites apart, then put together as the board does\n"
+		"; (sharper sprite edges, nothing smeared into the background); scale2x, scale3x and mmpx only (xbr: false)\n", file);
+	fprintf(file, "filter_layers = %s\n", bool_text(s->filter_layers));
 	fputs("; true: no tearing, the picture waits for the monitor (a little more delay); false: the least delay\n", file);
 	fprintf(file, "vsync = %s\n", bool_text(s->vsync));
 	fputs("; auto, direct3d (Direct3D 9), direct3d11, direct3d12, opengl or software: how the picture reaches the\n"

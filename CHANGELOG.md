@@ -15,6 +15,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
   beside it now gives the Japanese version's data on the first run too, nothing more asked; and when the first run's
   window has read `donpachi.zip`, it asks for `donpachij.zip` as well (Enter or a click skips it). So choosing JAPAN on
   the main menu no longer opens a window over it, unless the Japanese set was skipped.
+- **Filters by layer** (SETTINGS > GRAPHICS > BY LAYER, `[video] filter_layers`, off by default): the FILTER now
+  runs on each of the game's layers and its sprites on their own, then puts them back together the way the arcade
+  board does. Sprite outlines stay clean instead of smearing into a busy background, and lines that cross keep their
+  shape. Works with Scale2x, Scale3x and MMPX (xBR mixes colours, so it stays on the whole picture). It costs a few
+  more milliseconds a frame; the game itself is unchanged.
 - **The side panels fill a wide screen**: they used to be a fixed width, leaving black bars at the sides of a 16:9
   screen. Now they widen to fill it (the game's picture keeps its size and shape, nothing is stretched): the bars,
   the score graph and the rows of boxes spread out to the new width. A very wide screen still keeps some black.

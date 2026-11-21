@@ -15,6 +15,7 @@
 #ifndef SCALER_H
 #define SCALER_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 enum
@@ -40,6 +41,14 @@ const char *scaler_key(int scaler);
 
 /* 'in' (w x h pixels, ARGB) made 'scaler_factor' times larger into 'out' (its rows w * factor pixels long) */
 void scaler_run(int scaler, const uint32_t *in, int w, int h, uint32_t *out);
+
+/* Whether a scaler only picks among its input's own pixels (Scale2x, Scale3x, MMPX: no colour of its own), so it can
+   scale the picture's layers one by one (cave/video.h's planes: their keys kept) */
+bool scaler_by_layer(int scaler);
+
+/* scaler_run for a plane of the picture (cave/video.h): its empty pixels (0) are what the layer lets show through, so
+   MMPX takes them as the brightest (a sprite's dark outline is kept against them, not given up as against black) */
+void scaler_run_layer(int scaler, const uint32_t *in, int w, int h, uint32_t *out);
 
 /* Stops its helper threads and lets go of its memory (the program ending) */
 void scaler_quit(void);

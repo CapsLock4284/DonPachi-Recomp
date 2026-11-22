@@ -1222,15 +1222,11 @@ static void draw_status(panel *p, int top)
 	}
 	else
 		draw_setting(p, top + ROW(0), "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
-	/* the enemies' bullets on the screen (in place of C AUTO, the EEPROM's C button auto fire: as every game after
-	   DonPachi has it, it needn't be shown) */
-	snprintf(text, sizeof(text), "%u", bullets_now);
-	draw_setting(p, top + ROW(1), "BULLETS", text, bullets_now >= 50u ? YELLOW : WHITE);
-	draw_setting(p, top + ROW(2), "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
-	draw_setting(p, top + ROW(3), "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
+	draw_setting(p, top + ROW(1), "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
+	draw_setting(p, top + ROW(2), "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
 	/* the arcade's slowdown: off, or this game's share of frames slowed (on, before there is a game) */
 	if (!status.slowdown)
-		draw_setting(p, top + ROW(4), "SLOWDOWN", "OFF", WHITE);
+		draw_setting(p, top + ROW(3), "SLOWDOWN", "OFF", WHITE);
 	else if (own_game && run.frames > 0u)
 	{
 		const unsigned tenths = (unsigned)(((unsigned long long)run.slowed * 1000u + run.frames / 2u) / run.frames);
@@ -1239,10 +1235,14 @@ static void draw_status(panel *p, int top)
 			snprintf(text, sizeof(text), "%u.%u%%", tenths / 10u, tenths % 10u);    /* (0.4%) */
 		else
 			snprintf(text, sizeof(text), "%u%%", (tenths + 5u) / 10u);              /* (12%) */
-		draw_setting(p, top + ROW(4), "SLOWDOWN", text, run.slowed ? YELLOW : WHITE);
+		draw_setting(p, top + ROW(3), "SLOWDOWN", text, run.slowed ? YELLOW : WHITE);
 	}
 	else
-		draw_setting(p, top + ROW(4), "SLOWDOWN", "ON", WHITE);
+		draw_setting(p, top + ROW(3), "SLOWDOWN", "ON", WHITE);
+	/* the enemies' bullets on the screen, under the slowdown they cause (in place of C AUTO, the EEPROM's C button
+	   auto fire: as every game after DonPachi has it, it needn't be shown) */
+	snprintf(text, sizeof(text), "%u", bullets_now);
+	draw_setting(p, top + ROW(4), "BULLETS", text, bullets_now >= 50u ? YELLOW : WHITE);
 	draw_setting(p, top + ROW(5), "AUTOBOMB", status.autobomb ? "ON" : "OFF", status.autobomb ? YELLOW : WHITE);
 }
 

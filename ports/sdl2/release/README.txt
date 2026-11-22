@@ -62,6 +62,7 @@ CONTROLS (change them in SETTINGS > CONTROLS)
   F5 / F8                save state / load state (for this session)
   F6 / F7                the save state slot before / after (5 slots)
   Tab / LB (held)        fast forward
+  F9                     the FPS meter (on the right side panel)
   F11 or Alt+Enter       full screen
 
 Free play is on by default: Start drops in a credit.

@@ -224,7 +224,21 @@ static struct
 	int marks[MARKS], mark_count;   /* the points where a stage began */
 	unsigned stage;
 	uint32_t last_score[2];         /* the scores, as the game last had them (kept through the attract mode) */
+	uint32_t table[5];              /* the high score table as the run began (#1 first): player 1 chases #5 first */
+	int passed_at[5];               /* the point where player 1's score went past each, or -1 */
 } graph;
+
+/* the places' colours, #1 to #5 (not the graph's own orange and cyan) */
+static const uint32_t place_colours[5] = { GOLD, 0xFF5CC8u, 0xB07CFFu, GREEN, 0x8C9CFFu };
+
+/* the place player 1 chases: the lowest not yet passed, or -1 past #1 */
+static int chasing(void)
+{
+	for (int place = 4; place >= 0; place--)
+		if (graph.passed_at[place] < 0)
+			return place;
+	return -1;
+}
 
 /* ---- the run: the time played, the bombs, the misses in each area; and the session's best score ---- */
 
@@ -327,6 +341,11 @@ void widgets_begin_game(void)
 	graph.target = bcd_long(TOP_SCORE);
 	if (graph.target == 0)
 		graph.target = 1;
+	for (int place = 0; place < 5; place++)
+	{
+		graph.table[place] = bcd_long(TOP_SCORE + 4u * (uint32_t)place);    /* (five BCD longs: hiscore.h) */
+		graph.passed_at[place] = -1;
+	}
 	graph.interval = 8;
 	graph.stage = word(0x101A40u);
 	run_reset();
@@ -356,6 +375,9 @@ static void graph_point(void)
 		graph.interval *= 2;
 		for (int mark = 0; mark < graph.mark_count; mark++)
 			graph.marks[mark] /= 2;
+		for (int place = 0; place < 5; place++)
+			if (graph.passed_at[place] >= 0)
+				graph.passed_at[place] /= 2;
 	}
 	for (int player = 0; player < 2; player++)
 	{
@@ -448,6 +470,26 @@ static void draw_toast(panel *p)
 
 static unsigned bullets_now;    /* (counted on the frames that aren't slowed) */
 
+/* the board's frames over the last second, and which were slowed: the game's own frames a second (FPS on the right
+   panel: the board's 57.55 less its frames of slowdown, as DoDonPachi Recomp's BOARD) */
+#define SECOND_FRAMES 58
+static struct
+{
+	uint8_t lagged[SECOND_FRAMES];
+	int at, filled, lagged_now;
+} speed;
+
+static void speed_frame(bool lagged)
+{
+	if (speed.filled == SECOND_FRAMES)
+		speed.lagged_now -= speed.lagged[speed.at];
+	else
+		speed.filled++;
+	speed.lagged[speed.at] = lagged;
+	speed.lagged_now += lagged;
+	speed.at = (speed.at + 1) % SECOND_FRAMES;
+}
+
 static unsigned count_bullets(void)
 {
 	unsigned count = 0;
@@ -465,6 +507,7 @@ void widgets_frame(void)
 
 	if (toast_frames > 0)
 		toast_frames--;
+	speed_frame(program_frame_lagged());
 	if (program_frame_lagged())
 	{
 		/* a frame of slowdown: the game's memory is half way through its frame, so it is looked at again next; the
@@ -488,6 +531,10 @@ void widgets_frame(void)
 	midboss_frame();
 	for (int player = 0; player < 2; player++)
 		graph.last_score[player] = bcd_long(scores[player]);
+	/* the high score chase: each place player 1's score goes past, and where on the graph */
+	for (int place = 4; place >= 0; place--)
+		if (graph.running && graph.passed_at[place] < 0 && graph.table[place] && graph.last_score[0] > graph.table[place])
+			graph.passed_at[place] = graph.count;
 	if (word(0x101A40u) != graph.stage && graph.mark_count < MARKS)
 	{
 		graph.stage = word(0x101A40u);
@@ -591,6 +638,34 @@ static void draw_graph(panel *p)
 	for (int mark = 0; mark < graph.mark_count; mark++)
 		for (int y = GRAPH_Y; y < bottom; y += 3)
 			dot(p, graph_x(p, graph.marks[mark]), y, DIM);
+	/* the high score chase, as DoDonPachi Recomp's: the place being chased dashed at its score, those passed dotted at
+	   theirs and a line in their colour where they were passed, with their number (each on a row of its own) */
+	if (graph.running)
+	{
+		const int chased = chasing();
+
+		for (int place = 4; place >= 0; place--)
+		{
+			const uint32_t colour = place_colours[place];
+			const int y = bottom - (int)((float)graph.table[place] / (float)graph.target / most * (float)GRAPH_H);
+
+			if (y < GRAPH_Y || graph.table[place] == 0)
+				continue;
+			if (graph.passed_at[place] >= 0)
+			{
+				const int x = graph_x(p, graph.passed_at[place]);
+
+				for (int dx = GRAPH_X; dx < right; dx += 4)
+					dot(p, dx, y, colour);
+				box(p, x, GRAPH_Y, x + 1, bottom, colour);
+				put_char(p, x + 2 > right - 8 ? x - 9 : x + 2, GRAPH_Y + 1 + 9 * (4 - place), (char)('1' + place),
+					colour, 1);
+			}
+			else if (place == chased)
+				for (int dx = GRAPH_X; dx < right; dx += 6)
+					box(p, dx, y, dx + 3, y + 1, colour);
+		}
+	}
 	outline(p, GRAPH_X - 1, GRAPH_Y - 1, right + 1, bottom + 1, GREY);
 	/* (the top of the box: 100%, or the highest score's share when a player is past the #1) */
 	snprintf(text, sizeof(text), "%d%%", (int)(most * 100.0f + 0.5f));
@@ -611,9 +686,25 @@ static void draw_graph(panel *p)
 			put_centre(p, bottom + 32, text, CYAN, 1);
 		}
 	}
-	put_text(p, 8, bottom + 44, "TOP", GREY, 1);
-	number(text, sizeof(text), graph.running ? graph.target : bcd_long(TOP_SCORE));
-	put_right(p, p->w - 8, bottom + 44, text, WHITE);
+	/* the place chased next (in its colour), or the #1 once it is passed */
+	if (graph.running && chasing() >= 0)
+	{
+		char label[16];
+
+		number(text, sizeof(text), graph.table[chasing()]);
+		snprintf(label, sizeof(label), "NEXT #%d", chasing() + 1);
+		if (text_width(label, 1) + 8 + text_width(text, 1) > p->w - 16)
+			snprintf(label, sizeof(label), "#%d", chasing() + 1);    /* (a narrow panel: the shorter name) */
+		put_text(p, 8, bottom + 44, label, place_colours[chasing()], 1);
+		put_right(p, p->w - 8, bottom + 44, text, place_colours[chasing()]);
+	}
+	else
+	{
+		number(text, sizeof(text), graph.running ? graph.target : bcd_long(TOP_SCORE));
+		put_text(p, 8, bottom + 44, !graph.running ? "TOP" : text_width("PAST #1", 1) + 8 + text_width(text, 1) > p->w - 16
+			? "PAST" : "PAST #1", graph.running ? GOLD : GREY, 1);
+		put_right(p, p->w - 8, bottom + 44, text, WHITE);
+	}
 	put_text(p, 8, bottom + 56, "NOW", GREY, 1);
 	number(text, sizeof(text), graph.last_score[0]);
 	put_right(p, p->w - 8, bottom + 56, text, WHITE);
@@ -1224,26 +1315,58 @@ static void draw_status(panel *p, int top)
 		draw_setting(p, top + ROW(0), "TIMING", status.arcade_timing ? "ARCADE" : "FAST", WHITE);
 	draw_setting(p, top + ROW(1), "FREE PLAY", status.free_play ? "ON" : "OFF", WHITE);
 	draw_setting(p, top + ROW(2), "CHEATS", status.cheats ? "ON" : "OFF", status.cheats ? RED : WHITE);
-	/* the arcade's slowdown: off, or this game's share of frames slowed (on, before there is a game) */
+	/* the game's frames a second over the last second (owner, 21-11-2026: in place of this game's share of frames
+	   slowed): the board's 57.55 less its frames of the arcade's slowdown; SLOWDOWN OFF when that is turned off */
 	if (!status.slowdown)
 		draw_setting(p, top + ROW(3), "SLOWDOWN", "OFF", WHITE);
-	else if (own_game && run.frames > 0u)
-	{
-		const unsigned tenths = (unsigned)(((unsigned long long)run.slowed * 1000u + run.frames / 2u) / run.frames);
-
-		if (tenths < 100u)
-			snprintf(text, sizeof(text), "%u.%u%%", tenths / 10u, tenths % 10u);    /* (0.4%) */
-		else
-			snprintf(text, sizeof(text), "%u%%", (tenths + 5u) / 10u);              /* (12%) */
-		draw_setting(p, top + ROW(3), "SLOWDOWN", text, run.slowed ? YELLOW : WHITE);
-	}
 	else
-		draw_setting(p, top + ROW(3), "SLOWDOWN", "ON", WHITE);
+	{
+		const double rate = 1000000.0 / (double)CAVE_FRAME_USEC;
+		const int frames = speed.filled ? speed.filled : 1;
+
+		snprintf(text, sizeof(text), "%.1f", rate * (double)(frames - speed.lagged_now) / (double)frames);
+		draw_setting(p, top + ROW(3), "FPS", text, speed.lagged_now ? YELLOW : WHITE);
+	}
 	/* the enemies' bullets on the screen, under the slowdown they cause (in place of C AUTO, the EEPROM's C button
 	   auto fire: as every game after DonPachi has it, it needn't be shown) */
 	snprintf(text, sizeof(text), "%u", bullets_now);
 	draw_setting(p, top + ROW(4), "BULLETS", text, bullets_now >= 50u ? YELLOW : WHITE);
 	draw_setting(p, top + ROW(5), "AUTOBOMB", status.autobomb ? "ON" : "OFF", status.autobomb ? YELLOW : WHITE);
+}
+
+/* ---- the FPS meter, on the right panel over the score graph ---- */
+
+static widgets_meter meter;
+
+void widgets_set_meter(const widgets_meter *now)
+{
+	meter = *now;
+}
+
+static void draw_meter(panel *p)
+{
+	const int top = GRAPH_Y - 3, bottom = GRAPH_Y + GRAPH_H + 3, w = p->w;
+	char text[24];
+	const struct { const char *name; double value; const char *format; uint32_t colour; } rows[6] = {
+		{ "GAME", meter.game, "%.1f", meter.game < meter.board - 0.5 ? YELLOW : GREEN },
+		{ "BOARD", meter.board, "%.1f", meter.board < 57.0 ? RED : WHITE },
+		{ "WINDOW", meter.windows, "%.1f", WHITE },
+		{ "LATE", (double)meter.late, "%.0f", meter.late ? RED : WHITE },
+		{ "WORK MS", meter.work, "%.1f", WHITE },
+		{ "MOST MS", meter.work_most, "%.1f", meter.work_most > 17.4 ? YELLOW : WHITE },
+	};
+
+	box(p, 4, top, w - 4, bottom, 0x14142Au);
+	outline(p, 4, top, w - 4, bottom, FRAME);
+	put_centre(p, top + 8, "FPS METER", GOLD, 1);
+	for (int row = 0; row < 6; row++)
+	{
+		const int y = top + 24 + row * 11;
+
+		put_text(p, 10, y, rows[row].name, GREY, 1);
+		snprintf(text, sizeof(text), rows[row].format, rows[row].value);
+		put_right(p, w - 8, y, text, rows[row].colour);
+	}
 }
 
 void widgets_draw(uint32_t *left, uint32_t *right, int width)
@@ -1285,6 +1408,8 @@ void widgets_draw(uint32_t *left, uint32_t *right, int width)
 	draw_graph(&p);
 	draw_stage(&p, 200);
 	draw_status(&p, 266);
+	if (meter.on)
+		draw_meter(&p);
 	if (toast_frames > 0)
 		draw_toast(&p);
 }

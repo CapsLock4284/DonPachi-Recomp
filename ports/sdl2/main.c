@@ -93,6 +93,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* the settings: donpachi.ini, then the command line (settings.h); the file's own, which the menu changes and saves */
 static settings options, file_options;
@@ -534,9 +535,24 @@ static uint32_t frame[VIDEO_WIDTH * VIDEO_HEIGHT], picture[VIDEO_WIDTH * VIDEO_H
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 
+/* the PC's time in each part of a frame, for the FPS meter's log (counter ticks, added up over its second) */
+enum { SPENT_RUN, SPENT_LOOK_AHEAD, SPENT_DRAW, SPENT_SHOW, SPENT_PRESENT, SPENT_FILTER, SPENT_UPLOAD, SPENT_PARTS };
+static Uint64 spent[SPENT_PARTS], spent_most[SPENT_PARTS];
+
+static void spend(int part, Uint64 since)
+{
+	const Uint64 ticks = SDL_GetPerformanceCounter() - since;
+
+	spent[part] += ticks;
+	if (ticks > spent_most[part])
+		spent_most[part] = ticks;
+}
+
 /* the picture from the board's memories, with the sprites latched last */
 static void draw_picture(void)
 {
+	const Uint64 began = SDL_GetPerformanceCounter();
+
 	/* (GRAPHICS > BY LAYER with a filter that can: the same picture, its layers and sprites kept apart too) */
 	if (options.filter_layers && scaler_by_layer(options.filter) && options.crt == CRT_OFF)
 		layer_filter_draw(frame, picture);
@@ -546,6 +562,16 @@ static void draw_picture(void)
 		video_rotated(frame, picture);
 		layer_filter_forget();
 	}
+	spend(SPENT_DRAW, began);
+}
+
+/* the window's picture shown (with vsync, the wait for the monitor is here) */
+static void present(void)
+{
+	const Uint64 began = SDL_GetPerformanceCounter();
+
+	SDL_RenderPresent(renderer);
+	spend(SPENT_PRESENT, began);
 }
 
 /* The picture with the ships' hitboxes over it, when they are shown (hitbox.h): the boxes of the frame whose
@@ -669,10 +695,17 @@ static SDL_Texture *filtered_picture(const uint32_t *pixels, float shown_w)
 		}
 		filtered_factor = factor;
 	}
-	/* (by layer when it is on and can be: else over the whole picture) */
-	if (!options.filter_layers || !layer_filter_scale(options.filter, pixels, picture, filtered_pixels))
-		scaler_run(options.filter, pixels, VIDEO_HEIGHT, VIDEO_WIDTH, filtered_pixels);
-	SDL_UpdateTexture(filtered, NULL, filtered_pixels, VIDEO_HEIGHT * factor * (int)sizeof(uint32_t));
+	{
+		Uint64 began = SDL_GetPerformanceCounter();
+
+		/* (by layer when it is on and can be: else over the whole picture) */
+		if (!options.filter_layers || !layer_filter_scale(options.filter, pixels, picture, filtered_pixels))
+			scaler_run(options.filter, pixels, VIDEO_HEIGHT, VIDEO_WIDTH, filtered_pixels);
+		spend(SPENT_FILTER, began);
+		began = SDL_GetPerformanceCounter();
+		SDL_UpdateTexture(filtered, NULL, filtered_pixels, VIDEO_HEIGHT * factor * (int)sizeof(uint32_t));
+		spend(SPENT_UPLOAD, began);
+	}
 	SDL_SetTextureScaleMode(filtered, options.smooth || shown_w < (float)(VIDEO_HEIGHT * factor) - 0.5f
 		? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
 	return filtered;
@@ -685,7 +718,12 @@ static void show_picture(const uint32_t *pixels)
 	float scale_x, scale_y, w, h, x, y, cx, cy;
 	SDL_FRect unturned;
 
-	SDL_UpdateTexture(texture, NULL, pixels, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+	{
+		const Uint64 began = SDL_GetPerformanceCounter();
+
+		SDL_UpdateTexture(texture, NULL, pixels, VIDEO_HEIGHT * (int)sizeof(uint32_t));
+		spend(SPENT_UPLOAD, began);
+	}
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
 	SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
@@ -725,7 +763,10 @@ static void show_picture(const uint32_t *pixels)
 		}
 		for (int side = 0; side < 2; side++)
 		{
+			const Uint64 began = SDL_GetPerformanceCounter();
+
 			SDL_UpdateTexture(panel_textures[side], &source, panel_pixels[side], panel_width * (int)sizeof(uint32_t));
+			spend(SPENT_UPLOAD, began);
 			SDL_SetTextureScaleMode(panel_textures[side], options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
 			SDL_RenderCopyF(renderer, panel_textures[side], &source, side ? &right : &left);
 		}
@@ -743,7 +784,7 @@ static void show_picture(const uint32_t *pixels)
 	if (options.crt != CRT_OFF && crt_draw(renderer, texture, pixels, unturned,
 			options.rotate == ROTATE_RIGHT ? 90 : options.rotate == ROTATE_LEFT ? 270 : 0, options.crt))
 	{
-		SDL_RenderPresent(renderer);
+		present();
 		return;
 	}
 	{
@@ -777,7 +818,158 @@ static void show_picture(const uint32_t *pixels)
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, darkness[options.scanlines & 3]);
 		SDL_RenderFillRectsF(renderer, lines, VIDEO_HEIGHT);
 	}
-	SDL_RenderPresent(renderer);
+	present();
+}
+
+/* ---- the FPS meter (F9, or the graphics options' FPS METER: [video] show_fps) ---- */
+
+/* Counted over about a second, then shown: the game's own frames (the board's less its frames of slowdown), the
+   board's frames run (57.55 a second at the board's pace; fewer: the PC can't keep up), the pictures shown, the
+   frames the PC came to its frame's time late (its work and the picture's took longer than a frame), and the
+   milliseconds a frame's work and picture take the PC, on average and at most */
+static struct
+{
+	Uint64 since;                   /* the counter when this second began */
+	unsigned game_frames, board_frames, windows, late;
+	Uint64 work, work_most;         /* (counter ticks) */
+	char lines[3][32];
+	widgets_meter shown;            /* the last second's, for the side panel (widgets.h) */
+} meter;
+
+static void meter_board_frame(void)
+{
+	meter.board_frames++;
+	if (!program_frame_lagged())
+		meter.game_frames++;
+}
+
+static void meter_log_second(double seconds);
+
+/* At the frame's end, before its wait: 'began' when its work began, 'next' when the next frame is due */
+static void meter_frame_end(Uint64 began, Uint64 next)
+{
+	const Uint64 frequency = SDL_GetPerformanceFrequency(), now = SDL_GetPerformanceCounter();
+	const Uint64 work = now - began;
+
+	meter.windows++;
+	meter.work += work;
+	if (work > meter.work_most)
+		meter.work_most = work;
+	if (now > next)
+		meter.late++;
+	if (!meter.since)
+		meter.since = now;
+	else if (now - meter.since >= frequency)
+	{
+		const double seconds = (double)(now - meter.since) / (double)frequency;
+		const double ms = 1000.0 / (double)frequency;
+
+		snprintf(meter.lines[0], sizeof(meter.lines[0]), "GAME %.1f FPS", meter.game_frames / seconds);
+		snprintf(meter.lines[1], sizeof(meter.lines[1]), "BOARD %.1f  WINDOW %.1f", meter.board_frames / seconds,
+			meter.windows / seconds);
+		snprintf(meter.lines[2], sizeof(meter.lines[2]), "LATE %u  WORK %.1f/%.1fMS", meter.late,
+			meter.windows ? (double)meter.work * ms / meter.windows : 0.0, (double)meter.work_most * ms);
+		meter.shown.game = meter.game_frames / seconds;
+		meter.shown.board = meter.board_frames / seconds;
+		meter.shown.windows = meter.windows / seconds;
+		meter.shown.late = meter.late;
+		meter.shown.work = meter.windows ? (double)meter.work * ms / meter.windows : 0.0;
+		meter.shown.work_most = (double)meter.work_most * ms;
+#ifdef METER_LOG
+		fprintf(stderr, "%s | %s | %s\n", meter.lines[0], meter.lines[1], meter.lines[2]);
+#endif
+		if (options.show_fps)
+			meter_log_second(seconds);
+		memset(spent, 0, sizeof(spent));
+		memset(spent_most, 0, sizeof(spent_most));
+		meter.since = now;
+		meter.game_frames = meter.board_frames = meter.windows = meter.late = 0;
+		meter.work = meter.work_most = 0;
+	}
+}
+
+/* The log: while the meter is on, its second written to donpachi_fps.log beside the program (started again each
+   run), with the settings and the renderer at its top, and the PC's time in each part of a frame: RUN the game's
+   frames (with their sound), LOOK autobomb's look-ahead (autobomb.h), DRAW the pictures drawn, SHOW the picture put in
+   the window (the filter, the CRT look, PRESENT: with vsync the wait for the monitor) */
+static FILE *meter_log;
+
+static void meter_log_open(void)
+{
+	char path[1024];
+	SDL_RendererInfo info;
+	SDL_DisplayMode mode;
+	int w = 0, h = 0, out_w = 0, out_h = 0;
+	const time_t now = time(NULL);
+	char when[64];
+
+	snprintf(path, sizeof(path), "%sdonpachi_fps.log", paths_folder());
+	if (!(meter_log = fopen(path, "w")))
+		return;
+	strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", localtime(&now));
+	fprintf(meter_log, "DonPachi FPS log, %s\n", when);
+	if (renderer && SDL_GetRendererInfo(renderer, &info) == 0)
+		fprintf(meter_log, "renderer %s%s%s\n", info.name, info.flags & SDL_RENDERER_ACCELERATED ? " accelerated" : "",
+			info.flags & SDL_RENDERER_PRESENTVSYNC ? " vsync" : "");
+	fprintf(meter_log, "renderer setting %s\n", settings_renderer_names[options.renderer]);
+	if (window)
+	{
+		SDL_GetWindowSize(window, &w, &h);
+		if (SDL_GetWindowDisplayMode(window, &mode) == 0)
+			fprintf(meter_log, "display %dx%d at %d Hz\n", mode.w, mode.h, mode.refresh_rate);
+	}
+	if (renderer)
+		SDL_GetRendererOutputSize(renderer, &out_w, &out_h);
+	fprintf(meter_log, "window %dx%d (drawn %dx%d)%s\n", w, h, out_w, out_h, options.fullscreen ? " full screen" : "");
+	fprintf(meter_log, "settings: vsync %s, crt %s, filter %s, scaling %s, smooth %s, scanlines %s, rotate %s, "
+		"input timing %s, slowdown %s, sound %s\n", options.vsync ? "on" : "off", settings_crt_names[options.crt],
+		scaler_key(options.filter), settings_scaling_names[options.scaling], options.smooth ? "on" : "off",
+		settings_scanline_names[options.scanlines & 3], settings_rotate_names[options.rotate],
+		options.arcade_timing ? "arcade" : "fast", options.slowdown ? "on" : "off", audio ? "on" : "off");
+	fputs("each second: GAME the game's frames, BOARD the board's (57.55), WINDOW the pictures shown, LATE the frames"
+		" the PC ran late, WORK a frame's ms (average / most); then each part's ms a frame (average / most); SHOW"
+		" holds PRESENT, FILTER (the pixel-art scaler) and UPLOAD (the pictures given to the graphics card)\n",
+		meter_log);
+	fflush(meter_log);
+}
+
+static void meter_log_second(double seconds)
+{
+	const double ms = 1000.0 / (double)SDL_GetPerformanceFrequency();
+	static const char *const names[SPENT_PARTS] = { "run", "look", "draw", "show", "present", "filter", "upload" };
+	const unsigned windows = meter.windows ? meter.windows : 1u;
+	char when[16];
+	const time_t now = time(NULL);
+
+	if (!meter_log)
+		meter_log_open();
+	if (!meter_log)
+		return;
+	strftime(when, sizeof(when), "%H:%M:%S", localtime(&now));
+	fprintf(meter_log, "%s  game %5.1f  board %5.1f  window %5.1f  late %2u  work %5.2f/%5.2f |", when,
+		meter.game_frames / seconds, meter.board_frames / seconds, meter.windows / seconds, meter.late,
+		(double)meter.work * ms / windows, (double)meter.work_most * ms);
+	for (int part = 0; part < SPENT_PARTS; part++)
+		fprintf(meter_log, "  %s %5.2f/%5.2f", names[part], (double)spent[part] * ms / windows,
+			(double)spent_most[part] * ms);
+	fputc('\n', meter_log);
+	fflush(meter_log);
+}
+
+/* The picture with the meter over its corner, when it is on and there are no side panels to show it on (owner: never
+   over the game when it can be beside it): with them, on the right panel (widgets_set_meter) */
+static const uint32_t *with_meter(const uint32_t *pixels)
+{
+	static uint32_t out[VIDEO_WIDTH * VIDEO_HEIGHT];
+	const char *const lines[3] = { meter.lines[0], meter.lines[1], meter.lines[2] };
+
+	meter.shown.on = options.show_fps && meter.lines[0][0] && panels_shown();
+	widgets_set_meter(&meter.shown);
+	if (!options.show_fps || !meter.lines[0][0] || panels_shown())
+		return pixels;
+	memcpy(out, pixels, sizeof(out));
+	menu_put_meter(out, lines, 3);
+	return out;
 }
 
 /* ---- the big HIT display: the game's own hidden option, set without its stick command ---- */
@@ -1542,6 +1734,7 @@ int main(int argc, char **argv)
 	while (running)
 	{
 		SDL_Event event;
+		const Uint64 frame_began = SDL_GetPerformanceCounter();    /* (the FPS meter: this frame's work from here) */
 
 		if (program_frames() % EEPROM_CHECK_FRAMES == 0 && !replay_playing())
 			eeprom_keep(false);    /* (a replay's EEPROM is its own: not saved) */
@@ -1556,6 +1749,9 @@ int main(int argc, char **argv)
 				pad_added(event.cdevice.which);
 			else if (event.type == SDL_CONTROLLERDEVICEREMOVED)
 				pad_removed(event.cdevice.which);
+			else if (event.type == SDL_KEYDOWN && !event.key.repeat
+					&& event.key.keysym.sym == SDLK_F9)
+				options.show_fps = !options.show_fps;    /* (the FPS meter: for this run; the menu's is kept) */
 			else if (event.type == SDL_KEYDOWN && !event.key.repeat
 					&& (event.key.keysym.sym == SDLK_F11
 						|| (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))))
@@ -1656,8 +1852,14 @@ int main(int argc, char **argv)
 						break;
 					}
 					replay_step = false;
-					if (!replay_frame(fast || replay_paused))
-						break;    /* (its end: the replays page is up) */
+					{
+						const Uint64 run_began = SDL_GetPerformanceCounter();
+
+						if (!replay_frame(fast || replay_paused))
+							break;    /* (its end: the replays page is up) */
+						meter_board_frame();
+						spend(SPENT_RUN, run_began);
+					}
 					if (replay_paused)
 						break;    /* (one frame: stepped) */
 					continue;
@@ -1668,10 +1870,18 @@ int main(int argc, char **argv)
 				if (options.free_play)
 					free_play_inputs();
 				if (options.autobomb)
+				{
+					const Uint64 look_began = SDL_GetPerformanceCounter();
+
 					autobomb_frame(!own_cheats_ai_on());    /* (the AI player bombs for itself) */
+					spend(SPENT_LOOK_AHEAD, look_began);
+				}
+				const Uint64 run_began = SDL_GetPerformanceCounter();
+
 				replay_input(cave_board.in0, cave_board.in1, options.big_hit ? REPLAY_BIG_HIT : 0u);
 				crash_log_frame(options.big_hit ? CRASH_LOG_BIG_HIT : 0u);
 				program_run_frame();
+				meter_board_frame();
 				big_hit_frame();
 				cheats_apply();
 				if (cheats_any_on())
@@ -1707,6 +1917,7 @@ int main(int argc, char **argv)
 				/* achievements: the arcade game only (not training, cheats or save states) */
 				achievements_frame(!state_loaded && !training_active && !cheats_any_on());
 				stats_frame(!state_loaded && !training_active && !cheats_any_on(), widgets_take_defeats());
+				spend(SPENT_RUN, run_began);
 				/* (shown on the side panel, never over the game: without the panels, only on the achievements page) */
 				if (!widgets_toast_busy())
 				{
@@ -1734,9 +1945,15 @@ int main(int argc, char **argv)
 			draw_picture();
 			fast_timing_end();
 		}
-		show_picture(menu_with_notice(with_hitboxes(picture)));
+		{
+			const Uint64 show_began = SDL_GetPerformanceCounter();
+
+			show_picture(with_meter(menu_with_notice(with_hitboxes(picture))));
+			spend(SPENT_SHOW, show_began);
+		}
 
 	pace:
+		meter_frame_end(frame_began, next);
 		/* (the board's 57.55 frames a second: SDL_Delay may sleep a whole tick of the system's timer longer than
 		   asked, up to 15 ms on Windows, so it sleeps only to 2 ms before the frame's time, and the rest is waited
 		   out on the counter) */

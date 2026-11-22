@@ -95,4 +95,8 @@ const uint32_t *menu_with_notice(const uint32_t *picture);
 /* Closed since the last call (then the port lets the game ignore what is still held, and starts the sound again) */
 bool menu_just_closed(void);
 
+/* The FPS meter's lines (main.c) over the picture's bottom right corner, on a dark band, when there are no side
+   panels to show it on: 'picture' (240 x 320) is changed */
+void menu_put_meter(uint32_t *picture, const char *const *lines, int count);
+
 #endif

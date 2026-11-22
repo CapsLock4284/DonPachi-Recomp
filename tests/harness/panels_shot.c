@@ -1,6 +1,6 @@
 /* panels_shot: a picture of the game as the port shows it on a wide screen: the left panel, the game, the right
    panel (panels.ppm, 480 x 320; WIDTH=W: panels W wide, WIDGET_W to WIDGET_MAX_W, as on a wider screen: 156 at
-   16:9, the picture 2W + 240 wide). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
+   16:9, the picture 2W + 240 wide; METER=1: the FPS meter on the right panel, as F9 shows it). Training's way to an area's start (PLACE=1: its mid-boss, 2: its boss), then the simple player for FRAMES frames.
      panels_shot AREA FRAMES [TOAST]     TOAST: an achievement's name, its pop-up shown (with "+2 MORE"); AI=1:
                                          player 2 flown by the computer (ai_player.h)
    e.g. panels_shot 2 1800 "ONE CREDIT CLEAR"   (the README's area 3 picture is panels_shot 2 1800) */
@@ -42,6 +42,13 @@ int main(int argc, char **argv)
 	}
 	width = width < WIDGET_W ? WIDGET_W : width > WIDGET_MAX_W ? WIDGET_MAX_W : width;
 	all = 2 * width + 240;
+	if (getenv("METER"))
+	{
+		/* (the FPS meter on the right panel, as F9 shows it with the panels: figures for the picture) */
+		const widgets_meter shown = { true, 56.6, 57.5, 57.5, 0, 3.2, 6.8 };
+
+		widgets_set_meter(&shown);
+	}
 	widgets_draw(left, right, width);
 	video_latch_sprites();
 	video_draw(frame);

@@ -102,6 +102,7 @@ enum
 	ITEM_MUSIC_VOLUME, ITEM_EFFECTS_VOLUME, ITEM_VOICES_VOLUME,
 	ITEM_BULLETS,                 /* the game options': the enemies' bullets' points shown (hitbox.h) */
 	ITEM_FILTER_LAYERS,           /* the filter on each layer and the sprites apart (layer_filter.h) */
+	ITEM_FPS,                     /* the FPS meter (main.c; F9) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -311,7 +312,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GRAPHICS)
 	{
-		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_FILTER_LAYERS, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_ROTATE,
+		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_FILTER_LAYERS, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_FPS, ITEM_ROTATE,
 			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
@@ -601,6 +602,9 @@ static void change(int item, int step, bool wrap)
 	case ITEM_VSYNC:
 		in_use->vsync = file->vsync = !in_use->vsync;
 		host.apply_video();
+		break;
+	case ITEM_FPS:
+		in_use->show_fps = file->show_fps = !in_use->show_fps;
 		break;
 	case ITEM_RENDERER:
 		in_use->renderer = file->renderer = cycle(in_use->renderer, RENDERERS, step, wrap);
@@ -1142,6 +1146,9 @@ static const char *item_help(int item)
 			"IT HAS ITS OWN LINES (SCANLINES IS LEFT ASIDE). BEST IN FULL SCREEN.";
 	case ITEM_VSYNC:
 		return "SHOWS EACH PICTURE IN STEP WITH YOUR SCREEN: NO TEARING, MAYBE A LITTLE MORE LAG.";
+	case ITEM_FPS:
+		return "THE FRAME RATE AND THE PC'S TIME A FRAME, ON THIS PANEL (F9 TOO). EACH SECOND IS ALSO WRITTEN TO "
+			"DONPACHI_FPS.LOG BESIDE THE PROGRAM.";
 	case ITEM_RENDERER:
 		return "HOW THE PICTURE REACHES THE SCREEN. AUTO: DIRECT3D 12 ON WINDOWS, THE QUICKEST. "
 			"USED FROM THE NEXT START.";
@@ -1671,7 +1678,7 @@ static const char *item_label(int item)
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
-		"EFFECTS", "VOICES", "BULLETS", "BY LAYER"
+		"EFFECTS", "VOICES", "BULLETS", "BY LAYER", "FPS METER"
 	};
 
 	if (is_hotkey_item(item))
@@ -1857,6 +1864,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_VSYNC:
 		snprintf(out, size, "%s", s->vsync ? "ON" : "OFF");
+		break;
+	case ITEM_FPS:
+		snprintf(out, size, "%s", s->show_fps ? "ON" : "OFF");
 		break;
 	case ITEM_RENDERER:
 		snprintf(out, size, "%s", settings_renderer_names[s->renderer]);
@@ -2447,5 +2457,24 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	else
 	{
 		put_centre(out, PANEL_TOP + PANEL_ROWS - 1, "A:CHANGE <>:PLAYER B:BACK", GREY);
+	}
+}
+
+void menu_put_meter(uint32_t *picture, const char *const *lines, int count)
+{
+	int widest = 0;
+
+	for (int line = 0; line < count; line++)
+		if ((int)strlen(lines[line]) > widest)
+			widest = (int)strlen(lines[line]);
+	if (widest > COLUMNS)
+		widest = COLUMNS;
+	{
+		const int left = PICTURE_W - widest * 8 - 2, top = PICTURE_H - count * 10 - 2;
+
+		fill(picture, left - 2, top - 2, PICTURE_W, PICTURE_H, 0x000000u);
+		for (int line = 0; line < count; line++)
+			for (int at = 0; lines[line][at] && at < widest; at++)
+				put_glyph(picture, left + at * 8, top + line * 10, lines[line][at], line ? WHITE : GOLD, 1);
 	}
 }

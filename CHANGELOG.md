@@ -17,6 +17,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
   the main menu no longer opens a window over it, unless the Japanese set was skipped.
 - **Faster xBR filters**: xBR 2x, 3x and 4x take about a quarter less time a frame (the same picture, pixel for
   pixel), and all the filters now share their work across up to 8 of your processor's cores instead of 4.
+- **FPS meter** (F9, or SETTINGS > GRAPHICS > FPS METER), as DoDonPachi Recomp's: the game's frames a second, the
+  board's, the pictures shown, the frames your PC ran late and its time a frame, on the right side panel (never over
+  the game; in the picture's corner without the panels). While it is on, each second goes into `donpachi_fps.log`
+  with the time each part of a frame takes, to send if the game ever stutters.
+- **FPS on the right panel** in place of the slowdown's percentage: the game's frames over the last second (57.5 at
+  full speed, lower and yellow while the arcade's slowdown is on).
+- **The high score chase on the score graph**, as DoDonPachi Recomp has: the table's #5 is chased first, then #4,
+  up to #1 ("NEXT #3" and its score under the graph). The place being chased is a dashed line on the graph, and each
+  one you pass leaves a line in its colour where you passed it, with its number.
 - **Bullets on screen** on the right side panel, in place of C AUTO (the C button's auto fire is how it is played
   anyway): the number of enemy bullets the game is testing against your ship, yellow from 50.
 - **Filters by layer** (SETTINGS > GRAPHICS > BY LAYER, `[video] filter_layers`, off by default): the FILTER now

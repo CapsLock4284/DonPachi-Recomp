@@ -105,6 +105,7 @@ void settings_defaults(settings *s)
 	s->crt = 0;
 	s->filter = SCALER_OFF;
 	s->filter_layers = false;
+	s->show_fps = false;
 	s->vsync = false;
 	s->renderer = 0;
 	s->rotate = ROTATE_NONE;
@@ -331,6 +332,8 @@ static bool take(settings *s, const char *section, const char *name, char *value
 		}
 		if (!SDL_strcasecmp(name, "filter_layers"))
 			return parse_bool(value, &s->filter_layers);
+		if (!SDL_strcasecmp(name, "show_fps"))
+			return parse_bool(value, &s->show_fps);
 		if (!SDL_strcasecmp(name, "crt"))
 			return (s->crt = name_of(value, settings_crt_names, 3)) >= 0 || (s->crt = 0, false);
 		if (!SDL_strcasecmp(name, "vsync"))
@@ -655,6 +658,10 @@ const char *settings_save(const settings *s, const char *path)
 		"; Windows, the quickest to show (about 1.5 ms after the frame is done; direct3d in a borderless window waits\n"
 		"; for Windows' compositor, about 27 ms). Used from the next start\n", file);
 	fprintf(file, "renderer = %s\n", settings_renderer_names[s->renderer]);
+	fputs("; the FPS meter (F9 too): GAME the game's own frames a second (fewer in the arcade's slowdown), BOARD the\n"
+		"; board's frames run a second (57.55), WINDOW the pictures shown, LATE the frames the PC ran late in that\n"
+		"; second, WORK the milliseconds a frame takes the PC; while it is on, each second in donpachi_fps.log\n", file);
+	fprintf(file, "show_fps = %s\n", bool_text(s->show_fps));
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);
 	fprintf(file, "rotate = %s\n", settings_rotate_names[s->rotate]);
 	fputs("; the panels beside the picture: the chain's gauge (left), the score against the #1 high score (right);\n"

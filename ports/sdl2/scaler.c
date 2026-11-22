@@ -1,7 +1,7 @@
 /**
  *    Name:        scaler.c
  *    Description: pixel-art scalers for the game's picture (scaler.h)
- *    Version:     0.1.0 (draft)
+ *    Version:     0.2.0 (draft)
  *    Created:     14-11-2026
  *
  *    license:BSD-3-Clause
@@ -149,7 +149,7 @@ static void scale3x(int w, int h, uint32_t *out)
 
 #define XBR_EQUAL       80      /* luma (0-255) differences under this are "about the same" (the shaders' 15 of 48) */
 
-static int *luma;               /* the padded frame's luma, 0-255 */
+static uint8_t *luma;           /* the padded frame's luma, 0-255 */
 static int luma_w, luma_h;
 
 /* the four corners, each as the bottom right one turned: a point (x, y) of that corner's own frame (right, down)
@@ -170,6 +170,7 @@ static const turning corners[4] = {
    nearly there; 2 the 45 degree line; 4 the 30 degree one; 8 the 60 degree one) and sub-pixel of the output: how
    far (0-256) the sub-pixel is past the furthest of those lines, so how much of the colour beyond it it takes */
 static uint16_t xbr_weights[5][4][16][16];
+static uint16_t xbr_cells[5][4][16];    /* (a bit for each sub-pixel the lines reach: the others stay the pixel's) */
 static bool xbr_ready;
 
 static int clamp_256(float v)
@@ -207,6 +208,8 @@ static void xbr_prepare(void)
 							if ((mask >> l & 1) && line[l] > most)
 								most = line[l];
 						xbr_weights[factor][corner][mask][sy * factor + sx] = (uint16_t)most;
+						if (most)
+							xbr_cells[factor][corner][mask] |= (uint16_t)(1u << (sy * factor + sx));
 					}
 				}
 	}
@@ -220,7 +223,7 @@ static bool make_luma(void)
 	if (luma_w != padded_w || luma_h != padded_h)
 	{
 		free(luma);
-		if (!(luma = malloc(count * sizeof(int))))
+		if (!(luma = malloc(count)))
 		{
 			luma_w = luma_h = 0;
 			return false;
@@ -233,7 +236,7 @@ static bool make_luma(void)
 		const uint32_t c = padded[i];
 
 		/* (0.299, 0.587 and 0.114 of 1024) */
-		luma[i] = (int)((306u * ((c >> 16) & 0xFFu) + 601u * ((c >> 8) & 0xFFu) + 117u * (c & 0xFFu) + 512u) >> 10);
+		luma[i] = (uint8_t)((306u * ((c >> 16) & 0xFFu) + 601u * ((c >> 8) & 0xFFu) + 117u * (c & 0xFFu) + 512u) >> 10);
 	}
 	return true;
 }
@@ -286,7 +289,7 @@ static void make_steps(void)
    colour beyond them */
 static int xbr_corner(int at, const int *step, uint32_t *colour)
 {
-	const int *const l = luma + at;
+	const uint8_t *const l = luma + at;
 	const int e = l[0], f = l[step[NF]], h = l[step[NH]];
 	int b, c, d, g, i, wd1, wd2, mask;
 
@@ -327,7 +330,7 @@ static int xbr_corner(int at, const int *step, uint32_t *colour)
 /* rows 'from' to 'to' (not included) of the picture, its luma made */
 static void xbr_rows(int factor, int w, int from, int to, uint32_t *out)
 {
-	const int pw = padded_w, ow = w * factor, cells = factor * factor;
+	const int pw = padded_w, ow = w * factor;
 
 	for (int y = from; y < to; y++)
 		for (int x = 0; x < w; x++)
@@ -338,17 +341,23 @@ static void xbr_rows(int factor, int w, int from, int to, uint32_t *out)
 			uint32_t colours[4];
 			int masks[4], any = 0;
 
+			unsigned reached = 0;
+
 			for (int corner = 0; corner < 4; corner++)
+			{
 				any |= masks[corner] = xbr_corner(at, steps[corner], &colours[corner]);
-			if (!any)
-			{
-				for (int sy = 0; sy < factor; sy++)
-					for (int sx = 0; sx < factor; sx++)
-						o[sy * ow + sx] = E;
-				continue;
+				reached |= xbr_cells[factor][corner][masks[corner]];    /* (mask 0: no bits) */
 			}
-			for (int cell = 0; cell < cells; cell++)
+			for (int sy = 0; sy < factor; sy++)
+				for (int sx = 0; sx < factor; sx++)
+					o[sy * ow + sx] = E;
+			if (!any)
+				continue;
+			/* (only the sub-pixels a line reaches: the rest are the pixel's own, written above) */
+			for (int cell = 0; reached; cell++, reached >>= 1)
 			{
+				if (!(reached & 1u))
+					continue;
 				uint32_t result[2];
 
 				/* the bottom right and top left corners together, and the other two: the one that changes the
@@ -493,9 +502,9 @@ static void mmpx_rows(int w, int from, int to, uint32_t *out)
 }
 
 /* ---- the work shared out: xBR and MMPX take a few milliseconds a frame on one core, so the picture's rows are
-   split between up to 4 (this thread and helpers that wait for each frame) ---- */
+   split between up to 8 (this thread and helpers that wait for each frame, one fewer than the PC's cores) ---- */
 
-#define HELPERS_MOST 3
+#define HELPERS_MOST 7
 
 typedef struct
 {

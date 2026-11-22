@@ -20,6 +20,7 @@
  *    A boss's parts each count, as they are each destroyed.
  */
 #include "stats.h"
+#include "file_save.h"
 #include "game_mode.h"
 
 #include "cave/machine.h"
@@ -100,20 +101,22 @@ static void at_least(unsigned long *kept_value, unsigned long value)
 
 void stats_save(void)
 {
-	FILE *const file = file_path[0] ? fopen(file_path, "w") : NULL;
+	file_text text = { 0 };
 
-	if (!file)
+	if (!file_path[0])
 		return;
-	fputs("; DonPachi's lifetime statistics (arcade games only: not training, cheats or save states)\n[stats]\n", file);
+	/* (built in memory, written by file_save's helper: the frame doesn't wait for the disk) */
+	file_text_add(&text, "; DonPachi's lifetime statistics (arcade games only: not training, cheats or save states)\n"
+		"[stats]\n");
 	for (int index = 0; index < COUNTERS; index++)
-		fprintf(file, "%s = %lu\n", counter_ids[index], kept.counter[index]);
+		file_text_add(&text, "%s = %lu\n", counter_ids[index], kept.counter[index]);
 	for (int area = 0; area < AREAS; area++)
-		fprintf(file, "area%d = %lu %lu %lu %lu\n", area + 1, kept.area_played[area], kept.area_cleared[area],
+		file_text_add(&text, "area%d = %lu %lu %lu %lu\n", area + 1, kept.area_played[area], kept.area_cleared[area],
 			kept.area_deaths[area], kept.area_best_bees[area]);
 	for (int ship = 0; ship < SHIPS; ship++)
-		fprintf(file, "ship_%c = %lu %lu %lu\n", 'a' + ship, kept.ship_games[ship], kept.ship_best[ship],
+		file_text_add(&text, "ship_%c = %lu %lu %lu\n", 'a' + ship, kept.ship_games[ship], kept.ship_best[ship],
 			kept.ship_frames[ship]);
-	fclose(file);
+	file_text_save(&text, file_path);
 }
 
 void stats_load(const char *path)

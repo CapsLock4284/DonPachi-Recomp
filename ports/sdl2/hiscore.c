@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "hiscore.h"
+#include "file_save.h"
 #include "paths.h"
 
 #include "cave/machine.h"
@@ -89,16 +90,12 @@ void hiscore_reset(void)
 
 static void save(const uint8_t *table)
 {
-	FILE *const file = fopen(path, "wb");
+	uint8_t bytes[sizeof(magic) + TABLE_SIZE];
 
-	if (!file)
-	{
-		fprintf(stderr, "%s: could not be written\n", path);
-		return;
-	}
-	if (fwrite(magic, 1, sizeof(magic), file) != sizeof(magic) || fwrite(table, 1, TABLE_SIZE, file) != TABLE_SIZE)
-		fprintf(stderr, "%s: could not be written\n", path);
-	fclose(file);
+	/* (written by file_save's helper: the frame doesn't wait for the disk) */
+	memcpy(bytes, magic, sizeof(magic));
+	memcpy(bytes + sizeof(magic), table, TABLE_SIZE);
+	file_save(path, bytes, sizeof(bytes));
 	memcpy(saved, table, TABLE_SIZE);
 }
 

@@ -25,7 +25,7 @@ mkdir -p "$OBJ"
 for f in "$ROOT"/runtime/src/*.c "$ROOT"/runtime/src/boards/*.c "$ROOT"/src/*.c "$ROOT"/src/*/*.c \
          "$ROOT"/ports/sdl2/settings.c "$ROOT"/ports/sdl2/menu.c "$ROOT"/ports/sdl2/widgets.c \
          "$ROOT"/ports/sdl2/training.c "$ROOT"/ports/sdl2/achievements.c "$ROOT"/ports/sdl2/rom_drop.c \
-         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/updater.c "$ROOT"/ports/sdl2/replay.c "$ROOT"/ports/sdl2/paths.c "$ROOT"/ports/sdl2/own_cheats.c "$ROOT"/ports/sdl2/crt.c "$ROOT"/ports/sdl2/scaler.c "$ROOT"/ports/sdl2/autobomb.c "$ROOT"/ports/sdl2/ai_player.c "$ROOT"/ports/sdl2/fast_timing.c "$ROOT"/ports/sdl2/layer_filter.c; do
+         "$ROOT"/ports/sdl2/hitbox.c "$ROOT"/ports/sdl2/ui_sound.c "$ROOT"/ports/sdl2/stats.c "$ROOT"/ports/sdl2/updater.c "$ROOT"/ports/sdl2/replay.c "$ROOT"/ports/sdl2/paths.c "$ROOT"/ports/sdl2/own_cheats.c "$ROOT"/ports/sdl2/crt.c "$ROOT"/ports/sdl2/scaler.c "$ROOT"/ports/sdl2/autobomb.c "$ROOT"/ports/sdl2/ai_player.c "$ROOT"/ports/sdl2/fast_timing.c "$ROOT"/ports/sdl2/layer_filter.c "$ROOT"/ports/sdl2/file_save.c; do
 	o="$OBJ/$(echo "$f" | sed "s|$ROOT/||;s|/|_|g;s|\.c$|.o|")"
 	[ "$o" -nt "$f" ] || { echo "cc $f"; gcc $CFLAGS -DDONPACHI_VERSION='"test"' -c "$f" -o "$o"; }
 done
@@ -38,7 +38,7 @@ if [ -n "$JAPAN" ]; then
 	done
 fi
 
-for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check training_replay_check targets_find targets_hunt achievement_targets slowdown_check state_slowdown_check cheats_check crt_shot debug_check ai_check replay_join_check eeprom_check sound_timing_check fast_timing_check training_part_way_check items_probe fx_probe fx_shot romset_versions_check japan_check version_switch_check scaler_shot autobomb_check ai_run replay_crash crash_log_check layer_shot}; do
+for tool in ${TOOLS:-autoplay training_check panels_shot menu_shot romdata_check drop_window_test pickups botcmp hitbox_check sfx_log ui_sounds_wav ui_sound_compare midboss_find midboss_fight kills_check replay_check training_replay_check targets_find targets_hunt achievement_targets slowdown_check state_slowdown_check cheats_check crt_shot debug_check ai_check replay_join_check eeprom_check sound_timing_check fast_timing_check training_part_way_check items_probe fx_probe fx_shot romset_versions_check japan_check version_switch_check scaler_shot autobomb_check ai_run replay_crash crash_log_check layer_shot file_save_check}; do
 	echo "link $tool"
 	gcc $CFLAGS "$HERE/$tool.c" "$OBJ"/*.o $SDL_LIB -lm -o "$OUT/$tool"
 done

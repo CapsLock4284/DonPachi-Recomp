@@ -32,6 +32,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
   `donpachi_crash_DATE_TIME.inp` (your inputs since the last reset, so the run can be played again up to the crash and
   the problem found). Sending both with a report helps. The log of the run before is kept as `donpachi_previous.log`.
 
+### Fixed
+- **A short hitch about once a minute** in play: the lifetime statistics were saved every minute in the middle of
+  a frame, and on some PCs writing the file takes 10-20 ms (once over 100 ms, a visible stutter). The port's files
+  (statistics, achievements, high scores) are now written by a helper thread, so the game never waits for the
+  disk.
+
 ## v0.11.0 (2026-11-20)
 
 ### New

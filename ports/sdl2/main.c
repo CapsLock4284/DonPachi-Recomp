@@ -63,6 +63,7 @@
 #include "autobomb.h"
 #include "crash_log.h"
 #include "layer_filter.h"
+#include "file_save.h"
 #include "ai_player.h"
 #include "game_mode.h"
 #include "fast_timing.h"
@@ -1754,6 +1755,7 @@ int main(int argc, char **argv)
 		replay_stop();
 	eeprom_keep(true);
 	stats_save();
+	file_save_flush();    /* (the files still waiting for file_save's helper written before the program ends) */
 	crash_log_finish();
 	if (audio)
 		SDL_CloseAudioDevice(audio);

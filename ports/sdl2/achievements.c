@@ -21,6 +21,7 @@
  *    only; the 1-Up's item is the sign)
  */
 #include "achievements.h"
+#include "file_save.h"
 #include "game_mode.h"
 
 #include "cave/machine.h"
@@ -124,15 +125,16 @@ static bool object_up(unsigned type)
 
 static void save(void)
 {
-	FILE *const file = file_path[0] ? fopen(file_path, "w") : NULL;
+	file_text text = { 0 };
 
-	if (!file)
+	if (!file_path[0])
 		return;
-	fputs("; DonPachi's achievements: when each was earned\n[achievements]\n", file);
+	/* (built in memory, written by file_save's helper: an achievement earned in play doesn't wait for the disk) */
+	file_text_add(&text, "; DonPachi's achievements: when each was earned\n[achievements]\n");
 	for (int index = 0; index < ACHIEVEMENTS; index++)
 		if (dates[index][0])
-			fprintf(file, "%s = %s\n", list[index].id, dates[index]);
-	fclose(file);
+			file_text_add(&text, "%s = %s\n", list[index].id, dates[index]);
+	file_text_save(&text, file_path);
 }
 
 void achievements_load(const char *path)

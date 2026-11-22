@@ -538,14 +538,14 @@ static SDL_Texture *texture;
 /* the PC's time in each part of a frame, for the FPS meter's log (counter ticks, added up over its second) */
 enum { SPENT_RUN, SPENT_LOOK_AHEAD, SPENT_DRAW, SPENT_SHOW, SPENT_PRESENT, SPENT_FILTER, SPENT_UPLOAD, SPENT_PARTS };
 static Uint64 spent[SPENT_PARTS], spent_most[SPENT_PARTS];
+static Uint64 spent_frame[SPENT_PARTS];    /* (this frame's, all its calls added: its most is a whole frame's too) */
 
 static void spend(int part, Uint64 since)
 {
 	const Uint64 ticks = SDL_GetPerformanceCounter() - since;
 
 	spent[part] += ticks;
-	if (ticks > spent_most[part])
-		spent_most[part] = ticks;
+	spent_frame[part] += ticks;
 }
 
 /* the picture from the board's memories, with the sprites latched last */
@@ -851,6 +851,13 @@ static void meter_frame_end(Uint64 began, Uint64 next)
 	const Uint64 frequency = SDL_GetPerformanceFrequency(), now = SDL_GetPerformanceCounter();
 	const Uint64 work = now - began;
 
+	for (int part = 0; part < SPENT_PARTS; part++)
+	{
+		/* (a part's most: the frame's whole time in it, as its average is a frame's: the uploads are several) */
+		if (spent_frame[part] > spent_most[part])
+			spent_most[part] = spent_frame[part];
+		spent_frame[part] = 0;
+	}
 	meter.windows++;
 	meter.work += work;
 	if (work > meter.work_most)

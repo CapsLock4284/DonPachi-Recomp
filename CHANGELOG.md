@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.12.0 (2026-11-21)
+
 ### New
 - **Bullet points** (GAME OPTIONS > BULLETS, `[game] bullets`, off by default): each enemy bullet's point, a white
   pixel in a small green cross. The game tests a bullet only by that point, the middle of its sprite, so a bullet

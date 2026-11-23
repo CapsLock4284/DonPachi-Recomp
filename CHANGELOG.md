@@ -10,11 +10,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
 - **C AUTO FIRE** in GAME OPTIONS: button C's rapid fire on or off (the arcade's test mode setting "C BUTTON
   FULL-AUTO", kept in the EEPROM as before; on by default). Changed there, it is in use at once, no reset needed;
   a replay keeps the change.
+- **ARCADE SETTINGS** in GAME OPTIONS, in place of SERVICE MENU: the arcade test menu's other settings in the
+  port's own menu, no trip to the test menu needed. CONTINUE (on or off), CONTINUE COST (normal or discount), LIVES
+  (1, 2, 3 or 5), EXTEND (2M only; 1M and 6M; 5M, 8M, 11M and on; none), COIN A and COIN B (the credits a coin
+  gives) and DEMO SOUND. Kept in the EEPROM as the test menu keeps them; in use from the next reset (F3) or start.
+  The test menu's INVERT SCREEN is left out (ROTATE does that). F4 still opens the test menu itself.
 
 ### Fixed
-- **SERVICE MENU** (and F4) went back to the game instead of the arcade's test menu since v0.10.0: the service
-  switch was let go during the board's self-test, which is run at once since then. It is now held until 1 second
-  after the self-test.
+- **F4** (the arcade's test menu) went back to the game instead since v0.10.0: the service switch was let go during
+  the board's self-test, which is run at once since then. It is now held until 4 seconds after the self-test.
 
 ## v0.12.0 (2026-11-21)
 

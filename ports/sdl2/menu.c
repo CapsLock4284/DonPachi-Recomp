@@ -56,7 +56,7 @@
 
 enum { PAGE_MAIN, PAGE_CONTROLS, PAGE_GRAPHICS, PAGE_GAME, PAGE_CHEATS, PAGE_DEBUG, PAGE_FRONT, PAGE_TRAINING,
 	PAGE_ACHIEVEMENTS, PAGE_STATS, PAGE_REPLAYS, PAGE_SAVE_REPLAY, PAGE_REPLAY_MENU, PAGE_RENAME, PAGE_DELETE,
-	PAGE_UPDATE, PAGE_SOUND };
+	PAGE_UPDATE, PAGE_SOUND, PAGE_ARCADE };
 enum { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT, NAV_CHOOSE, NAV_BACK, NAV_CLOSE };
 
 enum
@@ -104,6 +104,9 @@ enum
 	ITEM_FILTER_LAYERS,           /* the filter on each layer and the sprites apart (layer_filter.h) */
 	ITEM_FPS,                     /* the FPS meter (main.c; F9) */
 	ITEM_C_AUTO,                  /* the game options': button C's rapid fire, the test mode's (the EEPROM's) */
+	ITEM_ARCADE,                  /* the game options': the ARCADE SETTINGS page (the test mode's other settings) */
+	ITEM_A_CONTINUE, ITEM_A_CONTINUE_COST, ITEM_A_LIVES, ITEM_A_EXTEND, ITEM_A_COIN_A, ITEM_A_COIN_B,
+	ITEM_A_DEMO_SOUND,            /* its entries: arcade_settings[item - ITEM_A_CONTINUE] */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -172,6 +175,46 @@ static int training_pending;
 #define DIFFICULTY_WORD 4            /* START TRAINING: the frames until it starts (LOADING... shown meanwhile) */
 #define C_AUTO_BIT 0x0004u           /* (word 4's) "C BUTTON FULL-AUTO": read into $101287 bit 2 at boot */
 
+/* The test mode's CONFIGURATION, its other settings (all but C BUTTON, GAME DIFFICULTY and INVERT SCREEN: bit 1,
+   the board's screen flip, which the port's video does not do: the ROTATE setting instead): word 4's bits, read at
+   boot (the low byte into $101287, the high byte into $101288's low byte), so in use from the next reset. Found by
+   changing each in the test mode and reading the EEPROM it saved; the names are the test mode's (the program's text
+   at 0239D), made shorter. EXTEND: the first extend from 006C68, the next from 006CA2 (its top bit: again and again
+   by that much): 2M; 1M and 6M; 5M, 8M, 11M... */
+typedef struct
+{
+	int shift, values;                 /* the setting's bits: 'values' of them (2 or 4) from bit 'shift' */
+	const char *names[4];              /* each value's (the EEPROM's 0, 1, 2, 3) */
+	const char *help;
+} arcade_setting;
+
+static const arcade_setting arcade_settings[] = {
+	{ 15, 2, { "ON", "OFF" }, "WHETHER A GAME OVER CAN BE CONTINUED (THE ARCADE'S CONTINUE ON / OFF)." },
+	{ 0, 2, { "NORMAL", "DISCOUNT" }, "DISCOUNT: A CONTINUE COSTS LESS THAN A NEW GAME (THE ARCADE'S DISCOUNT "
+		"CONTINUE). IT MATTERS ONLY WITH FREE PLAY OFF." },
+	{ 12, 4, { "3", "5", "2", "1" }, "THE SHIPS EACH GAME STARTS WITH (THE ARCADE'S HERO COUNTS)." },
+	{ 10, 4, { "2M ONLY", "1M AND 6M", "5M, 8M, 11M...", "NONE" }, "THE SCORES THAT GIVE AN EXTRA SHIP: 2 MILLION "
+		"ONLY; 1 AND 6 MILLION; OR 5, 8, 11 MILLION AND SO ON; OR NONE." },
+	{ 4, 4, { "1 COIN 1 PLAY", "1 COIN 2 PLAYS", "2 COINS 1 PLAY", "3 COINS 1 PLAY" }, "THE CREDITS A COIN IN THE "
+		"FIRST SLOT GIVES. IT MATTERS ONLY WITH FREE PLAY OFF." },
+	{ 6, 4, { "1 COIN 1 PLAY", "1 COIN 2 PLAYS", "2 COINS 1 PLAY", "3 COINS 1 PLAY" }, "THE CREDITS A COIN IN THE "
+		"SECOND SLOT GIVES (PLAYER 2'S COIN). IT MATTERS ONLY WITH FREE PLAY OFF." },
+	{ 3, 2, { "ON", "OFF" }, "THE MUSIC AND SOUND WHILE THE GAME SHOWS ITS DEMO BETWEEN GAMES (THE ARCADE'S "
+		"ADVERTISE SOUND)." },
+};
+
+static bool is_arcade_setting(int item)
+{
+	return item >= ITEM_A_CONTINUE && item <= ITEM_A_DEMO_SOUND;
+}
+
+static unsigned arcade_value(int item)
+{
+	const arcade_setting *const a = &arcade_settings[item - ITEM_A_CONTINUE];
+
+	return (unsigned)(cave_board.eeprom.words[DIFFICULTY_WORD] >> a->shift) & (unsigned)(a->values - 1);
+}
+
 void menu_open_front(void);
 static int page, selected, player;
 static int items[128], item_count;
@@ -218,6 +261,12 @@ static void build_items(void)
 			for (size_t index = 0; index < sizeof(main_items) / sizeof(main_items[0]); index++)
 				items[item_count++] = main_items[index];
 	}
+	else if (page == PAGE_ARCADE)
+	{
+		for (int item = ITEM_A_CONTINUE; item <= ITEM_A_DEMO_SOUND; item++)
+			items[item_count++] = item;
+		items[item_count++] = ITEM_BACK;
+	}
 	else if (page == PAGE_SOUND)
 	{
 		static const int sound_items[] = { ITEM_VOLUME, ITEM_MUSIC_VOLUME, ITEM_EFFECTS_VOLUME, ITEM_VOICES_VOLUME,
@@ -262,7 +311,7 @@ static void build_items(void)
 	else if (page == PAGE_GAME)
 	{
 		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_C_AUTO, ITEM_FAST_SPEED, ITEM_BIG_HIT,
-			ITEM_BULLETS, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
+			ITEM_BULLETS, ITEM_ARCADE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];
@@ -507,6 +556,32 @@ static void change(int item, int step, bool wrap)
 	case ITEM_AUTOBOMB:
 		in_use->autobomb = file->autobomb = !in_use->autobomb;
 		break;
+	case ITEM_A_CONTINUE: case ITEM_A_CONTINUE_COST: case ITEM_A_LIVES: case ITEM_A_EXTEND: case ITEM_A_COIN_A:
+	case ITEM_A_COIN_B: case ITEM_A_DEMO_SOUND:
+	{
+		/* (LIVES in the menu's order, 1 2 3 5: the EEPROM's 3, 2, 0, 1; the others as the test mode has them) */
+		static const unsigned lives_order[4] = { 3u, 2u, 0u, 1u };
+		const arcade_setting *const a = &arcade_settings[item - ITEM_A_CONTINUE];
+		const unsigned now = arcade_value(item), mask = (unsigned)(a->values - 1) << a->shift;
+		unsigned next;
+
+		if (item == ITEM_A_LIVES)
+		{
+			int at = 0;
+
+			while (lives_order[at] != now)
+				at++;
+			at = wrap ? (at + 1) % 4 : SDL_clamp(at + step, 0, 3);
+			next = lives_order[at];
+		}
+		else if (wrap || a->values == 2)
+			next = (now + (unsigned)(step + a->values)) % (unsigned)a->values;
+		else
+			next = (unsigned)SDL_clamp((int)now + step, 0, a->values - 1);
+		cave_board.eeprom.words[DIFFICULTY_WORD] =
+			(uint16_t)((cave_board.eeprom.words[DIFFICULTY_WORD] & ~mask) | next << a->shift);
+		return;    /* (the EEPROM: the port keeps it in its file; the game reads it at its next reset) */
+	}
 	case ITEM_C_AUTO:
 		if (host.set_c_auto)
 			host.set_c_auto(!(cave_board.eeprom.words[DIFFICULTY_WORD] & C_AUTO_BIT));
@@ -739,6 +814,11 @@ static void choose(int item)
 		selected = 0;
 		build_items();
 		break;
+	case ITEM_ARCADE:
+		page = PAGE_ARCADE;
+		selected = 0;
+		build_items();
+		break;
 	case ITEM_GAME:
 		page = PAGE_GAME;
 		selected = 0;
@@ -874,9 +954,10 @@ static void choose(int item)
 		}
 		{
 		const int opened_by = page == PAGE_GRAPHICS ? ITEM_GRAPHICS : page == PAGE_GAME ? ITEM_GAME
-			: page == PAGE_SOUND ? ITEM_SOUND : page == PAGE_CHEATS ? ITEM_CHEATS : page == PAGE_DEBUG ? ITEM_DEBUG_TOOLS : ITEM_CONTROLS;
+			: page == PAGE_SOUND ? ITEM_SOUND : page == PAGE_CHEATS ? ITEM_CHEATS : page == PAGE_DEBUG ? ITEM_DEBUG_TOOLS
+			: page == PAGE_ARCADE ? ITEM_ARCADE : ITEM_CONTROLS;
 
-		page = page == PAGE_CHEATS || page == PAGE_DEBUG ? PAGE_GAME : PAGE_MAIN;
+		page = page == PAGE_CHEATS || page == PAGE_DEBUG || page == PAGE_ARCADE ? PAGE_GAME : PAGE_MAIN;
 		build_items();
 		for (selected = 0; selected < item_count - 1 && items[selected] != opened_by; selected++)
 			;    /* (back on the entry that opened the page) */
@@ -1092,6 +1173,8 @@ static const char *item_help(int item)
 		return "TOTALS FROM EVERY ARCADE GAME YOU HAVE PLAYED. KEPT IN DONPACHI.STATS BESIDE THE GAME.";
 	if (is_replay(item))
 		return "A SAVED REPLAY. A: WATCH, RENAME OR DELETE IT. T IS A TRAINING RUN, A THE AREA REACHED.";
+	if (is_arcade_setting(item))
+		return arcade_settings[item - ITEM_A_CONTINUE].help;
 	switch (item)
 	{
 	case ITEM_RESUME:
@@ -1174,7 +1257,7 @@ static const char *item_help(int item)
 	case ITEM_STATE_SLOT:
 		return "WHICH OF THE 5 SAVE STATES SAVE AND LOAD USE (F6 / F7). THEY ARE KEPT UNTIL THE GAME CLOSES.";
 	case ITEM_GAME:
-		return "DIFFICULTY, FAST FORWARD SPEED, BIG HIT, TEST MENU, FREE PLAY, HIGH SCORES, CHEATS AND MORE.";
+		return "DIFFICULTY, FAST FORWARD SPEED, BIG HIT, ARCADE SETTINGS, FREE PLAY, HIGH SCORES, CHEATS AND MORE.";
 	case ITEM_DEBUG_TOOLS:
 		return "THE DEVELOPERS' DEBUG MODE AND RAM EDITOR, STILL IN THE GAME: PAUSE AND MOVE THROUGH A STAGE, STAGE "
 			"SELECT, OBJECT SPAWNER, PALETTE EDITOR. COUNT AS CHEATS.";
@@ -1219,6 +1302,9 @@ static const char *item_help(int item)
 			"INSTALLED IF YOU SAY YES. FROM THE NEXT START.";
 	case ITEM_UPDATE:
 		return "A NEWER VERSION IS OUT: DOWNLOAD AND INSTALL IT (YOU ARE ASKED FIRST).";
+	case ITEM_ARCADE:
+		return "THE ARCADE'S OWN SETTINGS FROM ITS TEST MENU: CONTINUES, LIVES, EXTENDS, COINS AND DEMO "
+			"SOUND. THEY TAKE EFFECT AFTER A RESET (F3) OR RESTART.";
 	case ITEM_C_AUTO:
 		return "ON: HOLD BUTTON C FOR RAPID FIRE (THE ARCADE'S C BUTTON FULL-AUTO SETTING). OFF: BUTTON C DOES "
 			"NOTHING. IN USE AT ONCE.";
@@ -1687,7 +1773,8 @@ static const char *item_label(int item)
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
-		"EFFECTS", "VOICES", "BULLETS", "BY LAYER", "FPS METER", "C AUTO FIRE"
+		"EFFECTS", "VOICES", "BULLETS", "BY LAYER", "FPS METER", "C AUTO FIRE",
+		"ARCADE SETTINGS", "CONTINUE", "CONTINUE COST", "LIVES", "EXTEND", "COIN A", "COIN B", "DEMO SOUND"
 	};
 
 	if (is_hotkey_item(item))
@@ -1760,6 +1847,10 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_C_AUTO:
 		snprintf(out, size, "%s", cave_board.eeprom.words[DIFFICULTY_WORD] & C_AUTO_BIT ? "ON" : "OFF");
 		break;
+	case ITEM_A_CONTINUE: case ITEM_A_CONTINUE_COST: case ITEM_A_LIVES: case ITEM_A_EXTEND: case ITEM_A_COIN_A:
+	case ITEM_A_COIN_B: case ITEM_A_DEMO_SOUND:
+		snprintf(out, size, "%s", arcade_settings[item - ITEM_A_CONTINUE].names[arcade_value(item)]);
+		break;
 	case ITEM_SLOWDOWN:
 		snprintf(out, size, "%s", s->slowdown ? "ON" : "OFF");
 		break;
@@ -1790,6 +1881,7 @@ static void item_value(int item, char *out, size_t size)
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:
 	case ITEM_GAME:
+	case ITEM_ARCADE:
 	case ITEM_CHEATS:
 	case ITEM_DEBUG_TOOLS:
 	case ITEM_ACHIEVEMENTS:
@@ -2297,6 +2389,8 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_centre(out, PANEL_TOP + 1, "GAME OPTIONS", GOLD);
 	else if (page == PAGE_SOUND)
 		put_centre(out, PANEL_TOP + 1, "SOUND", GOLD);
+	else if (page == PAGE_ARCADE)
+		put_centre(out, PANEL_TOP + 1, "ARCADE SETTINGS", GOLD);
 	else if (page == PAGE_TRAINING)
 		put_centre(out, PANEL_TOP + 1, "TRAINING", GOLD);
 	else if (page == PAGE_ACHIEVEMENTS)
@@ -2391,12 +2485,14 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 			put_right_y(out, PANEL_RIGHT - 1, y, value, chosen ? CYAN : GREY);
 			y += step;
 		}
-		if (page == PAGE_GAME)
+		if (page == PAGE_GAME || page == PAGE_ARCADE)
 		{
 			static const char *const note[2] = { "DIFFICULTY CHANGES ON", "F3 RESET OR RESTART" };
+			static const char *const arcade_note[2] = { "THESE CHANGE ON", "F3 RESET OR RESTART" };
+			const char *const *const lines = page == PAGE_ARCADE ? arcade_note : note;
 
 			for (int line = 0; line < 2; line++)
-				put_text_y(out, (COLUMNS - (int)strlen(note[line])) / 2, y + 2 + line * 10, note[line], GOLD);
+				put_text_y(out, (COLUMNS - (int)strlen(lines[line])) / 2, y + 2 + line * 10, lines[line], GOLD);
 		}
 		if (page == PAGE_TRAINING && training_pending > 0)
 			put_text_y(out, (COLUMNS - 10) / 2, y + 2, "LOADING...", GOLD);
@@ -2458,7 +2554,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 		put_hints(out, "A: CHOOSE   <>: CHANGE", front ? "B: BACK" : "B / VIEW: CLOSE");
 	}
 	else if (page == PAGE_GRAPHICS || page == PAGE_GAME || page == PAGE_CHEATS || page == PAGE_DEBUG
-			|| page == PAGE_TRAINING || page == PAGE_SOUND)
+			|| page == PAGE_TRAINING || page == PAGE_SOUND || page == PAGE_ARCADE)
 	{
 		put_hints(out, "A: CHOOSE   <>: CHANGE", "B: BACK");
 	}

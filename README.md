@@ -100,7 +100,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
   Scale3x, xBR 2x/3x/4x, MMPX), on the whole picture or on each layer and the sprites apart, scaling modes,
   smoothing, scanlines, vsync, TATE rotation, borderless or exclusive full screen
 - **Game options:** difficulty, autobomb (a bomb set off when you are about to be hit), C auto fire (button C's rapid
-  fire, the arcade's C BUTTON FULL-AUTO, on by default), free play, the arcade's hidden big HIT display, the arcade's test menu,
+  fire, the arcade's C BUTTON FULL-AUTO, on by default), the arcade's own settings (continues, lives, extends,
+  coins, demo sound: its test menu's, in the port's menu), free play, the arcade's hidden big HIT display,
   cheats (built in, and MAME's cheat file's)
 - Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
 

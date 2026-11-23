@@ -165,9 +165,9 @@ static uint16_t pad_inputs(int player)
 
 /* ---- the hotkeys: what the port does itself ([hotkeys]) ---- */
 
-#define SERVICE_MENU_FRAMES 60     /* the service switch held after the service menu's reset, counted from the end
+#define SERVICE_MENU_FRAMES 240    /* the service switch held after the service menu's reset, counted from the end
                                       of the board's self-test (about 246 frames): the game goes into its test mode
-                                      when the switch is let go between 4 and about 120 frames after that */
+                                      when it is still held about 130 frames after that (tests/harness/service_probe) */
 
 static unsigned service_held;      /* frames the service switch is still held for the player (after the self-test) */
 static bool hotkey_was_down[HOTKEYS];

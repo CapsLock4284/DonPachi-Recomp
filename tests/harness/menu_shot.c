@@ -129,7 +129,7 @@ int main(void)
 		key(SDL_SCANCODE_DOWN);    /* GAME OPTIONS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_game.ppm");
-	for (int i = 0; i < 7; i++)
+	for (int i = 0; i < 8; i++)
 		key(SDL_SCANCODE_DOWN);    /* CHEATS */
 	key(SDL_SCANCODE_RETURN);
 	shot("menu_cheats_ai.ppm");    /* (the first: AI PLAYER 2) */

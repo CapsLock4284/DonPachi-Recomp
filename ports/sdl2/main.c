@@ -165,10 +165,11 @@ static uint16_t pad_inputs(int player)
 
 /* ---- the hotkeys: what the port does itself ([hotkeys]) ---- */
 
-#define SERVICE_MENU_FRAMES 180    /* the service switch held after the service menu's reset: the game looks at it
-                                      between 110 and 140 frames after its start */
+#define SERVICE_MENU_FRAMES 60     /* the service switch held after the service menu's reset, counted from the end
+                                      of the board's self-test (about 246 frames): the game goes into its test mode
+                                      when the switch is let go between 4 and about 120 frames after that */
 
-static unsigned service_held;      /* frames the service switch is still held for the player */
+static unsigned service_held;      /* frames the service switch is still held for the player (after the self-test) */
 static bool hotkey_was_down[HOTKEYS];
 
 static void state_action(bool save);
@@ -284,7 +285,8 @@ static void read_keys(void)
 	if (service_held)
 	{
 		pressed[0] |= CAVE_SERVICE;
-		service_held--;
+		if (!booting())
+			service_held--;    /* (held all through the self-test: its frames are run at once since 0.10.0) */
 	}
 	cave_board.in0 = (uint16_t)~pressed[0];
 	cave_board.in1 = (uint16_t)~pressed[1];
@@ -1075,6 +1077,26 @@ static void after_vblank(void)
 		draw_picture();
 }
 
+/* The game options' C AUTO FIRE: the test mode's "C BUTTON FULL-AUTO", word 4's bit 2 of the EEPROM (kept in its
+   file), and the game's copy of it ($101287 bit 2, read from the EEPROM at boot, looked at each frame: button C's
+   shot every other frame) at once. A replay: the write kept in it (replay_patch); a crash log can't have it. Not
+   while a replay plays: its EEPROM is the replay's */
+static void menu_set_c_auto(bool on)
+{
+	uint8_t *const settings_byte = cave_work_ram_byte(0x101287u);
+
+	if (replay_playing())
+		return;
+	cave_board.eeprom.words[4] = (uint16_t)(on ? cave_board.eeprom.words[4] | 0x0004u
+		: cave_board.eeprom.words[4] & ~0x0004u);
+	if (!(*settings_byte & 4u) != !on)
+	{
+		*settings_byte = (uint8_t)(on ? *settings_byte | 4u : *settings_byte & ~4u);
+		replay_patch(0x101287u, 1u);
+		crash_log_not_replayable("C AUTO FIRE changed part way");
+	}
+}
+
 static void menu_apply_timing(void)
 {
 	if (options.arcade_timing)
@@ -1701,6 +1723,7 @@ int main(int argc, char **argv)
 		menu.apply_window = menu_apply_window;
 		menu.apply_video = menu_apply_video;
 		menu.apply_timing = menu_apply_timing;
+		menu.set_c_auto = menu_set_c_auto;
 		menu.quit = menu_quit;
 		menu.state = state_action;
 		menu.state_slot = state_slot_step;

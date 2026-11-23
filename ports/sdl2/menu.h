@@ -31,6 +31,7 @@ typedef struct
 	void (*apply_window)(void); /* the window's size and full screen from options */
 	void (*apply_video)(void);  /* the filter and vsync from options */
 	void (*apply_timing)(void); /* options->arcade_timing */
+	void (*set_c_auto)(bool on);    /* the test mode's "C BUTTON FULL-AUTO" (the EEPROM's), in use at once */
 	void (*quit)(void);
 	void (*state)(bool save);   /* the save state: kept, or gone back to (the chosen slot's) */
 	int (*state_slot)(int step);    /* the save states' slot, 0 to STATE_SLOTS - 1, moved by 'step' (0: as it is) */

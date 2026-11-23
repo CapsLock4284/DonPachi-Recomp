@@ -6,7 +6,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### New
+- **C AUTO FIRE** in GAME OPTIONS: button C's rapid fire on or off (the arcade's test mode setting "C BUTTON
+  FULL-AUTO", kept in the EEPROM as before; on by default). Changed there, it is in use at once, no reset needed;
+  a replay keeps the change.
+
+### Fixed
+- **SERVICE MENU** (and F4) went back to the game instead of the arcade's test menu since v0.10.0: the service
+  switch was let go during the board's self-test, which is run at once since then. It is now held until 1 second
+  after the self-test.
 
 ## v0.12.0 (2026-11-21)
 

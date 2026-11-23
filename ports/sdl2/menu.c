@@ -103,6 +103,7 @@ enum
 	ITEM_BULLETS,                 /* the game options': the enemies' bullets' points shown (hitbox.h) */
 	ITEM_FILTER_LAYERS,           /* the filter on each layer and the sprites apart (layer_filter.h) */
 	ITEM_FPS,                     /* the FPS meter (main.c; F9) */
+	ITEM_C_AUTO,                  /* the game options': button C's rapid fire, the test mode's (the EEPROM's) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -169,6 +170,7 @@ static int training_pending;
    (0 normal, 1 easy, 2 hard, 3 very hard; read into $101288 at boot, the game's at its start: the rank's base,
    $10121E, and the bullets' speed from it) */
 #define DIFFICULTY_WORD 4            /* START TRAINING: the frames until it starts (LOADING... shown meanwhile) */
+#define C_AUTO_BIT 0x0004u           /* (word 4's) "C BUTTON FULL-AUTO": read into $101287 bit 2 at boot */
 
 void menu_open_front(void);
 static int page, selected, player;
@@ -259,7 +261,7 @@ static void build_items(void)
 	}
 	else if (page == PAGE_GAME)
 	{
-		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_FAST_SPEED, ITEM_BIG_HIT,
+		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_C_AUTO, ITEM_FAST_SPEED, ITEM_BIG_HIT,
 			ITEM_BULLETS, ITEM_SERVICE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
@@ -504,6 +506,10 @@ static void change(int item, int step, bool wrap)
 		break;
 	case ITEM_AUTOBOMB:
 		in_use->autobomb = file->autobomb = !in_use->autobomb;
+		break;
+	case ITEM_C_AUTO:
+		if (host.set_c_auto)
+			host.set_c_auto(!(cave_board.eeprom.words[DIFFICULTY_WORD] & C_AUTO_BIT));
 		break;
 	case ITEM_SLOWDOWN:
 		in_use->slowdown = file->slowdown = !in_use->slowdown;    /* (main.c puts it in use: game_program.c) */
@@ -1213,6 +1219,9 @@ static const char *item_help(int item)
 			"INSTALLED IF YOU SAY YES. FROM THE NEXT START.";
 	case ITEM_UPDATE:
 		return "A NEWER VERSION IS OUT: DOWNLOAD AND INSTALL IT (YOU ARE ASKED FIRST).";
+	case ITEM_C_AUTO:
+		return "ON: HOLD BUTTON C FOR RAPID FIRE (THE ARCADE'S C BUTTON FULL-AUTO SETTING). OFF: BUTTON C DOES "
+			"NOTHING. IN USE AT ONCE.";
 	case ITEM_AUTOBOMB:
 		return "A BOMB GOES OFF BY ITSELF WHEN YOUR SHIP IS ABOUT TO BE HIT, IF YOU HAVE ONE AND IT WILL SAVE YOU. "
 			"GAMES WITH IT ON DON'T COUNT FOR HIGH SCORES, ACHIEVEMENTS OR STATISTICS.";
@@ -1678,7 +1687,7 @@ static const char *item_label(int item)
 		"RETRY TRAINING", "STATISTICS", "REPLAYS", "STOP REPLAY", "YES", "NO",
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
-		"EFFECTS", "VOICES", "BULLETS", "BY LAYER", "FPS METER"
+		"EFFECTS", "VOICES", "BULLETS", "BY LAYER", "FPS METER", "C AUTO FIRE"
 	};
 
 	if (is_hotkey_item(item))
@@ -1747,6 +1756,9 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_AUTOBOMB:
 		snprintf(out, size, "%s", s->autobomb ? "ON" : "OFF");
+		break;
+	case ITEM_C_AUTO:
+		snprintf(out, size, "%s", cave_board.eeprom.words[DIFFICULTY_WORD] & C_AUTO_BIT ? "ON" : "OFF");
 		break;
 	case ITEM_SLOWDOWN:
 		snprintf(out, size, "%s", s->slowdown ? "ON" : "OFF");
@@ -2348,7 +2360,7 @@ void menu_draw(const uint32_t *game, uint32_t *out)
 	{
 		/* the entries, in pixel lines: 16 apart, the controls page's 12 (it has 16 of them) */
 		const int step = page == PAGE_CONTROLS ? 12 : page == PAGE_MAIN && !front ? (item_count > 13 ? 14 : 15)
-			: page == PAGE_GAME ? 12 : page == PAGE_GRAPHICS ? 14 : 16;    /* (the game options: their note under them as
+			: page == PAGE_GAME ? 11 : page == PAGE_GRAPHICS ? 14 : 16;    /* (the game options: their note under them as
 			   well, above the hints; the graphics page's 13 entries) */
 		const int gap = page == PAGE_CONTROLS || (page == PAGE_MAIN && !front) ? 6 : 8;
 		int y = (PANEL_TOP + 4) * 8 + (page == PAGE_SAVE_REPLAY ? 32 : 0);    /* (the question above) */

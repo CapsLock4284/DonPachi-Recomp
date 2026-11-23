@@ -201,10 +201,13 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
   - [ ] Only if needed: built on an older distribution for the releases. A build on Ubuntu 25.10 (WSL) needs only glibc 2.34 (2021: Ubuntu 22.04, Debian 12, Fedora 35 and later), as `make_release.sh` reports; check that number each release, and build on an older Ubuntu if it ever climbs
 
 ## Accuracy, to check later
-- [ ] DIVU by a constant: the shared core (tools/core, decompiler/expressions.py) writes the 68000's "divu.w #n" as C's
-  division, the V60's rule: it loses the remainder (the register's high word) and the 68000's overflow (the register
-  unchanged). Found in DoDonPachi Recomp (its tools/call_tables.py keeps the helper instead). DonPachi's five such
-  divisions only use the quotient, so the game is unaffected; carry the same fix over in a future build.
+- [x] DIVU by a constant (done 22-11-2026): the shared core (tools/core, decompiler/expressions.py) writes the 68000's
+  "divu.w #n" as C's division, the V60's rule: it loses the remainder (the register's high word) and the 68000's
+  overflow (the register unchanged). Found in DoDonPachi Recomp. Now `tools/call_tables.py` (11) keeps the 68000's
+  helper, `m68k_divu`, as DoDonPachi Recomp's does: the program written again, only the five divisions change.
+  They divide a word (no overflow) and use only the quotient: 600,000 frames of one player and 400,000 of two (every
+  site run, the remainder there nearly always), the work RAM the same as before at every check, so the game is
+  unchanged. Needs `python tools/decompile.py` again (src/ is not in git)
 
 - [x] **The game's mode, found** (`ports/sdl2/game_mode.h`): `$1018EC` is 7 with player 1 alone, 6 with player 2 alone and 0 with both (and on the title screen, told apart by the lives). The port read only 7 as play: a second player joining a game (7 turns 0) looked like the game's end (a "save the replay?" mid-game, the statistics' game over, the panels and the cheats stopping). Now `game_mode_playing()` everywhere (the big HIT display's check stays 7, as the replays recorded it). Checked: `tests/harness/replay_join_check` (fails with the old code)
 - [x] **Fast timing: the scroll and palette a frame behind the sprites** (at most ~1 pixel against the ground; a fade a frame late): fast timing draws as the program's frame ends, before the vblank interrupt (`level_1_interrupt`) sets the layers' scroll ($1013A8.. plus the screen shake at $1013CC) and copies the palette's changed colours ($101724 masks, from $1088F0). `ports/sdl2/fast_timing.c` puts those in as the interrupt is about to, for the drawing only. Checked: `tests/harness/fast_timing_check`: 19,754 frames, the same picture as arcade timing's in every one (9,424 differed before)

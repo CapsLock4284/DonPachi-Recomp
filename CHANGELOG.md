@@ -17,6 +17,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
   The test menu's INVERT SCREEN is left out (ROTATE does that). F4 still opens the test menu itself.
 
 ### Changed
+- **The decompiled program** keeps the 68000's own division where it divides by a constant (its remainder kept
+  as the real chip keeps it), as DoDonPachi Recomp's does. DonPachi's five such divisions never used the remainder,
+  so nothing changes in play: checked over a million frames, the game's memory the same.
 - **GAME OPTIONS:** BULLETS is now called BULLETS HITBOX (the setting in the ini is still `[game] bullets`).
 - **GAME OPTIONS:** ARCADE SETTINGS sits above CHEATS, and DEBUG TOOLS (the developers' debug mode and RAM editor)
   is gone from the menu: it may come back if it is missed.

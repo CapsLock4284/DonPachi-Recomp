@@ -2,10 +2,10 @@
 Name:        call_tables.py
 Description: adapts the shared core's 68000 decompiler (tools/core/m68000) to how DonPachi's code is written, without
              changing tools/core: installed by tools/decompile.py before the core runs
-Version:     0.3.0 (draft)
+Version:     0.4.0 (draft)
 Created:     08-11-2026
 
-Modified:    08-11-2026 (0.3.0: 1b, 5 and 6)
+Modified:    22-11-2026 (0.4.0: 11, the 68000's DIVU by a constant)
 
 What DonPachi does that TMNT's code does not, and that the core does not take:
 
@@ -58,6 +58,13 @@ What DonPachi does that TMNT's code does not, and that the core does not take:
    which runs the next command when it is due at the same scroll position). The core took the command's rts for the
    interpreter's own return: one command a frame, and the rest of the frame's script skipped. Here the pea is a call of
    the code it runs into (02DA40, a function of its own), which comes back to 'back', as the core's register calls do.
+
+11. DIVU by a constant: the core (decompiler/expressions.py) writes it as C's division, the V60's rule, which loses
+   the 68000's remainder (the register's high word) and its overflow (the register unchanged). Here it stays the
+   68000's helper, m68k_divu (as DoDonPachi Recomp's call_tables.py has it). DonPachi's five (the ship select's timer
+   for each player, 0319A4 and 031D52, #$84; the continue countdown, 0334D4, 03370C and 033BE6, #$78) divide a word
+   (moveq #0 first: no overflow) and use only the quotient: 600,000 frames of one player and 400,000 of two, each
+   site run, the work RAM the same as with C's division at every check (22-11-2026)
 
 And the calls MANUAL names: "jsr (A1)" at 012D22 runs the object types' init routines, "jmp (A1)" at 012D86 their
 routines at +4, and "jmp (A0)" at 02D9A2 the stage scripts' callbacks listed in build/callbacks.txt.
@@ -697,6 +704,23 @@ def install():
     original_targets = found_class.targets
     original_successors = program_class.successors
     original_source_values = found_class.source_values
+
+    # ---- 11. the 68000's DIVU by a constant (the core's V60 rule) ----
+    # decompiler/expressions.py's simplify_one makes "helper:divu" by a constant C's division: the V60's DIVU leaves
+    # the quotient alone, but the 68000's DIVU.W leaves the remainder in the register's high word and the quotient in
+    # its low word (and on overflow the register unchanged). Here the 68000's helper stays a helper (m68k_divu in the
+    # runtime: the remainder, the quotient and the overflow as the 68000 has them), as DoDonPachi Recomp's
+    # call_tables.py does (where 004E02's remainder is used)
+    from decompiler import expressions
+    original_simplify_one = expressions.simplify_one
+
+    def simplify_one(node):
+        from v60 import ir
+        if isinstance(node, ir.Op) and node.name == "helper:divu":
+            return None
+        return original_simplify_one(node)
+
+    expressions.simplify_one = simplify_one
 
     # ---- 1. calls and jumps into tables of stubs ----
 

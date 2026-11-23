@@ -92,7 +92,7 @@ enum
 	ITEM_SLOWDOWN,                /* the arcade's slowdown */
 	ITEM_CRT,                     /* the arcade monitor's look (crt.h) */
 	ITEM_STATE_SLOT,              /* the save states' slot */
-	ITEM_DEBUG_TOOLS,             /* the debug tools page (from the game options): own_cheats.h's debug ones */
+	ITEM_DEBUG_TOOLS,             /* the debug tools page: own_cheats.h's debug ones (not on the game options now) */
 	ITEM_FILTER,                  /* the pixel-art scaler over the picture (scaler.h) */
 	ITEM_AUTOBOMB,                /* a bomb set off for a ship about to be shot down (autobomb.h) */
 	ITEM_RENDERER,                /* how the picture reaches the screen (settings.h): from the next start */
@@ -311,7 +311,9 @@ static void build_items(void)
 	else if (page == PAGE_GAME)
 	{
 		static const int game_items[] = { ITEM_DIFFICULTY, ITEM_SLOWDOWN, ITEM_AUTOBOMB, ITEM_C_AUTO, ITEM_FAST_SPEED, ITEM_BIG_HIT,
-			ITEM_BULLETS, ITEM_ARCADE, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_CHEATS, ITEM_DEBUG_TOOLS, ITEM_ACHIEVEMENTS, ITEM_STATISTICS, ITEM_BACK };
+			ITEM_BULLETS, ITEM_FREE_PLAY, ITEM_HISCORES, ITEM_CHECK_UPDATES, ITEM_ARCADE, ITEM_CHEATS, ITEM_ACHIEVEMENTS,
+			ITEM_STATISTICS, ITEM_BACK };    /* (DEBUG TOOLS taken off the list in 0.13.0: its page is still here,
+			                                    to come back with ITEM_DEBUG_TOOLS before ITEM_ACHIEVEMENTS) */
 
 		for (size_t index = 0; index < sizeof(game_items) / sizeof(game_items[0]); index++)
 			items[item_count++] = game_items[index];

@@ -53,8 +53,8 @@
  *          [game] save_high_scores); not saved in a game that had a cheat on or went back to a save state.
  *    Cheats: the options menu's GAME OPTIONS > CHEATS turns them on and off for the run (or --cheat): the port's own
  *    (own_cheats.c: AI PLAYER 2, player 2 flown by the computer (ai_player.c); lives, bombs, invincibility, MAX power,
- *    an endless chain), then the cheat file's, if it is there. GAME OPTIONS > DEBUG TOOLS: the developers' debug mode
- *    and RAM editor, still in the program (own_cheats.c), cheats as well.
+ *    an endless chain), then the cheat file's, if it is there. The developers' debug mode and RAM editor, still in
+ *    the program (own_cheats.c), are cheats as well; their menu page (DEBUG TOOLS) is off the game options for now.
  */
 #include "cave/cheats.h"
 #include "own_cheats.h"

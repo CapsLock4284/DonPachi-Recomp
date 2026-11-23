@@ -16,6 +16,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
   gives) and DEMO SOUND. Kept in the EEPROM as the test menu keeps them; in use from the next reset (F3) or start.
   The test menu's INVERT SCREEN is left out (ROTATE does that). F4 still opens the test menu itself.
 
+### Changed
+- **GAME OPTIONS:** ARCADE SETTINGS sits above CHEATS, and DEBUG TOOLS (the developers' debug mode and RAM editor)
+  is gone from the menu: it may come back if it is missed.
+
 ### Fixed
 - **F4** (the arcade's test menu) went back to the game instead since v0.10.0: the service switch was let go during
   the board's self-test, which is run at once since then. It is now held until 4 seconds after the self-test.

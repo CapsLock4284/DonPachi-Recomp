@@ -67,8 +67,7 @@ arcade settings; achievements and statistics are shared. To build it in, decompi
 invincibility, MAX power and an endless chain, for each player. For more, add MAME's cheat file for DonPachi (not
 included): take `donpachi.xml` out of MAME's `cheat.7z` (from [Pugsy's Cheats](https://www.mamecheat.co.uk)) and put
 it in a `cheats` folder beside the program, as `cheats/donpachi.xml`; its cheats are listed after the game's own.
-The Cheats page also has **AI PLAYER 2**, and Game Options > **Debug Tools** brings back the developers' own debug
-mode and RAM editor, still in the arcade program (the page lists their controls).
+The Cheats page also has **AI PLAYER 2**.
 
 **Updates:** from version 0.10.0 on, the game looks up the newest release as it starts and offers it on the main
 menu (UPDATE TO V...): it asks first, then downloads it, checks it and starts again, keeping your settings, scores,

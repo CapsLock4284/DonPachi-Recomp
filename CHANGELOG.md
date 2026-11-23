@@ -17,6 +17,7 @@ notes). The release zip carries this file as `CHANGES.txt`.
   The test menu's INVERT SCREEN is left out (ROTATE does that). F4 still opens the test menu itself.
 
 ### Changed
+- **GAME OPTIONS:** BULLETS is now called BULLETS HITBOX (the setting in the ini is still `[game] bullets`).
 - **GAME OPTIONS:** ARCADE SETTINGS sits above CHEATS, and DEBUG TOOLS (the developers' debug mode and RAM editor)
   is gone from the menu: it may come back if it is missed.
 

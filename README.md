@@ -87,8 +87,8 @@ version: [CHANGELOG.md](CHANGELOG.md).
   top score, stage progress and boss and mid-boss health
 - **AI player 2**: the computer flies player 2 beside you, joining by itself (it counts as a cheat)
 - **Save states** in 5 slots, fast forward, hitbox display, high scores saved between sessions
-- **Bullet points** (GAME OPTIONS > BULLETS): each enemy bullet's one point the game tests, a white pixel in a green
-  cross; a bullet hits only when that point gets inside your hitbox, however big it looks
+- **Bullet points** (GAME OPTIONS > BULLETS HITBOX): each enemy bullet's one point the game tests, a white pixel in a
+  green cross; a bullet hits only when that point gets inside your hitbox, however big it looks
 - **26 achievements**, with a pop-up when one is earned (arcade games only: not training, cheats or save states)
 - **Replays**: every arcade game (and training run) is recorded; save it as a small file you can share, and watch
   them from the main menu's REPLAYS, with pause and frame-by-frame stepping; rename or delete them there

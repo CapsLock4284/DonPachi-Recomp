@@ -40,6 +40,7 @@ program=build/bin-linux/donpachi
 sdl_license=$(ls build/downloads/sdl2/SDL2-*/LICENSE.txt 2>/dev/null | head -n 1)
 [ -n "$sdl_license" ] || sdl_license=/usr/share/doc/libsdl2-2.0-0/copyright
 for from in "$program" ports/sdl2/release/README.txt CHANGELOG.md ports/sdl2/release/NOTICES.txt \
+		ports/sdl2/release/gamecontrollerdb.txt ports/sdl2/release/gamecontrollerdb-LICENSE.txt \
 		runtime/LICENSE.tmnt-runtime "$sdl_license"; do
 	[ -f "$from" ] || fail "missing: $from (build the Release first?)"
 done
@@ -59,12 +60,14 @@ for text in README.txt:ports/sdl2/release/README.txt CHANGES.txt:CHANGELOG.md li
 done
 cp runtime/LICENSE.tmnt-runtime "$out/licenses/tmntarcade-runtime.txt"
 cp "$sdl_license" "$out/licenses/SDL2.txt"
+cp ports/sdl2/release/gamecontrollerdb.txt "$out/gamecontrollerdb.txt"    # (the gamepads' layouts: pads.h)
+cp ports/sdl2/release/gamecontrollerdb-LICENSE.txt "$out/licenses/gamecontrollerdb.txt"
 chmod 755 "$out/donpachi"
 chmod 644 "$out"/*.txt "$out"/licenses/*
 
 # ---- the checks ----
 problems=""
-allowed="donpachi README.txt CHANGES.txt licenses/NOTICES.txt licenses/tmntarcade-runtime.txt licenses/SDL2.txt"
+allowed="donpachi README.txt CHANGES.txt gamecontrollerdb.txt licenses/NOTICES.txt licenses/tmntarcade-runtime.txt licenses/SDL2.txt licenses/gamecontrollerdb.txt"
 for file in $(cd "$out" && find . -type f | sed 's|^\./||'); do
 	case " $allowed " in *" $file "*) ;; *) problems="$problems
   not on the list: $file" ;; esac

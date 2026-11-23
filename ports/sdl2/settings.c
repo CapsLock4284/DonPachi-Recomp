@@ -7,6 +7,7 @@
  *    license:BSD-3-Clause
  */
 #include "settings.h"
+#include "pads.h"
 #include "scaler.h"
 #include "training.h"
 
@@ -129,7 +130,7 @@ void settings_defaults(settings *s)
 	s->hot_keys[HOTKEY_RESET][0] = SDL_SCANCODE_F3;
 	s->hot_keys[HOTKEY_SERVICE_MENU][0] = SDL_SCANCODE_F4;
 	s->hot_keys[HOTKEY_FAST_FORWARD][0] = SDL_SCANCODE_TAB;
-	s->hot_buttons[HOTKEY_FAST_FORWARD][0] = (pad_input){ PAD_BUTTON, SDL_CONTROLLER_BUTTON_LEFTSHOULDER };
+	s->hot_buttons[HOTKEY_FAST_FORWARD][0] = (pad_input){ PAD_BUTTON, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 0 };
 	s->hot_keys[HOTKEY_SAVE_STATE][0] = SDL_SCANCODE_F5;
 	s->hot_keys[HOTKEY_LOAD_STATE][0] = SDL_SCANCODE_F8;
 	s->hot_keys[HOTKEY_SLOT_PREVIOUS][0] = SDL_SCANCODE_F6;
@@ -216,7 +217,7 @@ static bool parse_keys(char *value, SDL_Scancode out[BINDINGS_MAX])
 static bool parse_buttons(char *value, pad_input out[BINDINGS_MAX])
 {
 	char *names[BINDINGS_MAX];
-	pad_input inputs[BINDINGS_MAX] = { { PAD_NONE, 0 } };
+	pad_input inputs[BINDINGS_MAX] = { { PAD_NONE, 0, 0 } };
 	const int count = split_names(value, names);
 
 	for (int index = 0; index < count; index++)
@@ -225,10 +226,10 @@ static bool parse_buttons(char *value, pad_input out[BINDINGS_MAX])
 		const SDL_GameControllerAxis axis = SDL_GameControllerGetAxisFromString(names[index]);
 
 		if (button != SDL_CONTROLLER_BUTTON_INVALID)
-			inputs[index] = (pad_input){ PAD_BUTTON, button };
+			inputs[index] = (pad_input){ PAD_BUTTON, button, 0 };
 		else if (axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
-			inputs[index] = (pad_input){ PAD_TRIGGER, axis };
-		else
+			inputs[index] = (pad_input){ PAD_TRIGGER, axis, 0 };
+		else if (!pads_parse(names[index], &inputs[index]))
 			return false;
 	}
 	memcpy(out, inputs, sizeof(inputs));
@@ -567,11 +568,17 @@ static void write_buttons(FILE *file, const pad_input inputs[BINDINGS_MAX])
 	for (int index = 0; index < BINDINGS_MAX; index++)
 	{
 		const char *name = NULL;
+		char plain[32];
 
 		if (inputs[index].kind == PAD_BUTTON)
 			name = SDL_GameControllerGetStringForButton((SDL_GameControllerButton)inputs[index].index);
 		else if (inputs[index].kind == PAD_TRIGGER)
 			name = SDL_GameControllerGetStringForAxis((SDL_GameControllerAxis)inputs[index].index);
+		else if (inputs[index].kind != PAD_NONE)
+		{
+			pads_file_name(inputs[index], plain, sizeof(plain));
+			name = plain;
+		}
 		if (name)
 			fprintf(file, "%s%s", written++ ? ", " : "", name);
 	}
@@ -773,7 +780,12 @@ const char *settings_save(const settings *s, const char *path)
 			fputs("; The first gamepad plugged in is player 1's, the second player 2's. Buttons as on an Xbox pad:\n"
 				"; a, b, x, y, back (View), start, guide, leftshoulder, rightshoulder, lefttrigger, righttrigger,\n"
 				"; leftstick, rightstick, dpup, dpdown, dpleft, dpright. Up to 4 an action, with commas; none for none.\n"
-				"; (back opens the options menu; leftshoulder is fast forward, in [hotkeys])\n", file);
+				"; (back opens the options menu; leftshoulder is fast forward, in [hotkeys])\n"
+				"; A gamepad or joystick the game has no layout for (an arcade stick, an older pad: donpachi.log names\n"
+				"; it) is read as it is: joy_button_1, joy_axis_2+ or joy_axis_2-, joy_hat_1_up (_down, _left, _right),\n"
+				"; numbered as in Windows' game controller settings; best set on the CONTROLS page. Until then its d-pad\n"
+				"; and stick move, buttons 1, 2, 3 are shot, bomb and C, its last button start, the one before coin.\n"
+				"; gamecontrollerdb.txt beside the program gives the game the layouts of many more devices.\n", file);
 		for (int action = 0; action < ACTIONS; action++)
 		{
 			fprintf(file, "%s = ", action_names[action]);
@@ -788,13 +800,4 @@ const char *settings_save(const settings *s, const char *path)
 	if (fclose(file) != 0)
 		return "cannot write the settings file";
 	return NULL;
-}
-
-bool settings_pad_pressed(SDL_GameController *pad, pad_input input)
-{
-	if (input.kind == PAD_BUTTON)
-		return SDL_GameControllerGetButton(pad, (SDL_GameControllerButton)input.index) != 0;
-	if (input.kind == PAD_TRIGGER)
-		return SDL_GameControllerGetAxis(pad, (SDL_GameControllerAxis)input.index) > 16384;
-	return false;
 }

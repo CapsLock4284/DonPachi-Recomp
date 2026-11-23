@@ -54,7 +54,7 @@ static void shot(const char *name)
 int main(void)
 {
 	static settings options, file;
-	static SDL_GameController *pads[2];
+	static pad_device pads[2];
 	menu_host host = { 0 };
 
 	settings_defaults(&options);

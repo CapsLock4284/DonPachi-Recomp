@@ -14,6 +14,7 @@
 #define DONPACHI_MENU_H
 
 #include "settings.h"
+#include "pads.h"
 
 #include <SDL.h>
 
@@ -26,7 +27,7 @@ typedef struct
 	settings *options;          /* the settings in use (the file's, and the command line's over them) */
 	settings *file;             /* the file's: the menu's changes go to both, and this is saved */
 	const char *path;           /* donpachi.ini */
-	SDL_GameController *const *pads;    /* the two players' gamepads (NULL: none) */
+	const pad_device *pads;     /* the two players' gamepads and joysticks (pads.h; .joy NULL: none) */
 	void (*reset)(bool service_menu);
 	void (*apply_window)(void); /* the window's size and full screen from options */
 	void (*apply_video)(void);  /* the filter and vsync from options */

@@ -10,7 +10,8 @@
  *    every setting and what it does, and a missing file is written so. The keys are SDL's names ("Z", "Left",
  *    "Left Shift", "Keypad 8"), the gamepad's are SDL's game controller names, the Xbox layout's ("a", "b", "x",
  *    "y", "back", "start", "leftshoulder", "rightshoulder", "dpup", "dpdown", "dpleft", "dpright", "leftstick",
- *    "rightstick", "guide") and the triggers ("lefttrigger", "righttrigger"); several are put with commas.
+ *    "rightstick", "guide") and the triggers ("lefttrigger", "righttrigger"); a device SDL has no layout for, its
+ *    own: "joy_button_3", "joy_axis_2+", "joy_hat_1_up" (pads.h); several are put with commas.
  */
 #ifndef DONPACHI_SETTINGS_H
 #define DONPACHI_SETTINGS_H
@@ -44,7 +45,7 @@ enum
 #define BINDINGS_MAX 4          /* keys or buttons an action may have */
 #define STATE_SLOTS 5           /* the save states kept at once (in memory) */
 
-enum { PAD_NONE, PAD_BUTTON, PAD_TRIGGER };
+enum { PAD_NONE, PAD_BUTTON, PAD_TRIGGER, PAD_JOY_BUTTON, PAD_JOY_AXIS, PAD_JOY_HAT };
 enum { VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH, VIDEO_SCALINGS };
 enum { ROTATE_NONE, ROTATE_RIGHT, ROTATE_LEFT, ROTATIONS };
 
@@ -59,8 +60,10 @@ extern const char *const settings_renderer_names[RENDERERS];
 
 typedef struct
 {
-	int kind;                   /* PAD_BUTTON: an SDL_GameControllerButton; PAD_TRIGGER: an SDL_GameControllerAxis */
+	int kind;                   /* PAD_BUTTON: an SDL_GameControllerButton; PAD_TRIGGER: an SDL_GameControllerAxis;
+	                               PAD_JOY_...: a plain joystick's button, axis or hat by its number (pads.h) */
 	int index;
+	int dir;                    /* PAD_JOY_AXIS: +1 or -1; PAD_JOY_HAT: SDL_HAT_UP, _DOWN, _LEFT or _RIGHT */
 } pad_input;
 
 typedef struct
@@ -138,8 +141,5 @@ const char *settings_load(settings *s, const char *path, bool *written);
 
 /* All the settings into the file, with what each does: NULL, or what went wrong */
 const char *settings_save(const settings *s, const char *path);
-
-/* A pad input pressed on 'pad' (a trigger counts past half way) */
-bool settings_pad_pressed(SDL_GameController *pad, pad_input input);
 
 #endif

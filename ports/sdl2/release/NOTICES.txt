@@ -23,6 +23,11 @@ SDL2 (zlib license)
   SDL2.dll, Simple DirectMedia Layer: see SDL2.txt in this folder.
   https://www.libsdl.org/
 
+SDL_GameControllerDB (zlib license)
+  gamecontrollerdb.txt, the gamepads' layouts collected by the SDL community:
+  see gamecontrollerdb.txt in this folder.
+  https://github.com/mdqinc/SDL_GameControllerDB
+
 The pixel-art filters (SETTINGS > GRAPHICS > FILTER)
   This project's own code, written after the published algorithms: Scale2x and
   Scale3x (EPX, as AdvanceMAME describes it); xBR, the "lv2" edge rules of

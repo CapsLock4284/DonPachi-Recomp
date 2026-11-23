@@ -27,7 +27,7 @@ int main(void)
 		cave_sound_drop();
 		hitbox_record();
 		memset(blank, 0, sizeof(blank));
-		hitbox_draw(blank, 1);
+		hitbox_draw(blank, 1, true, false);
 		for (int p = 0; p < 240 * 320; p++)
 			lit += blank[p] != 0;
 		if ((lit > 0) != shown)
@@ -42,7 +42,7 @@ int main(void)
 				video_latch_sprites();
 				video_draw(frame);
 				video_rotated(frame, picture);
-				hitbox_draw(picture, 1);
+				hitbox_draw(picture, 1, true, false);
 				snprintf(name, sizeof(name), "hitbox_%d.ppm", shots++);
 				save_ppm(name, picture, VIDEO_HEIGHT, VIDEO_WIDTH);
 			}

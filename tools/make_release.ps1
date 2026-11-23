@@ -51,6 +51,8 @@ $files = [ordered]@{
     "ports\sdl2\release\README.txt"       = "README.txt"
     "CHANGELOG.md"                        = "CHANGES.txt"
     "ports\sdl2\release\NOTICES.txt"      = "licenses\NOTICES.txt"
+    "ports\sdl2\release\gamecontrollerdb.txt" = "gamecontrollerdb.txt"
+    "ports\sdl2\release\gamecontrollerdb-LICENSE.txt" = "licenses\gamecontrollerdb.txt"
     "runtime\LICENSE.tmnt-runtime"        = "licenses\tmntarcade-runtime.txt"
 }
 if ($sdlLicense) { $files[$sdlLicense.FullName.Substring($root.Length + 1)] = "licenses\SDL2.txt" }

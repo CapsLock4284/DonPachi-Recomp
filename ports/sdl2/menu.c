@@ -419,8 +419,15 @@ static const char *pad_label(pad_input input)
 		{ SDL_CONTROLLER_BUTTON_MISC1, "SHARE" },
 	};
 
+	static char plain[16];
+
 	if (input.kind == PAD_TRIGGER)
 		return input.index == SDL_CONTROLLER_AXIS_TRIGGERLEFT ? "LT" : "RT";
+	if (input.kind == PAD_JOY_BUTTON || input.kind == PAD_JOY_AXIS || input.kind == PAD_JOY_HAT)
+	{
+		pads_menu_name(input, plain, sizeof(plain));    /* (a joystick read as it is: BTN 3, AXIS 2+, HAT UP) */
+		return plain;
+	}
 	if (input.kind != PAD_BUTTON)
 		return "-";
 	for (size_t index = 0; index < sizeof(labels) / sizeof(labels[0]); index++)
@@ -1155,7 +1162,8 @@ static const char *item_label(int item);
 static const char *item_help(int item)
 {
 	if (is_action(item))
-		return "THE KEYS AND GAMEPAD BUTTONS FOR THIS. A: SET A NEW ONE (PRESS IT), LEFT / RIGHT: THE OTHER PLAYER.";
+		return "THE KEYS AND GAMEPAD BUTTONS FOR THIS. A: SET A NEW ONE (PRESS IT: A KEY, A GAMEPAD'S BUTTON, OR ANY "
+			"JOYSTICK'S BUTTON, D-PAD OR STICK), LEFT / RIGHT: THE OTHER PLAYER.";
 	if (is_cheat(item))
 	{
 		/* an own cheat: what it does; then, as for the file's, what a cheat costs */
@@ -1390,9 +1398,21 @@ static void bind_key(SDL_Scancode key)
 	save();
 }
 
+static bool plain_kind(pad_input input)
+{
+	return input.kind == PAD_JOY_BUTTON || input.kind == PAD_JOY_AXIS || input.kind == PAD_JOY_HAT;
+}
+
+/* the new binding, and the action's others of the other kind kept (a gamepad's named buttons beside a plain
+   joystick's: either device works) */
 static void bind_pad(pad_input input)
 {
 	pad_input inputs[BINDINGS_MAX] = { input };
+	const pad_input *const had = captured_buttons(host.options);
+
+	for (int index = 0, kept = 1; index < BINDINGS_MAX && kept < BINDINGS_MAX; index++)
+		if (had[index].kind != PAD_NONE && plain_kind(had[index]) != plain_kind(input))
+			inputs[kept++] = had[index];
 
 	memcpy(captured_buttons(host.options), inputs, sizeof(inputs));
 	memcpy(captured_buttons(host.file), inputs, sizeof(inputs));
@@ -1402,7 +1422,11 @@ static void bind_pad(pad_input input)
 
 static bool capture_event(const SDL_Event *event)
 {
-	if (event->type == SDL_KEYDOWN && !event->key.repeat)
+	pad_input plain;
+
+	if (pads_capture(event, &plain))
+		bind_pad(plain);    /* (a joystick SDL has no layout for: its button, hat or axis by number) */
+	else if (event->type == SDL_KEYDOWN && !event->key.repeat)
 	{
 		if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE)
 			capture = -1;    /* (cancel) */
@@ -1410,10 +1434,10 @@ static bool capture_event(const SDL_Event *event)
 			bind_key(event->key.keysym.scancode);
 	}
 	else if (event->type == SDL_CONTROLLERBUTTONDOWN)
-		bind_pad((pad_input){ PAD_BUTTON, event->cbutton.button });
+		bind_pad((pad_input){ PAD_BUTTON, event->cbutton.button, 0 });
 	else if (event->type == SDL_CONTROLLERAXISMOTION && event->caxis.value > 16384
 			&& (event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT || event->caxis.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT))
-		bind_pad((pad_input){ PAD_TRIGGER, event->caxis.axis });
+		bind_pad((pad_input){ PAD_TRIGGER, event->caxis.axis, 0 });
 	return true;
 }
 
@@ -1571,29 +1595,31 @@ bool menu_event(const SDL_Event *event)
 			navigate(NAV_CLOSE);
 		/* (the d-pad is read in menu_tick, with the stick, for their repeats) */
 	}
+	else if (pads_plain_button(event) >= 0)
+	{
+		/* a joystick read as it is (pads.h): its first button chooses, its second goes back (its d-pad and stick
+		   in menu_tick) */
+		const int button = pads_plain_button(event);
+
+		if (button == 0)
+			navigate(NAV_CHOOSE);
+		else if (button == 1)
+			navigate(NAV_BACK);
+	}
 	return true;
 }
 
-/* the direction the gamepads' d-pads and sticks point */
+/* the direction the gamepads' and joysticks' d-pads and sticks point */
 static int pad_direction(void)
 {
+	static const int navs[5] = { NAV_NONE, NAV_UP, NAV_DOWN, NAV_LEFT, NAV_RIGHT };
+
 	for (int index = 0; index < 2; index++)
 	{
-		SDL_GameController *const pad = host.pads[index];
-		int x, y;
+		const int direction = pads_direction(&host.pads[index], STICK_DEAD);
 
-		if (!pad)
-			continue;
-		x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
-		y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_UP) || y < -STICK_DEAD)
-			return NAV_UP;
-		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_DOWN) || y > STICK_DEAD)
-			return NAV_DOWN;
-		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_LEFT) || x < -STICK_DEAD)
-			return NAV_LEFT;
-		if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) || x > STICK_DEAD)
-			return NAV_RIGHT;
+		if (direction)
+			return navs[direction];
 	}
 	return NAV_NONE;
 }

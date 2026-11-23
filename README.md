@@ -102,7 +102,11 @@ version: [CHANGELOG.md](CHANGELOG.md).
   fire, the arcade's C BUTTON FULL-AUTO, on by default), the arcade's own settings (continues, lives, extends,
   coins, demo sound: its test menu's, in the port's menu), free play, the arcade's hidden big HIT display,
   cheats (built in, and MAME's cheat file's)
-- Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`
+- Keyboard and gamepads (Xbox layout, two players), everything remappable, settings in `donpachi.ini`. Any other
+  gamepad or arcade stick works too: those SDL knows by their layout (more of them from `gamecontrollerdb.txt`,
+  shipped beside the program), and any other read as it is: its d-pad and stick move, buttons 1-3 are shot, bomb
+  and C, its last two coin and start, and its buttons, hats and axes can be bound on the CONTROLS page (BTN 3,
+  HAT UP, AXIS 2+). `donpachi.log` names each device found and how it is read
 
 ### Graphics settings
 

@@ -67,6 +67,14 @@ CONTROLS (change them in SETTINGS > CONTROLS)
 
 Free play is on by default: Start drops in a credit.
 
+Other gamepads and arcade sticks: the game knows most gamepads by their
+layout (more of them from gamecontrollerdb.txt in this folder). One it doesn't
+know still works, read as it is: its d-pad and stick move, buttons 1, 2 and 3
+are shot, bomb and auto fire, its last button is Start and the one before Coin.
+Set its buttons in SETTINGS > CONTROLS (they show as BTN 1, AXIS 2+, HAT UP);
+its first button also chooses in the menus and its second goes back. Open the
+menu with Esc. donpachi.log names each device the game found and how it reads it.
+
 
 FEATURES
 --------

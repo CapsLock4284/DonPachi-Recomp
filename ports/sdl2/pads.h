@@ -42,6 +42,12 @@ void pads_load_mappings(const char *folder);
 bool pads_added(pad_device players[2], int device_index);
 void pads_removed(pad_device players[2], SDL_JoystickID id);
 
+/* Every device plugged in now, as if it had just come (those open already left as they are; one unplugged closed).
+   After a window that reads SDL's events itself (the ROM drop window: rom_drop.c), which takes the devices'
+   SDL_JOYDEVICEADDED with the rest: a gamepad plugged in before the first run was otherwise not seen until it was
+   plugged in again */
+void pads_scan(pad_device players[2]);
+
 /* a binding held on the device (a trigger, or an axis, counts past half way) */
 bool pads_pressed(const pad_device *device, pad_input input);
 

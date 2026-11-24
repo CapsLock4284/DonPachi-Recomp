@@ -1333,7 +1333,9 @@ static bool switch_version(int version)
 	replay_keep(false);
 	eeprom_keep(false);
 	data_extracted = false;
-	if ((problem = game_data_open(version, false)) != NULL || (problem = program_switch()) != NULL)
+	problem = game_data_open(version, false);
+	pads_scan(pads);    /* (a device plugged in while the ROM drop window was up: pads.h) */
+	if (problem != NULL || (problem = program_switch()) != NULL)
 	{
 		if (problem[0])
 			fprintf(stderr, "the %s version: %s\n", rom_set_version_name((donpachi_version)version), problem);
@@ -1712,6 +1714,7 @@ int main(int argc, char **argv)
 	crash_log_reset(program_slowdown(), (int)rom_set.version);    /* (the run's inputs kept from its first frame) */
 	period = SDL_GetPerformanceFrequency() * CAVE_FRAME_USEC / 1000000u;
 	next = SDL_GetPerformanceCounter() + period;
+	pads_scan(pads);    /* (the gamepads plugged in already: the ROM drop window may have taken their events) */
 	while (running)
 	{
 		SDL_Event event;

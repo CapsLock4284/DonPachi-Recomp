@@ -8,6 +8,7 @@
      the names in the file and on the menu, read back the same
      a device with nothing to move a ship (3 buttons, no axis or hat) left alone, the next one player 2's
      one with a layout in a gamecontrollerdb.txt (written here) opened as a game controller, its buttons by name
+     a device plugged in while another window took SDL's events (the ROM drop window): found by pads_scan
      a device unplugged: its player's place free again
    PASS or FAIL each. Writes pads_check.txt where it runs */
 #include "pads.h"
@@ -214,6 +215,18 @@ int main(void)
 				SDL_JoystickDetachVirtual(index);
 		events(NULL);
 		verdict("player 1's unplugged: its place free", players[0].joy == NULL && players[1].joy != NULL);
+	}
+	/* a device plugged in while another window read SDL's events (the ROM drop window): found by pads_scan */
+	{
+		SDL_Event event;
+		const int index = SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_UNKNOWN, 2, 6, 1);
+		const SDL_JoystickID id = SDL_JoystickGetDeviceInstanceID(index);
+
+		while (SDL_PollEvent(&event))
+			;    /* (its SDL_JOYDEVICEADDED taken by the other window) */
+		verdict("plugged in while another window took the events: not seen yet", players[0].joy == NULL);
+		pads_scan(players);
+		verdict("then found by pads_scan: player 1's", players[0].joy != NULL && players[0].id == id);
 	}
 	remove("pads_check.txt");
 	SDL_Quit();

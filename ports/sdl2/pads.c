@@ -99,6 +99,23 @@ bool pads_added(pad_device players[2], int device_index)
 	return false;
 }
 
+void pads_scan(pad_device players[2])
+{
+	for (int player = 0; player < 2; player++)
+		if (players[player].joy && !SDL_JoystickGetAttached(players[player].joy))
+			pads_removed(players, players[player].id);    /* (unplugged meanwhile) */
+	for (int index = 0; index < SDL_NumJoysticks(); index++)
+	{
+		const SDL_JoystickID id = SDL_JoystickGetDeviceInstanceID(index);
+		bool open = false;
+
+		for (int player = 0; player < 2; player++)
+			open |= players[player].joy && players[player].id == id;
+		if (!open)
+			pads_added(players, index);
+	}
+}
+
 void pads_removed(pad_device players[2], SDL_JoystickID id)
 {
 	for (int player = 0; player < 2; player++)

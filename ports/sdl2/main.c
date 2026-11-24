@@ -322,6 +322,23 @@ static const char *game_data_open(int version, bool rom_given)
 	return NULL;
 }
 
+/* ---- the pace: the board's frames 57.55 a second ---- */
+
+/* The time the next frame is due, after the one due at 'due' (now 'now', a frame 'period' long). A frame the PC
+   finished late (a hitch: another program busy, Windows' own work) is made up a tenth of a frame at a time: the
+   frames after it come a little sooner (the game at most 11% fast, for a moment) until the board's time is caught
+   up. Before 0.13.2 the next frames were run at once, one after another, until it was: two or three frames in one
+   refresh of the screen, a jump forward ("as fast forward", a player's report on DoDonPachi Recomp). Late by more
+   than 4 frames (the PC away: a window dragged, a breakpoint), the time is let go instead */
+static Uint64 pace_next(Uint64 now, Uint64 due, Uint64 period)
+{
+	const Uint64 late = now > due ? now - due : 0u, made_up = late < period / 10u ? late : period / 10u;
+
+	if (late > 4u * period)
+		return now + period;
+	return now + period - made_up;
+}
+
 /* ---- the sound: the board's samples (cave/sound.h), queued to SDL's audio device a frame at a time ---- */
 
 #define AUDIO_AHEAD_MS     50u     /* silence queued at the start: what the device plays from while frames come */
@@ -1949,7 +1966,7 @@ int main(int argc, char **argv)
 				SDL_Delay((Uint32)((next - now - margin) * 1000u / frequency));
 			while ((now = SDL_GetPerformanceCounter()) < next)
 				;
-			next = (now > next + 4u * period) ? now + period : next + period;
+			next = pace_next(now, next, period);
 		}
 	}
 	if (replay_playing())

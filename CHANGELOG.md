@@ -6,7 +6,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+- **Short "fast forward" jumps after a hitch** (found from a DoDonPachi Recomp player's report; the same here): when
+  the PC finished a frame late (another program busy for a moment), the game ran the frames it owed at once, one
+  after another, until it was back on time: two or three frames in one refresh of the screen, a jump forward. Now it
+  makes the time up gently, a tenth of a frame at a time (at most 11% fast, for a moment), so a hitch is no longer
+  followed by a jump. The arcade's own slowdown is not affected.
 
 ## v0.13.1 (2026-11-23)
 

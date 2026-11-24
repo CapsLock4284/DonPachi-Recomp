@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.13.1 (2026-11-23)
+
 ### Fixed
 - **A gamepad plugged in before the very first run** wasn't seen until it was unplugged and plugged in again: the
   first run's window that asks for the ROM set took the "device plugged in" messages before the game could see

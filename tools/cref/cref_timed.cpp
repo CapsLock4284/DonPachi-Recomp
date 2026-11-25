@@ -35,6 +35,7 @@
 #include "m68000.h"
 
 extern "C" {
+#include "cave/board.h"
 #include "cave/machine.h"
 #include "cave/rom_set.h"
 }
@@ -255,15 +256,20 @@ int main(int argc, char **argv)
 	cpu.reset();
 
 	const uint64_t frame_cycles = uint64_t(CAVE_CPU_CLOCK) * CAVE_FRAME_USEC / 1000000u;
+	/* (the VBLANK's interrupt early by the board's description, as the port's runtime has it: cave/program.h's
+	   program_set_vblank_lead; NO_VBLANK_LEAD=1: at the frame's end, as before 25-11-2026) */
+	const uint64_t lead = getenv("NO_VBLANK_LEAD") ? 0u
+		: uint64_t(cave_board_description->vblank_lead_usec) * (CAVE_CPU_CLOCK / 1000000u);
+	const auto vblank_cycle = [&](uint64_t number) { return number * frame_cycles - lead; };
 	uint64_t lagged = 0, busiest = 0;
 
 	for (uint64_t vblank = 1; vblank <= frames; vblank++)
 	{
 		/* (the frame's cycles, to the next VBLANK) */
-		while (g_total < vblank * frame_cycles)
+		while (g_total < vblank_cycle(vblank))
 		{
 			g_cycles_before_run = g_total;
-			g_run_length = int(vblank * frame_cycles - g_total);
+			g_run_length = int(vblank_cycle(vblank) - g_total);
 			g_total += uint64_t(cpu.run(g_run_length));
 			g_cycles_before_run = g_total;
 			g_run_length = 0;

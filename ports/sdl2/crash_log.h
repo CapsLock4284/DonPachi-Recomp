@@ -11,9 +11,10 @@
  *    The run's inputs: the game is the same from a reset with the same EEPROM and the same inputs at each frame (the
  *    board's time is the program's own count), so the inputs since the reset are the run. Kept in memory (6 bytes a
  *    frame: about 1.2 MB an hour), and written only when the program stops or crashes, to
- *    donpachi_crash_DATE_TIME.inp beside the program: "DPCINP01", the frames (a 32-bit count, little endian), the
+ *    donpachi_crash_DATE_TIME.inp beside the program: "DPCINP02", the frames (a 32-bit count, little endian), the
  *    slowdown setting, the game's version (0 the US one, 1 the Japanese one), 1 when the high score table was put
- *    back after the boot, a byte unused, the EEPROM as the run began (128 bytes, big endian words), the high score
+ *    back after the boot, 1 when the VBLANK comes early (program_set_vblank_lead; always 0 in a "DPCINP01" file, from
+ *    before 25-11-2026), the EEPROM as the run began (128 bytes, big endian words), the high score
  *    table put back (HISCORE_TABLE_SIZE bytes: hiscore.h), then each frame's IN0, IN1 (as the board reads them: active
  *    low, after the port's autofire, free play, autobomb and AI player) and flags (CRASH_LOG_BIG_HIT), 16 bits each,
  *    little endian. tests/harness/replay_crash plays it again. A run that went back to a save state, had a cheat on,

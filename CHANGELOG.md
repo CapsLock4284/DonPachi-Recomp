@@ -6,6 +6,15 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+### Changed
+- **The arcade's slowdown, timed closer still** (found while checking DoDonPachi Recomp against MAME; the same board
+  here): on the real board the VBLANK interrupt (the "next frame" signal the game waits for) comes 90 microseconds
+  before the end of the frame, not right at its end. The port now does the same, so a frame that only just fits, or
+  only just misses, falls the same way it does on the board. Most frames are unchanged. Checked against MAME's 68000
+  at the board's timing: the same frames slow down at the same moments.
+- **Replays and crash files** now note this. Replays saved by older versions still play, with the old timing, so
+  they stay in step; replays saved from now on need this version or newer to play.
+
 ### Fixed
 - **Short "fast forward" jumps after a hitch** (found from a DoDonPachi Recomp player's report; the same here): when
   the PC finished a frame late (another program busy for a moment), the game ran the frames it owed at once, one

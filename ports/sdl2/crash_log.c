@@ -11,6 +11,7 @@
 #include "autobomb.h"
 #include "hiscore.h"
 #include "cave/machine.h"
+#include "cave/program.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -37,6 +38,7 @@ static struct
 	uint16_t eeprom[CAVE_EEPROM_WORDS];
 	bool eeprom_taken;          /* (the EEPROM as the first frame after the reset began) */
 	uint8_t slowdown, version, has_table;
+	uint8_t lead;               /* the VBLANK early (program_set_vblank_lead) as the run began */
 	uint8_t table[HISCORE_TABLE_SIZE];    /* the high score table the port put back after the boot */
 	char not_replayable[96];    /* why the run is not its inputs alone, or "" */
 } run;
@@ -47,6 +49,7 @@ void crash_log_reset(bool slowdown, int version)
 	run.count = 0;
 	run.eeprom_taken = false;
 	run.slowdown = slowdown;
+	run.lead = program_vblank_lead() ? 1u : 0u;
 	run.version = (uint8_t)version;
 	run.not_replayable[0] = '\0';
 }
@@ -134,12 +137,12 @@ static void write_crash(void)
 	snprintf(path, sizeof(path), "%s%s", folder, name);
 	if (run.eeprom_taken && (file = fopen(path, "wb")) != NULL)
 	{
-		fwrite("DPCINP01", 1, 8, file);
+		fwrite("DPCINP02", 1, 8, file);
 		put32(file, run.count);
 		fputc(run.slowdown, file);
 		fputc(run.version, file);
 		fputc(run.has_table, file);
-		fputc(0, file);
+		fputc(run.lead, file);
 		for (unsigned word = 0; word < CAVE_EEPROM_WORDS; word++)
 		{
 			fputc(run.eeprom[word] >> 8, file);    /* (big endian) */

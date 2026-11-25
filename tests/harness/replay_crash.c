@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "replay_crash FILE.inp\n");
 		return 1;
 	}
-	if (fread(header, 1, 16, file) != 16 || memcmp(header, "DPCINP01", 8) || fread(eeprom, 1, 128, file) != 128
+	if (fread(header, 1, 16, file) != 16 || memcmp(header, "DPCINP0", 7) || (header[7] != '1' && header[7] != '2') || fread(eeprom, 1, 128, file) != 128
 			|| fread(table, 1, sizeof(table), file) != sizeof(table))
 	{
 		fprintf(stderr, "%s: not a run's inputs\n", argv[1]);
@@ -53,7 +53,8 @@ int main(int argc, char **argv)
 		(unsigned long)count, count / 57.55 / 60.0, header[12] ? "on" : "off", header[13] ? "Japanese" : "US",
 		header[14] ? "put back" : "the game's own");
 	rom = getenv("DONPACHI_ROM") ? getenv("DONPACHI_ROM") : version == DONPACHI_JAPAN ? "rom" : "rom/donpachi.zip";
-	if ((problem = rom_set_load_version(rom, version)) != NULL || (problem = program_start()) != NULL)
+	if ((problem = rom_set_load_version(rom, version)) != NULL
+			|| (program_set_vblank_lead(header[15] != 0), (problem = program_start()) != NULL))
 	{
 		fprintf(stderr, "%s\n", problem);
 		return 1;

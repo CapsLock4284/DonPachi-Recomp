@@ -1247,81 +1247,117 @@ static void draw_rank(panel *p, int top)
 
 /* ---- the run ---- */
 
-static void put_time(char *out, size_t size, unsigned frames)
-{
-	/* the game's frames are 17376 us (57.55 a second) */
-	const unsigned long seconds = (unsigned long)((unsigned long long)frames * 17376u / 1000000u);
+/* ---- the areas: the loop's five, each one's score against its best (as the gadgets' AREAS) ---- */
 
-	if (seconds >= 3600u)
-		snprintf(out, size, "%lu:%02lu:%02lu", seconds / 3600u, seconds / 60u % 60u, seconds % 60u);
-	else
-		snprintf(out, size, "%lu:%02lu", seconds / 60u, seconds % 60u);
+/* the loop's areas (the one being played, or the last) into v's: the gadgets' and the panel's */
+static void areas_view(widgets_view *v)
+{
+	const int shown = run.scored_area >= 0 ? run.scored_area : run.bee_area;
+
+	v->loop_shown = shown >= 5 ? 1 : 0;
+	for (int at = 0; at < 5; at++)
+	{
+		const int which = v->loop_shown * 5 + at;
+
+		if (own_game && which == run.scored_area)
+		{
+			v->areas[at].state = WIDGET_AREA_LIVE;
+			v->areas[at].made = graph.last_score[0] >= run.area_start ? graph.last_score[0] - run.area_start : 0u;
+			v->areas[at].best = best[which];
+			v->areas[at].counts = run.area_counts;
+		}
+		else if (run.done[which])
+		{
+			v->areas[at].state = WIDGET_AREA_DONE;
+			v->areas[at].made = run.made[which];
+			v->areas[at].best = run.best_before[which];
+			v->areas[at].counts = run.counted[which];
+			v->areas[at].new_best = run.new_best[which];
+		}
+		else
+		{
+			v->areas[at].state = WIDGET_AREA_TODO;
+			v->areas[at].best = best[which];
+		}
+	}
 }
 
-static void draw_run(panel *p, int top, bool two)
+static void draw_areas(panel *p, int top, bool two)
 {
+	static widgets_view v;    /* (only its areas filled in here) */
 	const uint32_t label = own_game ? GREY : DIM;
-	char text[32];
-	int y = top + 6;
+	char text[32], title[16];
+	int y = top + 6, against = -1;
 
+	areas_view(&v);
 	box(p, 8, top, p->w - 8, top + 1, FRAME);
-	put_time(text, sizeof(text), run.frames);
-	put_text(p, 8, y, "TIME", label, 1);
-	put_right(p, p->w - 8, y, text, WHITE);
-	y += 12;
-	put_text(p, 8, y, "BOMBS", label, 1);
-	if (two)
-		snprintf(text, sizeof(text), "%u / %u", run.bombs[0], run.bombs[1]);
-	else
-		snprintf(text, sizeof(text), "%u", run.bombs[0]);
-	put_right(p, p->w - 8, y, text, WHITE);
-	y += 12;
-	{
-		unsigned total[2] = { 0, 0 };
-
-		for (int player = 0; player < 2; player++)
-			for (int area = 0; area < AREAS; area++)
-				total[player] += run.misses[player][area];
-		/* (two players' "1 / 0" leaves no room for the longer name) */
-		put_text(p, 8, y, two ? "DEATHS" : "LIVES LOST", label, 1);
-		if (two)
-			snprintf(text, sizeof(text), "%u / %u", total[0], total[1]);
-		else
-			snprintf(text, sizeof(text), "%u", total[0]);
-		put_right(p, p->w - 8, y, text, WHITE);
-		y += 12;
-	}
 	if (!two)
 	{
-		/* player 1's misses in each area: the loops one above the other */
-		const int now = own_game ? area_now() : -1;
-		const int step = (p->w - 16 - 19) / 4;    /* (the five columns across the panel: 21 apart at its narrowest) */
-
-		for (int column = 0; column < 5; column++)
-		{
-			char digit[2] = { (char)('1' + column), 0 };
-
-			put_char(p, 8 + column * step + 6, y, digit[0], DIM, 1);
-		}
-		y += 10;
-		for (int loop = 0; loop < 2; loop++, y += 13)
-			for (int column = 0; column < 5; column++)
-			{
-				const int area = loop * 5 + column, x = 8 + column * step;
-				const unsigned misses = run.misses[0][area];
-
-				outline(p, x, y, x + 19, y + 11, area == now ? GOLD : FRAME);
-				if (!run.reached[area])
-					put_char(p, x + 6, y + 2, '-', DIM, 1);
-				else
-				{
-					const char ch = misses > 9u ? '+' : (char)('0' + misses);
-
-					put_char(p, x + 6, y + 2, ch, misses == 0u ? GREEN : misses == 1u ? YELLOW : RED, 1);
-				}
-			}
-		y += 2;
+		put_text(p, 8, y, "AREAS", label, 1);
+		snprintf(title, sizeof(title), "LOOP %d", v.loop_shown + 1);
+		put_right(p, p->w - 8, y, title, label);
+		y += 11;
 	}
+	for (int at = 0; at < 5; at++, y += 11)
+	{
+		const int state = v.areas[at].state;
+		const uint32_t made = v.areas[at].made, area_best = v.areas[at].best;
+		uint32_t number_colour = DIM, score_colour = DIM;
+
+		snprintf(title, sizeof(title), "%d", v.loop_shown * 5 + at + 1);
+		if (state == WIDGET_AREA_LIVE)
+		{
+			number_colour = YELLOW;
+			score_colour = WHITE;
+			number(text, sizeof(text), made);
+			against = at;
+		}
+		else if (state == WIDGET_AREA_DONE)
+		{
+			number_colour = label;
+			score_colour = v.areas[at].new_best ? GOLD : v.areas[at].counts && made < area_best ? RED : WHITE;
+			number(text, sizeof(text), made);
+			if (against < 0 || v.areas[against].state != WIDGET_AREA_LIVE)
+				against = at;
+		}
+		else if (area_best)
+			number(text, sizeof(text), area_best);    /* (dim: the best to beat) */
+		else
+			snprintf(text, sizeof(text), "-");
+		put_text(p, 8, y, title, number_colour, 1);
+		put_right(p, p->w - 8, y, text, score_colour);
+	}
+	if (two)
+		return;    /* (no room under two chains; two players' areas don't count) */
+	/* the area being played (or the last) against its best */
+	y += 1;
+	put_text(p, 8, y, "VS BEST", label, 1);
+	{
+		uint32_t colour = DIM;
+
+		snprintf(text, sizeof(text), "-");
+		if (against >= 0)
+		{
+			const uint32_t made = v.areas[against].made, area_best = v.areas[against].best;
+			const bool live = v.areas[against].state == WIDGET_AREA_LIVE;
+
+			if (!v.areas[against].counts)
+				snprintf(text, sizeof(text), "OFF");    /* (not a clean one-player area: it can't be a best) */
+			else if (!area_best)
+			{
+				snprintf(text, sizeof(text), "NEW");
+				colour = GOLD;
+			}
+			else
+			{
+				snprintf(text, sizeof(text), "%s%lu", made >= area_best ? "+" : "-",
+					(unsigned long)(made >= area_best ? made - area_best : area_best - made));
+				colour = made > area_best ? GOLD : live ? WHITE : RED;
+			}
+		}
+		put_right(p, p->w - 8, y, text, colour);
+	}
+	y += 12;
 	number(text, sizeof(text), session_best);
 	put_text(p, 8, y, "BEST", label, 1);
 	put_right(p, p->w - 8, y, text, GOLD);
@@ -1553,7 +1589,7 @@ void widgets_draw(uint32_t *left, uint32_t *right, int width)
 		/* the rank and the run under the chains (closer together with two players) */
 		top -= 2;
 		draw_rank(&p, top);
-		draw_run(&p, top + RANK_HEIGHT, in_play(0) && in_play(1));
+		draw_areas(&p, top + RANK_HEIGHT, in_play(0) && in_play(1));
 		/* the area's bees, then the controls, with one player (two leave no room) */
 		if (!(in_play(0) && in_play(1)))
 		{
@@ -1681,37 +1717,7 @@ void widgets_view_now(widgets_view *v)
 	v->rank = word(RANK) & 0xFFu;
 	if (v->rank > RANK_MAX)
 		v->rank = RANK_MAX;
-	/* the loop's areas: the one being played, or the last */
-	{
-		const int shown = run.scored_area >= 0 ? run.scored_area : run.bee_area;
-
-		v->loop_shown = shown >= 5 ? 1 : 0;
-		for (int at = 0; at < 5; at++)
-		{
-			const int which = v->loop_shown * 5 + at;
-
-			if (own_game && which == run.scored_area)
-			{
-				v->areas[at].state = WIDGET_AREA_LIVE;
-				v->areas[at].made = graph.last_score[0] >= run.area_start ? graph.last_score[0] - run.area_start : 0u;
-				v->areas[at].best = best[which];
-				v->areas[at].counts = run.area_counts;
-			}
-			else if (run.done[which])
-			{
-				v->areas[at].state = WIDGET_AREA_DONE;
-				v->areas[at].made = run.made[which];
-				v->areas[at].best = run.best_before[which];
-				v->areas[at].counts = run.counted[which];
-				v->areas[at].new_best = run.new_best[which];
-			}
-			else
-			{
-				v->areas[at].state = WIDGET_AREA_TODO;
-				v->areas[at].best = best[which];
-			}
-		}
-	}
+	areas_view(v);
 	v->bee_area = own_game ? run.bee_area : -1;
 	v->bees_taken = v->bee_area >= 0 ? run.bees[v->bee_area] : 0u;
 	v->bee_area_over = v->bee_area >= 0 && area != v->bee_area;

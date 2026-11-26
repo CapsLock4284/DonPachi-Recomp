@@ -13,6 +13,11 @@ notes). The release zip carries this file as `CHANGES.txt`.
   `tests/harness/sound_compare.py`): on MAME 0.289, all 80 pictures through areas 1 to 9 the same to the pixel, and
   the sound the same in loudness and in every band from 20 Hz up.
 
+### Changed
+- **The classic left panel shows the area scores** in place of TIME, BOMBS, LIVES LOST and the misses for each
+  area: the loop's five areas with your score in each (gold for a new best, red when below it, your best to beat
+  dimmed for those to come), VS BEST for the area being played, and the session's best score, as the gadgets' AREAS.
+
 ## v0.15.0 (2026-11-26)
 
 ### Added

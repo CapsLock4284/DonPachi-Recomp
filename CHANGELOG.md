@@ -6,6 +6,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+### Added
+- **`--playtest`**: the game plays itself all the way through, as fast as your PC can run it, to check a build:
+  both loops, area 10's true last boss and the ending, with every ship (or one: `--playtest B`). Player 1 is kept
+  from harm and nothing is saved; a message at the end says whether it passed, and `donpachi_playtest.txt` has each
+  area's time.
+
 ### Changed
 - **The arcade's slowdown, timed closer still** (found while checking DoDonPachi Recomp against MAME; the same board
   here): on the real board the VBLANK interrupt (the "next frame" signal the game waits for) comes 90 microseconds

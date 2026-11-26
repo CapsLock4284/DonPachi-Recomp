@@ -6,7 +6,7 @@
  *
  *    license:BSD-3-Clause
  *    Usage: donpachi [--settings PATH] [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH]
- *                    [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats]
+ *                    [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats] [--playtest [WHICH]]
  *      --settings PATH the settings file (default: donpachi.ini beside the program (paths.h); settings.h): the options below
  *                      and the keys and gamepad buttons of both players. Written with the defaults when it is not
  *                      there; the options below go over it for the run
@@ -29,6 +29,9 @@
  *                      times as there are cheats; NAME=VALUE picks a value where the cheat asks for one
  *      --cheats FILE   the cheat file, MAME's format (default: cheats/donpachi.xml)
  *      --list-cheats   lists the cheat file's cheats
+ *      --playtest [WHICH]  plays the game through by itself, as fast as the PC goes, player 1 kept from harm, to see
+ *                      a build go all the way (playtest.h): every ship (all, the default) or one (A, B or C); nothing
+ *                      saved; the report in donpachi_playtest.txt; Esc stops it
  *
  *    Controls (the defaults: donpachi.ini changes them): keys arrows, Z shot, X bomb, C button C, 1 start, 5 coin,
  *          F2 the test mode (held while the game starts, as on the board); player 2 R F D G, A S Q, 2, 6. Gamepads
@@ -87,6 +90,7 @@
 #include "window_icon.h"
 #include "settings.h"
 #include "pads.h"
+#include "playtest.h"
 #include "paths.h"
 
 #include <SDL.h>
@@ -1489,10 +1493,63 @@ static void menu_install_update(void)
 
 #define CHEATS_MAX 16
 
+/* --playtest: the game played through by itself (playtest.h), shown in the window now and then, as fast as it goes:
+   no sound, nothing saved. Its exit code: 0 every run passed */
+static int run_playtest(void)
+{
+	char path[1100], message[1600];
+	const Uint64 began = SDL_GetPerformanceCounter(), tick = SDL_GetPerformanceFrequency();
+	Uint64 shown = 0;
+	bool stopped = false;
+	int result = PLAYTEST_GOING;
+
+	snprintf(path, sizeof(path), "%sdonpachi_playtest.txt", paths_folder());
+	playtest_begin(path, (int)rom_set.version);
+	program_set_slowdown(true);    /* (the arcade's: whatever the settings say) */
+	SDL_RenderSetVSync(renderer, 0);
+	crash_log_reset(true, (int)rom_set.version);
+	crash_log_not_replayable("a playtest (player 1 kept from harm)");
+	while (result == PLAYTEST_GOING && !stopped)
+	{
+		SDL_Event event;
+
+		while (SDL_PollEvent(&event))
+			if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
+				stopped = true;
+		for (int count = 0; count < 64 && result == PLAYTEST_GOING; count++)
+		{
+			cave_board.in0 = (uint16_t)~playtest_inputs();
+			cave_board.in1 = 0xFFFFu;
+			crash_log_frame(0);
+			program_run_frame();
+			cave_sound_drop();
+			video_latch_sprites();
+			result = playtest_frame();
+		}
+		if (SDL_GetPerformanceCounter() - shown >= tick / 30u)
+		{
+			char title[192];
+
+			shown = SDL_GetPerformanceCounter();
+			draw_picture();
+			show_picture(picture);
+			present();
+			snprintf(title, sizeof(title), "DonPachi PLAYTEST  %s  (Esc: stop)", playtest_status());
+			SDL_SetWindowTitle(window, title);
+		}
+	}
+	crash_log_finish();    /* (no crash: the run's inputs not written) */
+	fputs(playtest_finish((double)(SDL_GetPerformanceCounter() - began) / (double)tick, stopped), stderr);
+	snprintf(message, sizeof(message), "%s\n\nThe report, area by area: %s", playtest_summary(), path);
+	SDL_ShowSimpleMessageBox(result == PLAYTEST_PASSED ? SDL_MESSAGEBOX_INFORMATION : SDL_MESSAGEBOX_WARNING,
+		"DonPachi playtest", message, window);
+	return result == PLAYTEST_PASSED ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
 	const char *cheat_names[CHEATS_MAX];
-	bool rom_given = false;
+	bool rom_given = false, playtest = false;
 	int cheat_count = 0, list_cheats = 0;
 	bool settings_written;
 	const char *problem;
@@ -1540,6 +1597,17 @@ int main(int argc, char **argv)
 			snprintf(options.cheats, sizeof(options.cheats), "%s", argv[++index]);
 		else if (!strcmp(argv[index], "--list-cheats"))
 			list_cheats = 1;
+		else if (!strcmp(argv[index], "--playtest"))
+		{
+			const char *const which = value && value[0] != '-' ? argv[++index] : "all";
+
+			playtest = true;
+			if (!playtest_choose(which))
+			{
+				fprintf(stderr, "--playtest %s: all, or a ship (A, B or C)\n", which);
+				return 1;
+			}
+		}
 		else if (!strcmp(argv[index], "--japan"))
 			options.version = DONPACHI_JAPAN;    /* (for this run: the settings' version as it was) */
 		else if (!strcmp(argv[index], "--usa"))
@@ -1613,11 +1681,15 @@ int main(int argc, char **argv)
 		SDL_Quit();
 		return 0;
 	}
-	eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
-	hiscores_open();
+	if (!playtest)
+	{
+		/* (a playtest: the ROM set's own EEPROM, the game's own high scores, nothing kept) */
+		eeprom_open(options.eeprom[0] ? options.eeprom : NULL);
+		hiscores_open();
+	}
 	{
 		/* the files an update left (.old) deleted; the newest release looked up (on its thread: the game goes on) */
-		char *const base = SDL_GetBasePath();
+		char *const base = playtest ? NULL : SDL_GetBasePath();
 
 		if (base)
 		{
@@ -1632,16 +1704,19 @@ int main(int argc, char **argv)
 	{
 		char path[1024];
 
-		snprintf(path, sizeof(path), "%sdonpachi.achievements", paths_folder());
-		achievements_load(path);
-		snprintf(path, sizeof(path), "%sdonpachi.stats", paths_folder());
-		stats_load(path);
+		if (!playtest)
+		{
+			snprintf(path, sizeof(path), "%sdonpachi.achievements", paths_folder());
+			achievements_load(path);
+			snprintf(path, sizeof(path), "%sdonpachi.stats", paths_folder());
+			stats_load(path);
+		}
 		snprintf(path, sizeof(path), "%sreplays/", paths_folder());
 		replay_folder(path);
 	}
 	own_cheats_add();               /* (the port's own: there without the cheat file) */
 	cheats_load(options.cheats);    /* (for the menu's cheats page: the own ones, then the file's if it is there) */
-	for (int cheat = 0; cheat < cheat_count; cheat++)
+	for (int cheat = 0; cheat < (playtest ? 0 : cheat_count); cheat++)
 		if ((problem = cheats_enable(options.cheats, cheat_names[cheat])) != NULL)
 		{
 			show_problem(problem);
@@ -1681,6 +1756,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	menu_apply_video();
+	if (playtest)
+	{
+		const int code = run_playtest();
+
+		SDL_Quit();
+		return code;
+	}
 	program_after_vblank = after_vblank;
 	{
 		menu_host menu = { 0 };

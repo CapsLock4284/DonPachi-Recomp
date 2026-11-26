@@ -190,6 +190,23 @@ cmake --build build/linux -j                                       # build/bin-l
 checked for anything from the ROM before it's packed). `tools/make_appimage.sh` can make a Linux AppImage (SDL2 built
 from source inside it; not part of the releases for now).
 
+### Playtest: the whole game, by itself
+
+To see a new build go all the way through without playing it, start it with `--playtest`:
+
+```powershell
+build\bin\donpachi.exe --playtest      # every ship, one after another
+build\bin\donpachi.exe --playtest B    # or one: A, B or C
+```
+
+The game plays itself as fast as the PC can run it, showing the picture now and then, with player 1 kept from harm
+and at MAX power: both loops, area 10's true last boss and the ending, for each ship. The window's title shows where
+it is, and a message at the end says whether every run passed, with each area's time in `donpachi_playtest.txt`
+beside the program. It uses the board's own settings and saves nothing (no high scores, achievements, statistics,
+replays or settings). Esc stops it. A run takes this player about an hour of the game's time; at about 50 times the
+arcade's speed, all three take around 4 minutes. It fails if the ship is lost, the game ends early, the ending comes
+without the true last boss, or an area doesn't move on for 30 minutes of the game's time.
+
 ## Project layout
 
 | Folder | What's in it |

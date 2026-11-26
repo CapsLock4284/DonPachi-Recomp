@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.1 (2026-11-26)
+
 ### Added
 - **Choose the monitor** (GitHub issue #5): SETTINGS > GRAPHICS > MONITOR puts the game on any of your monitors,
   windowed or full screen, without making it Windows' main display. Each monitor is shown with its size, so one

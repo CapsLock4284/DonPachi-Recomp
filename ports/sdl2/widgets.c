@@ -344,6 +344,11 @@ void widgets_set_clean(bool clean)
 }
 
 static uint32_t session_best;       /* the best score since the program started: a reset keeps it */
+/* and the rest of the session (the gadgets' SESSION): the frames played, the games begun, the credits (a game's
+   start and each continue) */
+static uint32_t session_frames;
+static unsigned session_games, session_credits;
+static bool session_two;            /* player 2 in the game (joining is a credit too) */
 
 static int area_now(void);
 
@@ -382,6 +387,11 @@ static void areas_frame(int area, unsigned mode)
 		area = -1;
 	if (!clean_now || in_play(1) || mode == 8u)
 		run.area_counts = false;    /* (8: the continue's count down) */
+	if (run.last_mode == 8u && mode == 7u)
+		session_credits++;    /* (a continue taken) */
+	if (in_play(1) && !session_two)
+		session_credits++;    /* (player 2 joined, or began with player 1) */
+	session_two = in_play(1);
 	if (run.scored_area >= 0 && score < run.area_start)
 	{
 		/* the score gone down (a continue starts it again): the area measured from here, and doesn't count */
@@ -442,7 +452,10 @@ static void run_frame(void)
 
 	run.playing = game_mode_playing();
 	if (run.playing)
+	{
 		run.frames++;
+		session_frames++;
+	}
 	if (area >= 0)
 	{
 		run.reached[area] = true;
@@ -480,6 +493,9 @@ void widgets_begin_game(void)
 	/* a player's game begins (the ship select, or training's place): a new graph, against the #1 as it is now */
 	widgets_reset();
 	own_game = true;
+	session_games++;
+	session_credits++;
+	session_two = false;
 	graph.running = true;
 	graph.target = bcd_long(TOP_SCORE);
 	if (graph.target == 0)
@@ -659,6 +675,7 @@ void widgets_frame(void)
 		{
 			run.frames++;
 			run.slowed++;
+			session_frames++;
 		}
 		return;
 	}
@@ -1774,4 +1791,8 @@ void widgets_view_now(widgets_view *v)
 	v->toast_frames = toast_frames;
 	v->toast_more = toast_more;
 	v->meter = meter;
+	v->session_frames = session_frames;
+	v->session_games = session_games;
+	v->session_credits = session_credits;
+	v->session_best = session_best;
 }

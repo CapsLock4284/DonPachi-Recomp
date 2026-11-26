@@ -23,6 +23,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The SESSION gadget under INPUT (owner, 26-11-2026: as DoDonPachi Recomp's; 0 takes it out, the left panel as
+   before) */
+#ifndef SESSION_LINE
+#define SESSION_LINE 1
+#endif
+
 /* ---- the look ---- */
 
 #define BACK_TOP    0x0B1A36u
@@ -660,6 +666,51 @@ static void draw_input(gcanvas *c, const widgets_view *v, float x, float y, floa
 	}
 }
 
+/* the session, since the program started: the time played, the games and credits, the best score */
+static float session_height(void)
+{
+	return HEADER + 2.0f * FRAME + 1.6f * PAD + 2.0f * (VALUE + 1.2f);
+}
+
+static void draw_session(gcanvas *c, const widgets_view *v, float x, float y, float w, float h)
+{
+	const unsigned long seconds = (unsigned long)((double)v->session_frames / 57.55);
+	char cells[4][2][24];
+	body b;
+
+	b = gadget(c, x, y, w, h, "SESSION", NULL);
+	if (chrome_pass)
+		return;
+	snprintf(cells[0][0], sizeof(cells[0][0]), "PLAYED");
+	if (seconds >= 3600u)
+		snprintf(cells[0][1], sizeof(cells[0][1]), "%lu:%02lu:%02lu", seconds / 3600u, seconds / 60u % 60u,
+			seconds % 60u);
+	else
+		snprintf(cells[0][1], sizeof(cells[0][1]), "%lu:%02lu", seconds / 60u, seconds % 60u);
+	snprintf(cells[1][0], sizeof(cells[1][0]), "GAMES");
+	snprintf(cells[1][1], sizeof(cells[1][1]), "%u", v->session_games);
+	snprintf(cells[2][0], sizeof(cells[2][0]), "CREDITS");
+	snprintf(cells[2][1], sizeof(cells[2][1]), "%u", v->session_credits);
+	snprintf(cells[3][0], sizeof(cells[3][0]), "BEST");
+	points_text(cells[3][1], sizeof(cells[3][1]), v->session_best, false);
+	{
+		/* two columns, two rows */
+		const float gap = 4.0f, column = (b.w - gap) * 0.5f;
+
+		for (int cell = 0; cell < 4; cell++)
+		{
+			const float cx = b.x + (float)(cell % 2) * (column + gap), top = b.y + (float)(cell / 2) * (VALUE + 1.2f);
+			const float label_w = gc_text_width(GC_FONT_TEXT, SMALL, cells[cell][0]) + 1.5f;
+
+			gc_text(c, GC_FONT_TEXT, SMALL, cx, gc_middle(GC_FONT_TEXT, SMALL, top, VALUE), cells[cell][0], LABEL,
+				GC_LEFT);
+			gc_text(c, GC_FONT_TEXT, gc_fit(GC_FONT_TEXT, VALUE, cells[cell][1], column - label_w), cx + column,
+				gc_middle(GC_FONT_TEXT, VALUE, top, VALUE), cells[cell][1], cell == 3 && v->session_best ? GOLD : NUMBER,
+				GC_RIGHT);
+		}
+	}
+}
+
 static bool areas_two_lines;
 
 static void part_areas(gcanvas *c, const widgets_view *v, float x, float y, float w, float h)
@@ -676,8 +727,8 @@ static bool two_players(const widgets_view *v)
 static void draw_left(gcanvas *full, const widgets_view *v, float width)
 {
 	const bool two = two_players(v), wide = width >= 150.0f;
-	float heights[5], height, w, used, gap, y = MARGIN, fixed;
-	part_fn draws[5];
+	float heights[6], height, w, used, gap, y = MARGIN, fixed;
+	part_fn draws[6];
 	int count = 0;
 	gcanvas zoom, *c = &zoom;
 
@@ -701,6 +752,11 @@ static void draw_left(gcanvas *full, const widgets_view *v, float width)
 	draws[count++] = draw_bees;
 	heights[count] = input_height();
 	draws[count++] = draw_input;
+	if (SESSION_LINE)
+	{
+		heights[count] = session_height();
+		draws[count++] = draw_session;
+	}
 	fixed = 0.0f;
 	for (int at = 0; at < count; at++)
 		fixed += heights[at];

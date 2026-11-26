@@ -163,6 +163,10 @@ typedef struct
 	char toast[32];
 	int toast_frames, toast_more;
 	widgets_meter meter;
+	/* the session, since the program started: the time played (the board's frames), games, credits, the best score */
+	uint32_t session_frames;
+	unsigned session_games, session_credits;
+	uint32_t session_best;
 } widgets_view;
 
 void widgets_view_now(widgets_view *out);

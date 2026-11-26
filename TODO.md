@@ -57,6 +57,9 @@ The sections below: graphics options, the player features, accuracy checks, poli
   LIVES LOST (the owner's mockup left them out). ports/sdl2/gadgets.c, gadget_canvas.c and the font as DoDonPachi
   Recomp's; each gadget drawn again and uploaded only when it changes (0.3 ms a frame, about 15% of the panels
   uploaded, checked equal to a whole redraw: GADGETS=K tests/harness/panels_shot)
+  - [x] SESSION under INPUT (26-11-2026, as DoDonPachi Recomp's: the time played, games, credits with continues and
+        player 2 joining, the best score, since the program started; SESSION_LINE 0 in gadgets.c takes it out).
+        README: two gadget screenshots (docs/screenshots/gadgets_area3.png, gadgets_boss.png)
 
 - [x] **Difficulty in the options** (GAME OPTIONS): EASY / NORMAL / HARD / VERY HARD, the service menu's own setting (EEPROM word 4, bits 8-9); applies on an F3 reset or a restart
 - [x] **The arcade's settings in the options** (owner, 22-11-2026): GAME OPTIONS > ARCADE SETTINGS in place of SERVICE MENU: the test menu's CONFIGURATION but for C BUTTON (GAME OPTIONS > C AUTO FIRE, in use at once), the difficulty (above) and INVERT SCREEN (the port's video has no flip; ROTATE). EEPROM word 4: bit 15 CONTINUE, bit 0 CONTINUE COST, bits 12-13 LIVES (3 5 2 1), bits 10-11 EXTEND, bits 4-5 / 6-7 COIN A / B, bit 3 DEMO SOUND; from the next reset. Games played with any of them (5 lives, an easier extend) still count for high scores, achievements and statistics (owner: not a cheat, an operator's setting on the real board)

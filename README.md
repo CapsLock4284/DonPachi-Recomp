@@ -214,6 +214,19 @@ replays or settings). Esc stops it. A run takes this player about an hour of the
 arcade's speed, all three take around 4 minutes. It fails if the ship is lost, the game ends early, the ending comes
 without the true last boss, or an area doesn't move on for 30 minutes of the game's time.
 
+### Against the real MAME's own picture and sound
+
+`tools/mame/dp_check.lua` plays a game in MAME itself (its header has the command line) and keeps MAME's picture
+with all of the board's video memories every 2,500 VBLANKs, a log of its inputs, and its sound (`-wavwrite`).
+`tests/harness/mame_check build/mame_dp` draws each of those states with the port's renderer and compares it with
+MAME's picture pixel by pixel (the two games needn't stay in step, so it covers the whole game); with `SOUND=1` it
+plays the port with MAME's inputs and writes its sound, and `tests/harness/sound_compare.py build/mame_dp SECONDS`
+compares the two second by second. On MAME 0.289 (26-11-2026): all 80 pictures the same, areas 1 to 9; the sound,
+over the first 100 seconds (where the two games stay together: the attract mode, the start and area 1), the same
+loudness and the same balance in every band from 20 Hz up to within 0.3 dB. MAME's recording keeps the sound chips'
+DC offset, which the port's speaker filter takes out, and MAME plays each chip at a whole number of samples a second,
+53 parts in a million slower than its crystal; neither can be heard.
+
 ## Project layout
 
 | Folder | What's in it |

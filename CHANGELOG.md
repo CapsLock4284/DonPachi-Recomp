@@ -9,6 +9,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
 ### Added
 - **SESSION on the gadget panels**, under INPUT, as in DoDonPachi Recomp: since you started the program, the time
   you've played, the games and credits (each continue, and player 2 joining, is one), and your best score.
+- **A check against the real MAME's own picture and sound** (`tools/mame/dp_check.lua`, `tests/harness/mame_check`,
+  `tests/harness/sound_compare.py`): on MAME 0.289, all 80 pictures through areas 1 to 9 the same to the pixel, and
+  the sound the same in loudness and in every band from 20 Hz up.
 
 ## v0.15.0 (2026-11-26)
 

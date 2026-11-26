@@ -227,6 +227,45 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
   - [ ] Only if needed: built on an older distribution for the releases. A build on Ubuntu 25.10 (WSL) needs only glibc 2.34 (2021: Ubuntu 22.04, Debian 12, Fedora 35 and later), as `make_release.sh` reports; check that number each release, and build on an older Ubuntu if it ever climbs
 
 ## Accuracy, to check later
+- [x] **The picture and the sound against the real MAME's own** (owner, 26-11-2026: after DoDonPachi Recomp's, where
+      all 120 pictures through the game came out the same). The checks so far run the program on MAME's 68000 core
+      with Cave68kSDK's board model: MAME's own drawing and sound not compared yet. `tools/mame/dp_check.lua` plays a
+      game in MAME (the ship's shield held: no deaths), logs its inputs and a signature each VBLANK, and keeps MAME's
+      picture with the board's video memories every 2,500 VBLANKs and the one before; MAME's -wavwrite keeps its
+      sound. `tests/harness/mame_check DIR` draws each video state as the port does against MAME's picture (as
+      DoDonPachi Recomp's tests/mame_redraw: the games needn't stay together); SOUND=1 plays the port with MAME's
+      inputs (the VBLANKs lined up by the shift that keeps the signature longest), says where the games part, and
+      writes port.wav; `tests/harness/sound_compare.py DIR` lines the two sounds up and compares them second by
+      second (loudness, how alike their envelopes and waves are, low / middle / high) and writes compare.wav (MAME
+      left, the port right). Checked on themselves (MAKE=1: the pictures the same; the port's sound against itself,
+      also with the log 2 VBLANKs ahead: the same, 1.000). Found on the way: the board's sound keeps its resampler's
+      and filter's state from one start of the program to the next (only a tool that starts it twice sees it: the
+      shift's trials run in a child process)
+      - [x] The owner's run (MAME 0.289, 26-11-2026: 200,000 VBLANKs, about 58 minutes, areas 1-9): **the
+            pictures, all 80 the same** as MAME's to the pixel
+      - [x] The inputs: MAME's interrupt reads them a VBLANK after dp_check.lua logs them (as DoDonPachi Recomp's
+            first run found), and the port's boot reaches the coin 3 VBLANKs sooner: mame_check's SOUND=1 now tries
+            the inputs' delay (0-2) beside the shift (here: 1 and -3; SOUND_DELAY to give it), and takes the games
+            as parted only when the signature has differed for 1,500 VBLANKs (on a slowed VBLANK MAME's is read
+            half way through the frame's work, the port's after it: a VBLANK apart now and then is no parting).
+            Together to MAME's VBLANK 5,802 (about 100 s: the attract mode, the coin, the start, area 1)
+      - [x] **The sound**, those 100 s: above 40 Hz the same to 0.1-0.3 dB in every band (40 Hz to 24 kHz).
+            Two differences, both MAME's and not the board's, so the port stays as it is: (1) MAME's -wavwrite
+            keeps the OKIs' DC (its mean wanders up to +18% of full scale, 99% of it under 5 Hz), which the port's
+            20 Hz high-pass (MAME's own speaker filter) takes out: inaudible, the cause of sound_compare.py's "low
+            -4 dB" and the loudness it saw differ in some seconds; (2) MAME runs each OKI at a whole number of
+            samples a second (7,992 and 15,984 Hz, not 4.220 MHz / 4 / 132 = 7,992.42 and 15,984.85): a held sound
+            drifts 53 ppm (about 3 output samples a second) until the next starts. Checked with a probe (a copy of
+            the board's description at those rates, not kept): the drift gone, the sounds' starts within 0.2 ms
+            of MAME's
+- [ ] **The slowdown against the real MAME** (found 26-11-2026, by the run above): from MAME's VBLANK 4,463 (area
+      1) MAME's machine slows down a frame where the port doesn't, and after a few more such frames (around
+      5,550-5,700) the games part for good; the port's slowdown matches MAME's 68000 core on the board model
+      (tools/cref/cref_timed) to the frame, so the difference is in MAME's machine. DoDonPachi Recomp found the
+      same kind of thing and traced it to MAME's own emulation (its YMZ280B's interrupt held to the sound's
+      updates). Next: dp_check.lua writing waits.txt (each game frame's end in the 68000's cycles: the ready flag,
+      $1011FC bit 0, as slowdown_check's at_wait) as ddp_check.lua 0.3.0 does, and the port's beside it, to see
+      whether the frames' work takes longer in MAME steadily, on busy frames, or at the OKIs' accesses
 - [ ] **The picture line by line, as the board draws it** (owner, 25-11-2026: on the list, not now). DoDonPachi
   Recomp 0.5.0 draws its picture at the screen's VBLANK, 90 us after the vblank interrupt, as MAME does (checked
   against MAME's own ddonpach to the pixel). Not here (owner, 25-11-2026): drawn both ways over 20,000 frames,

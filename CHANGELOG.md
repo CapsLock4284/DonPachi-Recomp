@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.15.0 (2026-11-26)
+
 ### Added
 - **Gadget side panels**: SETTINGS > GRAPHICS > SIDE PANELS is now CLASSIC, GADGETS or OFF, as in DoDonPachi Recomp.
   GADGETS shows the panels as blue gadgets with brushed-steel frames, drawn sharp at your screen's resolution in an

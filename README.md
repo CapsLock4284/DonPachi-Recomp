@@ -128,6 +128,7 @@ shown. The help panel on the right explains the chosen one as well.
 | SIDE PANELS | ON, OFF | Panels in the empty space beside the picture on a wide screen: the chain, rank, your run, the area's bees and your controls on the left; the score graph, stage progress or the boss's health, and the settings in use (with the game's frames a second and the bullets on screen) on the right. They widen to fill the screen; the game's picture keeps its size |
 | WINDOW SIZE | 1X to 8X | The window's size, as times the arcade's picture (3X by default) |
 | FULL SCREEN | OFF, BORDERLESS, EXCLUSIVE | BORDERLESS: a window over the whole screen, quick to switch away from. EXCLUSIVE: the display is the game's alone, which may lag a little less. F11 or Alt+Enter switches it too |
+| MONITOR | MAIN, 1 to 8 | The monitor the game opens on (its window, full screen too, and the ROM window): MAIN is Windows' main display; the others are shown with their size ("2: 1080X1920"), so a monitor turned on its side for TATE is the one taller than wide. The game moves there as soon as it is chosen. `[window] monitor` in `donpachi.ini` (`main` or a number), or `--monitor N` for one run. A monitor that isn't connected: the main one |
 
 The FPS meter shows, each second: GAME, the game's own frames (fewer while the game slows down, as the arcade board
 does); BOARD, the board's frames run (57.55 a second, the arcade's rate: fewer means the PC can't keep up); WINDOW,

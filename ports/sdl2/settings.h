@@ -97,6 +97,8 @@ typedef struct
 	int scale;
 	bool fullscreen;
 	bool exclusive;             /* full screen as exclusive (the display the game's alone); false: borderless */
+	int monitor;                /* the monitor the game opens on: 0 the main one (Windows' primary display), 1 to
+	                               SETTINGS_MONITORS the displays in SDL's order (one not connected: the main one) */
 	/* [video] */
 	int scaling;                /* VIDEO_FIT, VIDEO_INTEGER, VIDEO_STRETCH */
 	bool smooth;                /* a soft filter instead of sharp pixels */
@@ -134,6 +136,13 @@ extern const uint16_t settings_action_bits[ACTIONS];
 
 /* The defaults: the keys and buttons the port had before the file (the Xbox layout: X shot, A bomb, B button C) */
 void settings_defaults(settings *s);
+
+#define SETTINGS_MONITORS 8
+
+/* The monitor the windows open on (settings.monitor), and its display's SDL index: the main one's (0) when the
+   setting is 0 or that display isn't connected */
+void settings_monitor_use(int monitor);
+int settings_monitor_display(void);
 
 /* The file over 's' (which holds the defaults): NULL, or what was wrong with it (the lines it could not take, which
    keep their defaults). A file that is not there is written with the defaults: *written is then true */

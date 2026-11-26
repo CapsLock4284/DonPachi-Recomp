@@ -5,8 +5,9 @@
  *    Created:     09-11-2026
  *
  *    license:BSD-3-Clause
- *    Usage: donpachi [--settings PATH] [--rom PATH] [--scale N] [--no-sound] [--no-free-play] [--eeprom PATH]
- *                    [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats] [--playtest [WHICH]]
+ *    Usage: donpachi [--settings PATH] [--rom PATH] [--scale N] [--monitor N] [--no-sound] [--no-free-play]
+ *                    [--eeprom PATH] [--arcade-timing] [--cheats FILE] [--cheat NAME ...] [--list-cheats]
+ *                    [--playtest [WHICH]]
  *      --settings PATH the settings file (default: donpachi.ini beside the program (paths.h); settings.h): the options below
  *                      and the keys and gamepad buttons of both players. Written with the defaults when it is not
  *                      there; the options below go over it for the run
@@ -14,6 +15,8 @@
  *               first run only: its contents are kept in donpachi_usa.dat beside the program, read from then on;
  *               given on the command line, the set is read and extracted again
  *      --scale  the window's size, in times the picture's 240 x 320 (default 3)
+ *      --monitor N     opens on monitor N (1 to 8, as SETTINGS > GRAPHICS > MONITOR numbers them; 0: the main one),
+ *                      for this run ([window] monitor in the settings keeps one)
  *      --no-sound      plays no sound
  *      --no-free-play  the coins as on the board (5, 6). By default Start drops in a coin first when the game has no
  *                      credit (cave/free_play.h): DonPachi itself has no free play setting
@@ -1021,8 +1024,31 @@ static void set_fullscreen(void)
 	SDL_SetWindowFullscreen(window, fullscreen_flag());
 }
 
+/* the monitor the window was last put on (settings.monitor): moved only when the setting changes, so a window
+   dragged to another monitor stays there otherwise */
+static int monitor_shown;
+
+/* the window to the monitor the settings name: out of full screen, then its size and centred there (full screen
+   again after, by menu_apply_window) */
+static void window_to_monitor(void)
+{
+	int display;
+
+	monitor_shown = options.monitor;
+	settings_monitor_use(options.monitor);
+	display = settings_monitor_display();
+	if (SDL_GetWindowDisplayIndex(window) == display)
+		return;
+	if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP)
+		SDL_SetWindowFullscreen(window, 0);
+	SDL_SetWindowSize(window, shown_width_with(WIDGET_W) * options.scale, shown_height() * options.scale);
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(display), SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+}
+
 static void menu_apply_window(void)
 {
+	if (options.monitor != monitor_shown)
+		window_to_monitor();
 	if (options.fullscreen)
 		set_fullscreen();
 	else
@@ -1622,7 +1648,10 @@ int main(int argc, char **argv)
 			snprintf(options.eeprom, sizeof(options.eeprom), "%s", argv[++index]);
 		else if (!strcmp(argv[index], "--scale") && value)
 			options.scale = atoi(argv[++index]);
+		else if (!strcmp(argv[index], "--monitor") && value)
+			options.monitor = SDL_clamp(atoi(argv[++index]), 0, SETTINGS_MONITORS);
 	}
+	settings_monitor_use(options.monitor);
 	if (options.scale < 1)
 		options.scale = 1;
 	{
@@ -1723,13 +1752,22 @@ int main(int argc, char **argv)
 			SDL_Quit();
 			return 1;
 		}
-	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	window = SDL_CreateWindow("DonPachi", SDL_WINDOWPOS_CENTERED_DISPLAY(settings_monitor_display()),
+		SDL_WINDOWPOS_CENTERED_DISPLAY(settings_monitor_display()),
 		shown_width_with(WIDGET_W) * options.scale, shown_height() * options.scale,
 		SDL_WINDOW_RESIZABLE | (options.fullscreen && !options.exclusive ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 	if (window)
 	{
+		const int display = SDL_GetWindowDisplayIndex(window);
+		SDL_Rect bounds = { 0, 0, 0, 0 };
+		const char *const name = SDL_GetDisplayName(display);
+
 		window_icon_set(window);
 		window_title();
+		monitor_shown = options.monitor;
+		SDL_GetDisplayBounds(display, &bounds);
+		fprintf(stderr, "monitor %d of %d (setting %d): %s, %dx%d\n", display + 1, SDL_GetNumVideoDisplays(),
+			options.monitor, name ? name : "?", bounds.w, bounds.h);
 	}
 	if (window && options.fullscreen && options.exclusive)
 		set_fullscreen();    /* (exclusive: at the desktop's mode, not the window's size) */

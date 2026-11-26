@@ -43,6 +43,14 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Player features (the owner's ideas)
 
+- [ ] **Gadget-style side panels, as DoDonPachi Recomp's** (owner, 25-11-2026: to try here too, after DoDonPachi's):
+  the blue brushed-metal gadgets agreed for DoDonPachi Recomp (its TODO.md has the design and the owner's picks:
+  ship status, chain with hits by weapon, board FPS, the bees as the game's own sprite, score with the second
+  loop's line, the stages' scores against their bests, last kill, input, achievements by area; the rank a small bar
+  green to red), switchable with today's panels (SIDE PANELS: CLASSIC, GADGETS, OFF). Its font, renderer and
+  layout code carried over; DonPachi's own memory for each gadget (achievements.c and widgets.c have most of it:
+  the rank 01A32, the chain's hits 0174E, the bees, the power)
+
 - [x] **Difficulty in the options** (GAME OPTIONS): EASY / NORMAL / HARD / VERY HARD, the service menu's own setting (EEPROM word 4, bits 8-9); applies on an F3 reset or a restart
 - [x] **The arcade's settings in the options** (owner, 22-11-2026): GAME OPTIONS > ARCADE SETTINGS in place of SERVICE MENU: the test menu's CONFIGURATION but for C BUTTON (GAME OPTIONS > C AUTO FIRE, in use at once), the difficulty (above) and INVERT SCREEN (the port's video has no flip; ROTATE). EEPROM word 4: bit 15 CONTINUE, bit 0 CONTINUE COST, bits 12-13 LIVES (3 5 2 1), bits 10-11 EXTEND, bits 4-5 / 6-7 COIN A / B, bit 3 DEMO SOUND; from the next reset. Games played with any of them (5 lives, an easier extend) still count for high scores, achievements and statistics (owner: not a cheat, an operator's setting on the real board)
 - [x] **ROM extraction on first run** (like other recomps): the first run reads the ROM set (`[files] rom`, `rom\donpachi.zip` by default) and saves its contents to `donpachi_usa.dat` beside the program (12.8 MB: a header, then the regions as `rom_set` holds them, checked by CRC32; written to `.part` first, then renamed). From then on the program reads that and the .zip isn't needed. A damaged file falls back to the .zip (and is written again); `--rom` on the command line reads and extracts again. `rom_set_save_data`/`rom_set_load_data` (`runtime/src/rom_set.c`). `*.dat` is in .gitignore. The main menu says ROM DATA EXTRACTED the first time
@@ -142,6 +150,13 @@ The sections below: graphics options, the player features, accuracy checks, poli
 - [x] **An FPS meter and its log, as DoDonPachi Recomp's** (owner, 20-11-2026; done 21-11-2026: F9 and GRAPHICS > FPS METER, `[video] show_fps`; the box over the right panel's score graph, the corner without the panels; `donpachi_fps.log` with RUN, LOOK (autobomb's look-ahead), DRAW, SHOW, PRESENT, FILTER, UPLOAD; checked with panels_shot METER=1 and the port run headless (the log written each second). Also (owner): the right panel's SLOWDOWN row is now FPS, the game's frames over the last second, yellow while it slows; SLOWDOWN OFF when the option is off): F9 / GRAPHICS > FPS METER (`[video] show_fps`, off by default): GAME (the game's frames a second), BOARD (the board's: 57.55), WINDOW (the pictures shown), LATE (frames past their time) and WORK (the ms a frame takes), and `donpachi_fps.log` beside the program timing each part of a frame (the game's run, autobomb's look-ahead, the drawing, the showing, the present), as DoDonPachi's `ddonpach_fps.log`. Drawn on a side panel, not over the game (owner: as DoDonPachi's is to be moved); over the picture's corner only with the panels off or the picture rotated
 
 ## Graphics
+
+- [x] **Which monitor** (GitHub issue #5, 25-11-2026: a player with a monitor set up for TATE, tired of making it
+      Windows' main display to play; asked for all the ports): GRAPHICS > MONITOR, MAIN or 1 to 8, each shown with
+      its size ("2: 1080X1920": a monitor on its side is taller than wide); `[window] monitor` (main or a number),
+      `--monitor N` for a run. The window, full screen too, and the ROM window open on it; chosen in the menu, the
+      game moves there at once (out of full screen, centred, back in). One not connected: the main one. The log
+      names the monitor used. DoDonPachi Recomp has it too
 
 - [x] **Borderless or exclusive full screen** (GRAPHICS > FULL SCREEN: OFF / BORDERLESS / EXCLUSIVE; `[window] fullscreen`, `fullscreen_type`): borderless is a window covering the desktop (it was already this, SDL's FULLSCREEN_DESKTOP); exclusive takes the display at the desktop's own mode (no resolution or refresh change). F11 / Alt+Enter switches between the window and the chosen kind
 

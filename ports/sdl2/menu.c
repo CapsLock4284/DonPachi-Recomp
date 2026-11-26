@@ -107,6 +107,7 @@ enum
 	ITEM_ARCADE,                  /* the game options': the ARCADE SETTINGS page (the test mode's other settings) */
 	ITEM_A_CONTINUE, ITEM_A_CONTINUE_COST, ITEM_A_LIVES, ITEM_A_EXTEND, ITEM_A_COIN_A, ITEM_A_COIN_B,
 	ITEM_A_DEMO_SOUND,            /* its entries: arcade_settings[item - ITEM_A_CONTINUE] */
+	ITEM_MONITOR,                 /* the monitor the game is on (settings.monitor) */
 	ITEM_FAST_FORWARD_KEY = 90,   /* the hotkeys (both players': [hotkeys]): fast forward, save state, load state */
 	ITEM_SAVE_STATE_KEY, ITEM_LOAD_STATE_KEY, ITEM_SLOT_PREVIOUS_KEY, ITEM_SLOT_NEXT_KEY,
 	ITEM_ACTION = 100,            /* + an action: a player's key and button for it */
@@ -366,7 +367,7 @@ static void build_items(void)
 	else if (page == PAGE_GRAPHICS)
 	{
 		static const int graphics_items[] = { ITEM_SCALING, ITEM_SMOOTH, ITEM_FILTER, ITEM_FILTER_LAYERS, ITEM_SCANLINES, ITEM_CRT, ITEM_VSYNC, ITEM_RENDERER, ITEM_FPS, ITEM_ROTATE,
-			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_BACK };
+			ITEM_PANELS, ITEM_SCALE, ITEM_FULLSCREEN, ITEM_MONITOR, ITEM_BACK };
 
 		for (size_t index = 0; index < sizeof(graphics_items) / sizeof(graphics_items[0]); index++)
 			items[item_count++] = graphics_items[index];
@@ -654,6 +655,17 @@ static void change(int item, int step, bool wrap)
 		in_use->fullscreen = file->fullscreen = at != 0;
 		if (at != 0)
 			in_use->exclusive = file->exclusive = at == 2;
+		host.apply_window();
+	}
+		break;
+	case ITEM_MONITOR:
+	{
+		/* MAIN, then each monitor connected (and the one set, if it isn't now): the window moves to it at once */
+		const int connected = SDL_GetNumVideoDisplays();
+		const int last = SDL_clamp(connected > in_use->monitor ? connected : in_use->monitor, 1, SETTINGS_MONITORS);
+
+		in_use->monitor = wrap ? (in_use->monitor + 1) % (last + 1) : SDL_clamp(in_use->monitor + step, 0, last);
+		file->monitor = in_use->monitor;
 		host.apply_window();
 	}
 		break;
@@ -1218,6 +1230,9 @@ static const char *item_help(int item)
 	case ITEM_FULLSCREEN:
 		return "BORDERLESS: A WINDOW OVER THE WHOLE SCREEN (QUICK TO SWITCH). EXCLUSIVE: TRUE FULL SCREEN. "
 			"ALT+ENTER OR F11 SWITCHES.";
+	case ITEM_MONITOR:
+		return "THE MONITOR THE GAME OPENS ON. MAIN: WINDOWS' MAIN DISPLAY. EACH OTHER IS SHOWN WITH ITS SIZE (A "
+			"MONITOR ON ITS SIDE IS TALLER THAN WIDE). THE GAME MOVES TO IT AT ONCE.";
 	case ITEM_CONTROLS:
 		return "THE KEYS AND GAMEPAD BUTTONS FOR BOTH PLAYERS, AND THE HOTKEYS.";
 	case ITEM_QUIT:
@@ -1802,7 +1817,8 @@ static const char *item_label(int item)
 		"SAVE REPLAY", "WATCH", "RENAME", "DELETE", "YES, DELETE IT", "NO", "SLOWDOWN", "CRT", "STATE SLOT", "DEBUG TOOLS",
 		"FILTER", "AUTOBOMB", "RENDERER", "UPDATE", "YES, UPDATE", "NOT NOW", "CHECK FOR UPDATES", "SOUND", "MUSIC",
 		"EFFECTS", "VOICES", "BULLETS HITBOX", "BY LAYER", "FPS METER", "C AUTO FIRE",
-		"ARCADE SETTINGS", "CONTINUE", "CONTINUE COST", "LIVES", "EXTEND", "COIN A", "COIN B", "DEMO SOUND"
+		"ARCADE SETTINGS", "CONTINUE", "CONTINUE COST", "LIVES", "EXTEND", "COIN A", "COIN B", "DEMO SOUND",
+		"MONITOR"
 	};
 
 	if (is_hotkey_item(item))
@@ -1905,6 +1921,18 @@ static void item_value(int item, char *out, size_t size)
 		break;
 	case ITEM_FULLSCREEN:
 		snprintf(out, size, "%s", !s->fullscreen ? "OFF" : s->exclusive ? "EXCLUSIVE" : "BORDERLESS");
+		break;
+	case ITEM_MONITOR:
+	{
+		SDL_Rect bounds;
+
+		if (s->monitor <= 0)
+			snprintf(out, size, "MAIN");
+		else if (s->monitor > SDL_GetNumVideoDisplays() || SDL_GetDisplayBounds(s->monitor - 1, &bounds) != 0)
+			snprintf(out, size, "%d: NOT FOUND", s->monitor);
+		else
+			snprintf(out, size, "%d: %dX%d", s->monitor, bounds.w, bounds.h);
+	}
 		break;
 	case ITEM_CONTROLS:
 	case ITEM_GRAPHICS:

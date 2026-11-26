@@ -61,6 +61,19 @@ static void set_button(settings *s, int player, int action, int kind, int index)
 	s->buttons[player][action][0].index = index;
 }
 
+static int monitor_used;
+
+void settings_monitor_use(int monitor)
+{
+	monitor_used = monitor;
+}
+
+int settings_monitor_display(void)
+{
+	/* (SDL's display 0 is the main one: Windows' primary display is listed first) */
+	return monitor_used > 0 && monitor_used <= SDL_GetNumVideoDisplays() ? monitor_used - 1 : 0;
+}
+
 void settings_defaults(settings *s)
 {
 	static const SDL_Scancode keys[2][ACTIONS] = {
@@ -100,6 +113,7 @@ void settings_defaults(settings *s)
 	s->scale = 3;
 	s->fullscreen = false;
 	s->exclusive = false;
+	s->monitor = 0;
 	s->scaling = VIDEO_FIT;
 	s->smooth = false;
 	s->scanlines = 0;
@@ -300,6 +314,15 @@ static bool take(settings *s, const char *section, const char *name, char *value
 			return parse_int(value, 1, 16, &s->scale);
 		if (!SDL_strcasecmp(name, "fullscreen"))
 			return parse_bool(value, &s->fullscreen);
+		if (!SDL_strcasecmp(name, "monitor"))
+		{
+			if (!SDL_strcasecmp(value, "main"))
+			{
+				s->monitor = 0;
+				return true;
+			}
+			return parse_int(value, 1, SETTINGS_MONITORS, &s->monitor);
+		}
 		if (!SDL_strcasecmp(name, "fullscreen_type"))
 		{
 			if (!SDL_strcasecmp(value, "borderless") || !SDL_strcasecmp(value, "exclusive"))
@@ -638,7 +661,13 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "fullscreen = %s\n", bool_text(s->fullscreen));
 	fputs("; borderless (a window over the whole screen, at the desktop's resolution: quick to switch away from)\n", file);
 	fputs("; or exclusive (the display the game's alone, at the desktop's resolution: may lag a little less)\n", file);
-	fprintf(file, "fullscreen_type = %s\n\n", s->exclusive ? "exclusive" : "borderless");
+	fprintf(file, "fullscreen_type = %s\n", s->exclusive ? "exclusive" : "borderless");
+	fputs("; the monitor the game opens on: main (Windows' main display) or 1 to 8, as SETTINGS > GRAPHICS > MONITOR\n"
+		"; numbers them (shown with its resolution); one not connected: the main one\n", file);
+	if (s->monitor > 0)
+		fprintf(file, "monitor = %d\n\n", s->monitor);
+	else
+		fputs("monitor = main\n\n", file);
 
 	fputs("[video]\n", file);
 	fputs("; fit: as large as the window allows; integer: whole times the game's pixels only (all the same size);\n"

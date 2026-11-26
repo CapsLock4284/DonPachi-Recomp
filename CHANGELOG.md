@@ -6,7 +6,12 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Added
+- **Choose the monitor** (GitHub issue #5): SETTINGS > GRAPHICS > MONITOR puts the game on any of your monitors,
+  windowed or full screen, without making it Windows' main display. Each monitor is shown with its size, so one
+  turned on its side for TATE is easy to spot (taller than wide, as "2: 1080X1920"). The game moves there as soon
+  as you choose it, and opens there from then on. Also `monitor` in `donpachi.ini`, or `--monitor N` for one run.
+  If that monitor isn't connected, the game opens on the main one.
 
 ## v0.14.0 (2026-11-25)
 

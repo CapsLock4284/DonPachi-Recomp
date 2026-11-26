@@ -130,7 +130,7 @@ if(SDL2_FOUND)
 		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c
 		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c ports/sdl2/paths.c ports/sdl2/updater.c
 		ports/sdl2/own_cheats.c ports/sdl2/crt.c ports/sdl2/scaler.c ports/sdl2/autobomb.c ports/sdl2/crash_log.c ports/sdl2/ai_player.c ports/sdl2/layer_filter.c ports/sdl2/file_save.c
-		ports/sdl2/fast_timing.c ports/sdl2/playtest.c)
+		ports/sdl2/fast_timing.c ports/sdl2/playtest.c ports/sdl2/gadget_canvas.c ports/sdl2/gadgets.c)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
 	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}")
 	add_custom_command(TARGET donpachi POST_BUILD    # (the gamepads' layouts beside the program: pads.h)

@@ -447,3 +447,220 @@ const char *achievements_date(int index)
 {
 	return index >= 0 && index < ACHIEVEMENTS && dates[index][0] ? dates[index] : NULL;
 }
+
+int achievements_find(const char *id)
+{
+	for (int index = 0; index < ACHIEVEMENTS; index++)
+		if (!strcmp(list[index].id, id))
+			return index;
+	return -1;
+}
+
+/* ---- how near each is (the gadget panels' goals) ---- */
+
+/* (a score as shown: "2,859,440") */
+static void shown_points(char *out, size_t size, uint32_t value)
+{
+	char digits[16], with[24];
+	int length, at = 0;
+
+	length = snprintf(digits, sizeof(digits), "%lu", (unsigned long)value);
+	for (int i = 0; i < length; i++)
+	{
+		if (i && (length - i) % 3 == 0)
+			with[at++] = ',';
+		with[at++] = digits[i];
+	}
+	with[at] = '\0';
+	snprintf(out, size, "%s", with);
+}
+
+static float share(double now, double goal)
+{
+	return goal <= 0.0 ? 1.0f : now >= goal ? 1.0f : (float)(now / goal);
+}
+
+bool achievements_goal(int index, achievement_goal *out)
+{
+	const int area = game.area;
+	const int player = !in_play(0) && in_play(1) ? 1 : 0;
+	static const unsigned chains[3] = { 30u, 100u, 200u };
+	static const uint32_t scores[3] = { 1000000u, 5000000u, 10000000u };
+	static const char *const chain_labels[3] = { "CHAIN 30", "CHAIN 100", "CHAIN 200" };
+	static const char *const score_labels[3] = { "ONE MILLION", "FIVE MILLION", "TEN MILLION" };
+
+	if (index < 0 || index >= ACHIEVEMENTS || !game.on || game.tainted || area < 0)
+		return false;
+	out->value[0] = '\0';
+	out->state = GOAL_GOING;
+	out->part = 0.0f;
+	switch (index)
+	{
+	case A_AREA1:
+		if (area != 0)
+			return false;
+		out->label = "CLEAR AREA 1";
+		out->part = 0.5f;
+		snprintf(out->value, sizeof(out->value), "THIS AREA");
+		break;
+	case A_LOOP1:
+	case A_ALL:
+	{
+		const int last = index == A_LOOP1 ? 5 : 10;
+
+		if (area >= last)
+			return false;
+		out->label = index == A_LOOP1 ? "CLEAR AREA 5" : "CLEAR AREA 10";
+		out->part = ((float)area + 0.5f) / (float)last;
+		snprintf(out->value, sizeof(out->value), "AT AREA %d", area + 1);
+		break;
+	}
+	case A_TRUE_BOSS:
+		if (area != 9)
+			return false;
+		out->label = "TRUE BOSS";
+		out->part = 0.6f;
+		snprintf(out->value, sizeof(out->value), "AREA 10");
+		break;
+	case A_ONE_CREDIT:
+	case A_ONE_CREDIT_ALL:
+	{
+		const int last = index == A_ONE_CREDIT ? 5 : 10;
+
+		if (area >= last)
+			return false;
+		out->label = index == A_ONE_CREDIT ? "1 CREDIT AREA 5" : "1 CREDIT AREA 10";
+		out->state = game.continued ? GOAL_LOST : GOAL_GOING;
+		out->part = ((float)area + 0.5f) / (float)last;
+		snprintf(out->value, sizeof(out->value), game.continued ? "CONTINUED" : "AT AREA %d", area + 1);
+		break;
+	}
+	case A_NO_MISS_AREA:
+		out->label = "NO MISS";
+		out->state = game.misses ? GOAL_LOST : GOAL_KEPT;
+		out->part = 0.55f;
+		snprintf(out->value, sizeof(out->value), "%u", game.misses);
+		break;
+	case A_NO_MISS_LOOP:
+		if (area >= 5)
+			return false;
+		out->label = "NO MISS LOOP";
+		out->state = game.loop_misses || game.continued ? GOAL_LOST : GOAL_KEPT;
+		out->part = ((float)area + 0.5f) / 5.0f;
+		snprintf(out->value, sizeof(out->value), "%u", game.loop_misses);
+		break;
+	case A_NO_BOMB_AREA:
+		out->label = "NO BOMB";
+		out->state = game.bombs ? GOAL_LOST : GOAL_KEPT;
+		out->part = 0.5f;
+		snprintf(out->value, sizeof(out->value), "%u", game.bombs);
+		break;
+	case A_BEES_AREA:
+		out->label = "ALL 13 BEES";
+		out->state = game.bees >= 13u ? GOAL_KEPT : GOAL_GOING;
+		out->part = share(game.bees, 13.0);
+		snprintf(out->value, sizeof(out->value), "%u/13", game.bees);
+		break;
+	case A_BEES_LOOP:
+		if (area >= 5)
+			return false;
+		out->label = "ALL BEES LOOP";
+		out->state = game.all_bees < (unsigned)area ? GOAL_LOST : GOAL_GOING;
+		out->part = ((float)game.all_bees + share(game.bees, 13.0)) / 5.0f;
+		snprintf(out->value, sizeof(out->value), "%u/5", game.all_bees);
+		break;
+	case A_CHAIN30:
+	case A_CHAIN100:
+	case A_CHAIN200:
+	{
+		const int step = index - A_CHAIN30;
+		const unsigned best = word(0x101754u + 0x1Eu * (unsigned)player);    /* (the game's best chain) */
+
+		if (step > 0 && !dates[index - 1][0])
+			return false;    /* (the next one only) */
+		out->label = chain_labels[step];
+		out->state = best >= chains[step] ? GOAL_KEPT : GOAL_GOING;
+		out->part = share(best, chains[step]);
+		snprintf(out->value, sizeof(out->value), "BEST %u", best);
+		break;
+	}
+	case A_SCORE1M:
+	case A_SCORE5M:
+	case A_SCORE10M:
+	{
+		const int step = index - A_SCORE1M;
+		const uint32_t score = bcd_long(0x10177Au + 4u * (unsigned)player);
+		char points[20];
+
+		if (step > 0 && !dates[index - 1][0])
+			return false;
+		out->label = score_labels[step];
+		out->part = share(score, scores[step]);
+		if (score >= scores[step])
+			out->state = GOAL_KEPT;
+		shown_points(points, sizeof(points), score >= scores[step] ? 0u : scores[step] - score);
+		snprintf(out->value, sizeof(out->value), "%s TO GO", points);
+		break;
+	}
+	case A_MAX_RANK:
+	{
+		const unsigned rank = word(0x101A32u) & 0xFFu;
+
+		out->label = "RANK 63";
+		out->part = share(rank, 63.0);
+		snprintf(out->value, sizeof(out->value), "%u/63", rank > 63u ? 63u : rank);
+		break;
+	}
+	case A_FULL_POWER:
+	{
+		const unsigned power = byte(records[player] + 0x21u);
+
+		out->label = "FULL POWER";
+		out->part = share(power, 4.0);
+		snprintf(out->value, sizeof(out->value), "LV %u/4", power > 4u ? 4u : power);
+		break;
+	}
+	case A_BOMB_SLOTS:
+	{
+		/* (the slots grow from 3 to 7) */
+		const unsigned slots = byte(0x101A8Au + 2u * (unsigned)player);
+
+		out->label = "7 BOMB SLOTS";
+		out->part = slots > 3u ? share(slots - 3u, 4.0) : 0.0f;
+		snprintf(out->value, sizeof(out->value), "%u/7", slots);
+		break;
+	}
+	case A_HARD:
+		if (area >= 5 || (word(0x101284u) & 3u) < 2u)
+			return false;
+		out->label = "CLEAR 5 ON HARD";
+		out->part = ((float)area + 0.5f) / 5.0f;
+		snprintf(out->value, sizeof(out->value), "AT AREA %d", area + 1);
+		break;
+	case A_HEAVY_PLANES:
+		if (area % 5 != 1)
+			return false;
+		out->label = "HEAVY METAL";
+		out->state = game.planes_bombed ? GOAL_LOST : GOAL_GOING;
+		out->part = 0.2f + share(game.planes_down, 3.0) * 0.7f;
+		snprintf(out->value, sizeof(out->value), game.planes_bombed ? "BOMBED" : "%u/3", game.planes_down);
+		break;
+	case A_HOVER_BOAT:
+		if (area % 5 != 2)
+			return false;
+		out->label = "PATIENCE";
+		out->part = 0.3f;
+		snprintf(out->value, sizeof(out->value), "THIS AREA");
+		break;
+	case A_EXTEND_BUILDING:
+		if (area != 3)
+			return false;
+		out->label = "HIDDEN EXTEND";
+		out->part = 0.3f;
+		snprintf(out->value, sizeof(out->value), "THIS AREA");
+		break;
+	default:
+		return false;    /* (EXTRA LIFE: its score isn't read here; TEAM WORK: two players) */
+	}
+	return true;
+}

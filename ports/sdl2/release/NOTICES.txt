@@ -28,6 +28,12 @@ SDL_GameControllerDB (zlib license)
   see gamecontrollerdb.txt in this folder.
   https://github.com/mdqinc/SDL_GameControllerDB
 
+Chakra Petch (SIL Open Font License 1.1)
+  The gadget side panels' lettering (SETTINGS > GRAPHICS > SIDE PANELS:
+  GADGETS), drawn from the font's outlines built into the program. Copyright
+  2018 The Chakra Petch Project Authors: see ChakraPetch-OFL.txt in this folder.
+  https://github.com/cadsondemak/Chakra-Petch
+
 The pixel-art filters (SETTINGS > GRAPHICS > FILTER)
   This project's own code, written after the published algorithms: Scale2x and
   Scale3x (EPX, as AdvanceMAME describes it); xBR, the "lv2" edge rules of

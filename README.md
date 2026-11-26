@@ -83,8 +83,10 @@ version: [CHANGELOG.md](CHANGELOG.md).
 - **Low input lag** by default, with the board's own timing as an option
 - **Main menu** with **Training**: start at any area, any point part way through it (5-95% of the way to the boss),
   its mid-boss, its boss or area 10's true boss, with your choice of ship, power (any level, or "on pace" for that point), bombs and difficulty, and retry on a miss
-- **Side panels** on wide screens: chain (GP) gauge, rank, run statistics, bees collected, score graph against the
-  top score, stage progress and boss and mid-boss health
+- **Side panels** on wide screens, in two looks: CLASSIC (chain (GP) gauge, rank, run statistics, bees collected,
+  score graph against the top score, stage progress and boss and mid-boss health) or GADGETS (the same as blue
+  brushed-steel gadgets drawn sharp at your screen's resolution, plus each area against your best score for it, the
+  last points scored and the achievements you're nearest to)
 - **AI player 2**: the computer flies player 2 beside you, joining by itself (it counts as a cheat)
 - **Save states** in 5 slots, fast forward, hitbox display, high scores saved between sessions
 - **Bullet points** (GAME OPTIONS > BULLETS HITBOX): each enemy bullet's one point the game tests, a white pixel in a
@@ -125,7 +127,7 @@ shown. The help panel on the right explains the chosen one as well.
 | RENDERER | AUTO, DIRECT3D, DIRECT3D11, DIRECT3D12, OPENGL, SOFTWARE | How the picture reaches the screen, used from the next start. AUTO is Direct3D 12 on Windows, the quickest to show |
 | FPS METER | OFF, ON | The frame rate and the PC's time a frame (F9 too): on the right side panel, never over the game; over the picture's corner only when the panels are off or the picture is rotated. While it is on, each second is also written to `donpachi_fps.log` beside the program |
 | ROTATE | OFF, RIGHT, LEFT | Turns the picture for a monitor on its side (TATE); the side panels are hidden then |
-| SIDE PANELS | ON, OFF | Panels in the empty space beside the picture on a wide screen: the chain, rank, your run, the area's bees and your controls on the left; the score graph, stage progress or the boss's health, and the settings in use (with the game's frames a second and the bullets on screen) on the right. They widen to fill the screen; the game's picture keeps its size |
+| SIDE PANELS | CLASSIC, GADGETS, OFF | Panels in the empty space beside the picture on a wide screen. CLASSIC: the chain, rank, your run, the area's bees and your controls on the left; the score graph, stage progress or the boss's health, and the settings in use (with the game's frames a second and the bullets on screen) on the right. GADGETS: the same as blue gadgets, sharp at your screen's resolution, in Chakra Petch: left, GET POINT (the chain's hits, its time left, its points and the best; one for each player when two play), RANK, AREAS (the loop's areas against your best score for each: gold for a new best, the difference in red when below it, kept in `donpachi.stages` from clean games only: no cheats, save states, training, replays or autobomb, the slowdown on, one player, no continue in the area), BEES and INPUT; right, SCORE (the high score place you're chasing and how much more), LAST SCORED, SCORE GRAPH, AREA (its way to the boss, then the mid-boss's or boss's health), BOARD (frames a second, bullets, the settings in use; the FPS meter's figures with F9) and ACHIEVEMENTS (the five you're nearest to and haven't earned, with how far to go). CLASSIC by default; `side_panels` in `donpachi.ini` (`classic`, `gadgets` or `off`). They widen to fill the screen; the game's picture keeps its size |
 | WINDOW SIZE | 1X to 8X | The window's size, as times the arcade's picture (3X by default) |
 | FULL SCREEN | OFF, BORDERLESS, EXCLUSIVE | BORDERLESS: a window over the whole screen, quick to switch away from. EXCLUSIVE: the display is the game's alone, which may lag a little less. F11 or Alt+Enter switches it too |
 | MONITOR | MAIN, 1 to 8 | The monitor the game opens on (its window, full screen too, and the ROM window): MAIN is Windows' main display; the others are shown with their size ("2: 1080X1920"), so a monitor turned on its side for TATE is the one taller than wide. The game moves there as soon as it is chosen. `[window] monitor` in `donpachi.ini` (`main` or a number), or `--monitor N` for one run. A monitor that isn't connected: the main one |
@@ -235,6 +237,9 @@ your own machine.
   AdvanceMAME describes it), xBR (Hyllian, whose shaders are under the MIT license) and MMPX (Morgan McGuire and Mara
   Gagiu, 2021, MIT license).
 - Bee counts from the [shmups wiki](https://shmups.wiki/library/DonPachi).
+- The gadget side panels' font is [Chakra Petch](https://github.com/cadsondemak/Chakra-Petch) (SIL Open Font
+  License 1.1, Copyright 2018 The Chakra Petch Project Authors: `ports/sdl2/fonts/OFL-ChakraPetch.txt`), its
+  outlines built into the program by `tools/make_gadget_font.py`.
 
 ## License
 

@@ -7,9 +7,13 @@
  *    license:BSD-3-Clause
  *    The font is the game's text layer, as the options menu's (menu.c: ASCII less 0x20, pens 1-6 a shade, 15 the
  *    outline), here also twice as large for the hits.
+ *    The areas' file (donpachi.stages): "DPSTGB01", then 10 scores (little-endian longs, as the game shows them),
+ *    areas 1 ... 10; 0 none yet.
  */
 #include "widgets.h"
+#include "file_save.h"
 #include "game_mode.h"
+#include "paths.h"
 
 #include "cave/machine.h"
 #include "cave/program.h"
@@ -209,9 +213,9 @@ static bool in_play(int player)
 
 #define GRAPH_X     8
 #define GRAPH_Y     44
-#define GRAPH_W     104     /* points: one a column at the narrowest panel (a wider one spreads them: graph_x) */
+#define GRAPH_W     WIDGET_GRAPH_POINTS     /* points (104): one a column at the narrowest panel (a wider one spreads them: graph_x) */
 #define GRAPH_H     88
-#define MARKS       24
+#define MARKS       WIDGET_GRAPH_MARKS
 
 static struct
 {
@@ -266,7 +270,78 @@ static struct
 	unsigned bees[AREAS];           /* the bees taken in each area (by either player: the panel shows them with one) */
 	unsigned last_bees[2];
 	int bee_area;                   /* the area the bees panel shows (the last played: between the loops too) */
+	/* each area's score (player 1's) against its best: the area being scored, its start and whether it counts */
+	int scored_area;                /* -1: none */
+	uint32_t area_start;
+	bool area_counts;
+	bool done[AREAS], counted[AREAS], new_best[AREAS];
+	uint32_t made[AREAS], best_before[AREAS];
+	unsigned last_mode;
+	bool play_seen;                 /* the game's play begun (mode 7): the ship select keeps the last game's score */
+	/* the last points scored (the player followed), and the chain's hits then */
+	uint32_t last_score;
+	uint32_t last_gain;
+	unsigned last_gain_hits;
+	bool gained;
 } run;
+
+/* ---- the areas' best scores (the file) ---- */
+
+static const char stages_magic[8] = { 'D', 'P', 'S', 'T', 'G', 'B', '0', '1' };
+static char stages_path[1024];
+static uint32_t best[AREAS];
+static bool clean_now;
+
+const char *widgets_open(const char *path)
+{
+	FILE *file;
+	uint8_t data[sizeof(stages_magic) + 4 * AREAS];
+
+	memset(best, 0, sizeof(best));
+	if (path)
+		snprintf(stages_path, sizeof(stages_path), "%s", path);
+	else
+		snprintf(stages_path, sizeof(stages_path), "%sdonpachi.stages", paths_folder());
+	if (!(file = fopen(stages_path, "rb")))
+		return NULL;
+	if (fread(data, 1, sizeof(data), file) != sizeof(data) || memcmp(data, stages_magic, sizeof(stages_magic)))
+	{
+		fclose(file);
+		return "not a DonPachi area scores file: started again (and saved over it)";
+	}
+	fclose(file);
+	for (int area = 0; area < AREAS; area++)
+	{
+		const uint8_t *const at = data + sizeof(stages_magic) + 4 * area;
+
+		best[area] = (uint32_t)at[0] | (uint32_t)at[1] << 8 | (uint32_t)at[2] << 16 | (uint32_t)at[3] << 24;
+	}
+	return NULL;
+}
+
+static void stages_save(void)
+{
+	uint8_t data[sizeof(stages_magic) + 4 * AREAS];
+
+	if (!stages_path[0])
+		return;    /* (no file opened: a tool's run) */
+	memcpy(data, stages_magic, sizeof(stages_magic));
+	for (int area = 0; area < AREAS; area++)
+	{
+		uint8_t *const at = data + sizeof(stages_magic) + 4 * area;
+
+		at[0] = (uint8_t)best[area];
+		at[1] = (uint8_t)(best[area] >> 8);
+		at[2] = (uint8_t)(best[area] >> 16);
+		at[3] = (uint8_t)(best[area] >> 24);
+	}
+	file_save(stages_path, data, sizeof(data));    /* (by file_save's helper: the frame doesn't wait for the disk) */
+}
+
+void widgets_set_clean(bool clean)
+{
+	clean_now = clean;
+}
 
 static uint32_t session_best;       /* the best score since the program started: a reset keeps it */
 
@@ -283,6 +358,73 @@ static void run_reset(void)
 	}
 	run.bee_area = area_now();
 	run.last_bomb_on = (word(BOMB_ON) & 0x8000u) != 0;
+	run.scored_area = -1;
+	run.last_mode = game_mode_now();
+	run.last_score = bcd_long(scores[0]);
+}
+
+/* the player the panels follow: player 1, or player 2 playing alone */
+static int followed(void)
+{
+	return !in_play(0) && in_play(1) ? 1 : 0;
+}
+
+/* each area's score against its best: begun as it is entered, finished as the play moves on from it (to the next
+   area, between the loops, the ending); it counts with player 1 alone in it, clean all through, no continue */
+static void areas_frame(int area, unsigned mode)
+{
+	const uint32_t score = bcd_long(scores[0]);
+
+	/* (no area until the play begins: at the ship select the score is still the last game's, set to 0 after) */
+	if (mode == 7u)
+		run.play_seen = true;
+	if (!run.play_seen)
+		area = -1;
+	if (!clean_now || in_play(1) || mode == 8u)
+		run.area_counts = false;    /* (8: the continue's count down) */
+	if (run.scored_area >= 0 && score < run.area_start)
+	{
+		/* the score gone down (a continue starts it again): the area measured from here, and doesn't count */
+		run.area_start = score;
+		run.area_counts = false;
+	}
+	if (area != run.scored_area)
+	{
+		const int was = run.scored_area;
+
+		if (was >= 0 && run.last_mode == 7u && (area == was + 1 || area == -1))
+		{
+			const uint32_t made = score >= run.area_start ? score - run.area_start : 0u;
+
+			run.done[was] = true;
+			run.made[was] = made;
+			run.best_before[was] = best[was];
+			run.counted[was] = run.area_counts;
+			run.new_best[was] = run.area_counts && made > best[was];
+			if (run.new_best[was])
+			{
+				best[was] = made;
+				stages_save();
+			}
+		}
+		run.scored_area = area;
+		run.area_start = score;
+		run.area_counts = clean_now && !in_play(1) && mode != 8u;
+	}
+	{
+		/* the last points scored, and the chain's hits then */
+		const int player = followed();
+		const uint32_t now = bcd_long(scores[player]);
+
+		if (now > run.last_score && run.last_score)
+		{
+			run.last_gain = now - run.last_score;
+			run.last_gain_hits = word(hits[player]);
+			run.gained = true;
+		}
+		run.last_score = now;
+	}
+	run.last_mode = mode;
 }
 
 /* the area being played, 0-9, or -1 (between the loops, the ending) */
@@ -330,6 +472,7 @@ static void run_frame(void)
 			session_best = bcd_long(scores[player]);
 	}
 	run.last_bomb_on = bomb_on;
+	areas_frame(area, game_mode_now());
 }
 
 void widgets_begin_game(void)
@@ -1495,4 +1638,140 @@ void widgets_state_load(const void *state)
 	memcpy(&run, at += sizeof(graph), sizeof(run));
 	memcpy(&boss, at += sizeof(run), sizeof(boss));
 	memcpy(&midboss, at += sizeof(boss), sizeof(midboss));
+}
+
+/* ---- what the gadget panels show (gadgets.h) ---- */
+
+void widgets_view_now(widgets_view *v)
+{
+	const int area = area_now();
+
+	memset(v, 0, sizeof(*v));
+	v->own = own_game;
+	for (int player = 0; player < 2; player++)
+	{
+		v->in_play[player] = in_play(player);
+		if (v->in_play[player])
+		{
+			v->chain[player].hits = word(hits[player]);
+			v->chain[player].timer = word(timers[player]);
+			v->chain[player].best = word(bests[player]);
+			v->chain[player].points = bcd_long(chain_points[player]);
+		}
+		v->score[player] = graph.last_score[player];
+	}
+	v->rank_known = own_game && area >= 0;
+	v->rank = word(RANK) & 0xFFu;
+	if (v->rank > RANK_MAX)
+		v->rank = RANK_MAX;
+	/* the loop's areas: the one being played, or the last */
+	{
+		const int shown = run.scored_area >= 0 ? run.scored_area : run.bee_area;
+
+		v->loop_shown = shown >= 5 ? 1 : 0;
+		for (int at = 0; at < 5; at++)
+		{
+			const int which = v->loop_shown * 5 + at;
+
+			if (own_game && which == run.scored_area)
+			{
+				v->areas[at].state = WIDGET_AREA_LIVE;
+				v->areas[at].made = graph.last_score[0] >= run.area_start ? graph.last_score[0] - run.area_start : 0u;
+				v->areas[at].best = best[which];
+				v->areas[at].counts = run.area_counts;
+			}
+			else if (run.done[which])
+			{
+				v->areas[at].state = WIDGET_AREA_DONE;
+				v->areas[at].made = run.made[which];
+				v->areas[at].best = run.best_before[which];
+				v->areas[at].counts = run.counted[which];
+				v->areas[at].new_best = run.new_best[which];
+			}
+			else
+			{
+				v->areas[at].state = WIDGET_AREA_TODO;
+				v->areas[at].best = best[which];
+			}
+		}
+	}
+	v->bee_area = own_game ? run.bee_area : -1;
+	v->bees_taken = v->bee_area >= 0 ? run.bees[v->bee_area] : 0u;
+	v->bee_area_over = v->bee_area >= 0 && area != v->bee_area;
+	{
+		const int player = in_play(1) && !in_play(0) ? 1 : 0;
+
+		v->held = own_game ? (uint16_t)~(player ? cave_board.in1 : cave_board.in0) : 0u;
+	}
+	/* the high score chase and the graph */
+	v->graph_running = graph.running;
+	v->target = graph.running ? graph.target : bcd_long(TOP_SCORE);
+	v->chasing = graph.running ? chasing() : 0;
+	for (int place = 0; place < 5; place++)
+	{
+		v->table[place] = graph.running ? graph.table[place] : bcd_long(TOP_SCORE + 4u * (uint32_t)place);
+		v->passed_at[place] = graph.running ? graph.passed_at[place] : -1;
+	}
+	v->graph_count = graph.count;
+	memcpy(v->points, graph.points, sizeof(v->points));
+	memcpy(v->played, graph.played, sizeof(v->played));
+	v->mark_count = graph.mark_count;
+	memcpy(v->marks, graph.marks, sizeof(v->marks));
+	/* the area's bar: as draw_stage's */
+	{
+		const unsigned stage = word(STAGE), loop = word(LOOP);
+
+		v->area_known = own_game && stage < 5u && loop < 2u;
+		v->area = (int)(loop * 5u + stage);
+		v->loop = (int)loop;
+		if (!v->area_known)
+			v->bar = WIDGET_BAR_NONE;
+		else if (boss.area == v->area && boss.state != BOSS_NONE)
+		{
+			const bool fight = boss.state == BOSS_FIGHT;
+
+			v->bar = boss.type == BOSS_TRUE ? WIDGET_BAR_TRUE_BOSS : WIDGET_BAR_BOSS;
+			v->percent = !fight || boss.timed_out || boss.most <= 0 ? 0
+				: (int)((boss.health * 100 + boss.most - 1) / boss.most);
+			if (fight && !boss.timed_out)
+				snprintf(v->bar_text, sizeof(v->bar_text), "%d%%", v->percent);
+			else
+				snprintf(v->bar_text, sizeof(v->bar_text), "%s", boss.state == BOSS_DEFEATED ? "DEFEATED" : "TIME UP");
+		}
+		else if (midboss.area == v->area && midboss.state != BOSS_NONE)
+		{
+			const bool fight = midboss.state == BOSS_FIGHT;
+
+			v->bar = WIDGET_BAR_MIDBOSS;
+			v->percent = !fight || midboss.most <= 0 ? 0 : (int)((midboss.health * 100 + midboss.most - 1) / midboss.most);
+			if (fight)
+				snprintf(v->bar_text, sizeof(v->bar_text), "%d%%", v->percent);
+			else
+				snprintf(v->bar_text, sizeof(v->bar_text), "%s", midboss.state == BOSS_DEFEATED ? "DEFEATED" : "ESCAPED");
+		}
+		else
+		{
+			const int scroll = (int16_t)word(SCROLL) - start_at[stage], end = boss_at[stage] - start_at[stage];
+
+			v->bar = WIDGET_BAR_PROGRESS;
+			v->percent = scroll <= 0 ? 0 : scroll >= end ? 100 : scroll * 100 / end;
+			snprintf(v->bar_text, sizeof(v->bar_text), v->percent >= 100 ? "BOSS" : "%d%%", v->percent);
+		}
+	}
+	v->gained = own_game && run.gained;
+	v->last_gain = run.last_gain;
+	v->last_gain_hits = run.last_gain_hits;
+	{
+		const int frames = speed.filled ? speed.filled : 1;
+
+		v->board_rate = 1000000.0 / (double)CAVE_FRAME_USEC;
+		v->game_rate = v->board_rate * (double)(frames - speed.lagged_now) / (double)frames;
+		v->lagged_now = speed.lagged_now > 0;
+	}
+	v->bullets = bullets_now;
+	v->status = status;
+	snprintf(v->toast, sizeof(v->toast), "%s", toast_frames > 0 ? toast_name : "");
+	v->toast_frames = toast_frames;
+	v->toast_more = toast_more;
+	v->meter = meter;
 }

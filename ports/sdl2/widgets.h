@@ -36,6 +36,14 @@
 #define WIDGET_H        320
 #define WIDGET_GAP      8       /* between the picture and a panel */
 
+/* The areas' best scores, kept in donpachi.stages beside the program (NULL: there), or 'path': NULL, or what was wrong
+   with the file (started again) */
+const char *widgets_open(const char *path);
+
+/* Whether the game counts for the areas' best scores now: no cheat, save state, training, replay or playtest, the
+   slowdown on (main.c, before each widgets_frame); an area with a moment that doesn't, or a continue, doesn't */
+void widgets_set_clean(bool clean);
+
 /* After each of the game's frames: what the graph keeps (the score's history, the stages' marks) */
 void widgets_frame(void);
 
@@ -90,5 +98,73 @@ void widgets_draw(uint32_t *left, uint32_t *right, int width);
    the game) for 4 seconds of play; busy while one is shown, so the next waits */
 void widgets_toast(const char *name, int more);    /* ('more': waiting after it, shown as "+2 MORE") */
 bool widgets_toast_busy(void);
+
+/* ---- what the gadget panels show (gadgets.h): the panels' state, read without drawing ---- */
+
+#define WIDGET_GRAPH_POINTS 104
+#define WIDGET_GRAPH_MARKS  24
+#define WIDGET_AREAS        10
+
+enum { WIDGET_AREA_TODO, WIDGET_AREA_LIVE, WIDGET_AREA_DONE };
+enum { WIDGET_BAR_NONE, WIDGET_BAR_PROGRESS, WIDGET_BAR_MIDBOSS, WIDGET_BAR_BOSS, WIDGET_BAR_TRUE_BOSS };
+
+typedef struct
+{
+	bool own;                   /* a player's game (the last one's, through the attract mode) */
+	bool in_play[2];
+	struct
+	{
+		unsigned hits, timer, best; /* the chain's hits, its time left (30 frames after a kill), the game's best */
+		uint32_t points;        /* the chain's points so far */
+	} chain[2];
+	bool rank_known;
+	unsigned rank;              /* 0-63 */
+	/* the loop's areas against their bests (player 1's) */
+	int loop_shown;             /* 0 or 1 */
+	struct
+	{
+		int state;              /* WIDGET_AREA_* */
+		uint32_t made, best;    /* its score so far or in all; the best before it (0 none) */
+		bool counts, new_best;
+	} areas[5];
+	/* the bees of the area played, or the last */
+	int bee_area;               /* 0-9, or -1 */
+	unsigned bees_taken;
+	bool bee_area_over;
+	/* the controls as the board was given them (1 held), the player's */
+	uint16_t held;
+	/* the score, and the high score chase */
+	uint32_t score[2];
+	bool graph_running;
+	uint32_t target;            /* the #1 as the game began */
+	int chasing;                /* the place chased, 0 (#1) ... 4 (#5), or -1: past #1 */
+	uint32_t table[5];
+	int passed_at[5];
+	int graph_count;
+	float points[2][WIDGET_GRAPH_POINTS];   /* the score over the target */
+	bool played[2][WIDGET_GRAPH_POINTS];
+	int marks[WIDGET_GRAPH_MARKS], mark_count;
+	/* the area and its bar: how far to the boss, or a boss's health */
+	bool area_known;
+	int area, loop;             /* 0-9, 0-1 */
+	int bar;                    /* WIDGET_BAR_* */
+	int percent;
+	char bar_text[16];          /* "62%", "DEFEATED", "TIME UP", "ESCAPED", "BOSS" */
+	/* the last points scored, and the hits then */
+	bool gained;
+	uint32_t last_gain;
+	unsigned last_gain_hits;
+	/* the board */
+	double game_rate, board_rate;
+	bool lagged_now;
+	unsigned bullets;
+	widgets_status status;
+	/* an achievement's box ("" none) */
+	char toast[32];
+	int toast_frames, toast_more;
+	widgets_meter meter;
+} widgets_view;
+
+void widgets_view_now(widgets_view *out);
 
 #endif

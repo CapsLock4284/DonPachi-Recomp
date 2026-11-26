@@ -57,6 +57,9 @@ extern const char *const settings_rotate_names[ROTATIONS];
 /* the renderers SDL can be asked for (settings_renderer_names[0], "auto": Direct3D 12 on Windows, main.c) */
 #define RENDERERS 6
 extern const char *const settings_renderer_names[RENDERERS];
+/* the side panels' looks: none, the classic ones (widgets.h), the gadgets (gadgets.h) */
+enum { PANELS_OFF, PANELS_CLASSIC, PANELS_GADGETS, PANEL_STYLES };
+extern const char *const settings_panel_names[PANEL_STYLES];
 
 typedef struct
 {
@@ -111,7 +114,8 @@ typedef struct
 	int renderer;               /* settings_renderer_names: 0 auto (Direct3D 12 on Windows), or the one asked for
 	                               (main.c; used from the next start) */
 	int rotate;                 /* ROTATE_NONE, ROTATE_RIGHT (90 degrees clockwise), ROTATE_LEFT */
-	bool panels;                /* the side panels (widgets.h) beside the picture */
+	int panels;                 /* the side panels beside the picture: PANELS_OFF, PANELS_CLASSIC (widgets.h) or
+	                               PANELS_GADGETS (gadgets.h) */
 	/* [sound] */
 	bool sound;
 	int volume;                 /* 0-100: all of the sound */

@@ -6,7 +6,16 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
-Nothing yet.
+### Added
+- **Gadget side panels**: SETTINGS > GRAPHICS > SIDE PANELS is now CLASSIC, GADGETS or OFF, as in DoDonPachi Recomp.
+  GADGETS shows the panels as blue gadgets with brushed-steel frames, drawn sharp at your screen's resolution in an
+  open font (Chakra Petch): GET POINT (the chain's hits in big digits, its time left, its points and the best), the
+  rank as a green-to-red bar, the area's bees as the game's own bee sprite, your controls, the score and the high
+  score place you're chasing, the score graph against #1, the area's way to its boss (then the boss's health), and
+  the board's frames a second with the settings in use. New with them: **AREAS**, each area of the loop against
+  your best score for it (kept in `donpachi.stages`, from clean games only); **LAST SCORED**, the points from your
+  last kill and the chain they came at; and **ACHIEVEMENTS**, the five you're nearest to with how far there is to
+  go. CLASSIC is the panels as before and stays the default; an old `side_panels = true` reads as classic.
 
 ## v0.14.1 (2026-11-26)
 

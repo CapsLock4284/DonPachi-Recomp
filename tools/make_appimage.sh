@@ -141,6 +141,7 @@ for text in README.txt:ports/sdl2/release/README.txt CHANGES.txt:CHANGELOG.md li
 done
 cp runtime/LICENSE.tmnt-runtime "$appdir/usr/share/doc/donpachi/licenses/tmntarcade-runtime.txt"
 cp "$sdl/LICENSE.txt" "$appdir/usr/share/doc/donpachi/licenses/SDL2.txt"
+tr -d '\r' < ports/sdl2/fonts/OFL-ChakraPetch.txt > "$appdir/usr/share/doc/donpachi/licenses/ChakraPetch-OFL.txt"
 chmod 755 "$appdir/AppRun" "$appdir/usr/bin/donpachi" "$appdir/usr/bin/libSDL2-2.0.so.0"
 chmod 644 "$appdir/donpachi.png" "$appdir/donpachi.desktop" "$appdir"/usr/share/doc/donpachi/*.txt "$appdir"/usr/share/doc/donpachi/licenses/*
 ln -s donpachi.png "$appdir/.DirIcon"
@@ -149,7 +150,8 @@ ln -s donpachi.png "$appdir/.DirIcon"
 problems=""
 allowed="AppRun donpachi.desktop donpachi.png usr/bin/donpachi usr/bin/libSDL2-2.0.so.0 usr/share/doc/donpachi/README.txt
 	usr/share/doc/donpachi/CHANGES.txt usr/share/doc/donpachi/licenses/NOTICES.txt
-	usr/share/doc/donpachi/licenses/tmntarcade-runtime.txt usr/share/doc/donpachi/licenses/SDL2.txt"
+	usr/share/doc/donpachi/licenses/tmntarcade-runtime.txt usr/share/doc/donpachi/licenses/SDL2.txt
+	usr/share/doc/donpachi/licenses/ChakraPetch-OFL.txt"
 allowed=$(echo $allowed)
 for file in $(cd "$appdir" && find . -type f | sed 's|^\./||'); do
 	case " $allowed " in *" $file "*) ;; *) problems="$problems

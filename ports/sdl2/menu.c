@@ -670,7 +670,7 @@ static void change(int item, int step, bool wrap)
 	}
 		break;
 	case ITEM_PANELS:
-		in_use->panels = file->panels = !in_use->panels;
+		in_use->panels = file->panels = cycle(in_use->panels, PANEL_STYLES, step, wrap);
 		host.apply_window();    /* (the window widens for them) */
 		break;
 	case ITEM_DEADZONE:
@@ -1271,7 +1271,9 @@ static const char *item_help(int item)
 	case ITEM_DEADZONE:
 		return "HOW FAR THE STICK MUST MOVE BEFORE IT COUNTS.";
 	case ITEM_PANELS:
-		return "THESE PANELS AT THE SIDES ON A WIDE SCREEN: CHAIN, RANK, BEES, SCORE GRAPH, STAGE AND BOSS HEALTH.";
+		return "PANELS AT THE SIDES ON A WIDE SCREEN. CLASSIC: CHAIN, RANK, BEES, SCORE GRAPH, AREA AND BOSS HEALTH. "
+			"GADGETS: THE SAME AND MORE (THE AREAS AGAINST YOUR BEST, THE LAST POINTS SCORED, THE ACHIEVEMENTS NEAREST) "
+			"AS BLUE GADGETS, SHARP AT YOUR SCREEN'S RESOLUTION.";
 	case ITEM_HISCORES:
 		return "KEEPS THE HIGH SCORE TABLE BETWEEN SESSIONS (THE ARCADE FORGETS IT WHEN SWITCHED OFF).";
 	case ITEM_SAVE_STATE:
@@ -1989,7 +1991,8 @@ static void item_value(int item, char *out, size_t size)
 		snprintf(out, size, "%s", s->training_retry ? "ON" : "OFF");
 		break;
 	case ITEM_PANELS:
-		snprintf(out, size, "%s", s->panels ? "ON" : "OFF");
+		snprintf(out, size, "%s", s->panels == PANELS_GADGETS ? "GADGETS" : s->panels == PANELS_CLASSIC ? "CLASSIC"
+			: "OFF");
 		break;
 	case ITEM_DEADZONE:
 		snprintf(out, size, "%d%%", s->stick_dead[player]);

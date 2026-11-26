@@ -90,6 +90,7 @@
 #include "ui_sound.h"
 #include "menu.h"
 #include "widgets.h"
+#include "gadgets.h"
 #include "window_icon.h"
 #include "settings.h"
 #include "pads.h"
@@ -97,6 +98,7 @@
 #include "paths.h"
 
 #include <SDL.h>
+#include <math.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -574,7 +576,7 @@ static const uint32_t *with_hitboxes(const uint32_t *pixels)
    240 x 320, at the same scale, between them */
 static bool panels_shown(void)
 {
-	return options.panels && options.rotate == ROTATE_NONE;
+	return options.panels != PANELS_OFF && options.rotate == ROTATE_NONE;
 }
 
 static SDL_Texture *panel_textures[2];          /* (WIDGET_MAX_W wide: the panel's width of them used) */
@@ -613,6 +615,78 @@ static int panel_width_for(int out_w, int out_h)
 		return WIDGET_W;
 	width = ((int)((float)out_w / scale) - VIDEO_HEIGHT) / 2 - WIDGET_GAP;
 	return width < WIDGET_W ? WIDGET_W : width > WIDGET_MAX_W ? WIDGET_MAX_W : width;
+}
+
+/* ---- the gadget panels (gadgets.h): drawn at k of the screen's pixels a game's pixel, k the scale rounded (2 to
+   5), so they are sharp; shown smoothed to the picture's scale. Only the gadgets that changed are drawn again and
+   given to the graphics card (gadgets_dirty) ---- */
+
+static uint32_t *gadget_pixels[2];
+static SDL_Texture *gadget_textures[2];
+static int gadget_k;
+
+/* ready for k: false if there is no memory or no texture for them (the classic panels then) */
+static bool gadgets_ready(int k)
+{
+	if (k == gadget_k && gadget_pixels[0] && gadget_textures[0] && gadget_textures[1])
+		return true;
+	for (int side = 0; side < 2; side++)
+	{
+		free(gadget_pixels[side]);
+		gadget_pixels[side] = NULL;
+		if (gadget_textures[side])
+			SDL_DestroyTexture(gadget_textures[side]);
+		gadget_textures[side] = NULL;
+	}
+	gadget_k = 0;
+	for (int side = 0; side < 2; side++)
+		if (!(gadget_pixels[side] = malloc((size_t)WIDGET_MAX_W * (size_t)k * (size_t)WIDGET_H * (size_t)k * 4u))
+				|| !(gadget_textures[side] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+					SDL_TEXTUREACCESS_STREAMING, WIDGET_MAX_W * k, WIDGET_H * k)))
+			return false;
+	gadget_k = k;
+	gadgets_invalidate();    /* (new textures: drawn whole) */
+	return true;
+}
+
+static bool draw_gadgets(const SDL_FRect *left, const SDL_FRect *right, float scale)
+{
+	/* (k: the scale rounded, 3 at 1080p's 3.375; drawn finer than the screen above that is not seen) */
+	int k = (int)(scale + 0.5f);
+	const char *title, *text;
+	gadgets_dirty dirty;
+
+	k = k < 2 ? 2 : k > 5 ? 5 : k;
+	if (!gadgets_ready(k))
+		return false;
+	gadgets_draw(gadget_pixels[0], gadget_pixels[1], panel_width, k, &dirty);
+	if (menu_help(&title, &text))
+	{
+		const gadgets_rect whole = { 0, 0, panel_width * k, WIDGET_H * k };
+
+		gadgets_draw_help(gadget_pixels[1], panel_width, k, title, text);
+		dirty.rect[1][0] = whole;
+		dirty.count[1] = 1;
+	}
+	for (int side = 0; side < 2; side++)
+	{
+		const SDL_Rect source = { 0, 0, panel_width * k, WIDGET_H * k };
+		const int pitch = panel_width * k;
+		const Uint64 began = SDL_GetPerformanceCounter();
+
+		for (int at = 0; at < dirty.count[side]; at++)
+		{
+			const gadgets_rect *const r = &dirty.rect[side][at];
+			const SDL_Rect place = { r->x, r->y, r->w, r->h };
+
+			SDL_UpdateTexture(gadget_textures[side], &place,
+				gadget_pixels[side] + (size_t)r->y * (size_t)pitch + (size_t)r->x, pitch * (int)sizeof(uint32_t));
+		}
+		spend(SPENT_UPLOAD, began);
+		SDL_SetTextureScaleMode(gadget_textures[side], SDL_ScaleModeLinear);
+		SDL_RenderCopyF(renderer, gadget_textures[side], &source, side ? right : left);
+	}
+	return true;
 }
 
 static int shown_height(void)
@@ -729,25 +803,33 @@ static void show_picture(const uint32_t *pixels)
 		const SDL_FRect left = { x, y, (float)panel_width * scale_x, WIDGET_H * scale_y };
 		const SDL_FRect right = { x + w - (float)panel_width * scale_x, y, (float)panel_width * scale_x, WIDGET_H * scale_y };
 
-		widgets_draw(panel_pixels[0], panel_pixels[1], panel_width);
+		if (options.panels == PANELS_GADGETS && draw_gadgets(&left, &right, scale_y))
 		{
-			/* (the menu up: its chosen entry explained on the right panel) */
-			const char *title, *text;
-
-			if (menu_help(&title, &text))
-				widgets_draw_help(panel_pixels[1], panel_width, title, text);
+			x += (float)(panel_width + WIDGET_GAP) * scale_x;
+			w = VIDEO_HEIGHT * scale_x;
 		}
-		for (int side = 0; side < 2; side++)
+		else
 		{
-			const Uint64 began = SDL_GetPerformanceCounter();
+			widgets_draw(panel_pixels[0], panel_pixels[1], panel_width);
+			{
+				/* (the menu up: its chosen entry explained on the right panel) */
+				const char *title, *text;
 
-			SDL_UpdateTexture(panel_textures[side], &source, panel_pixels[side], panel_width * (int)sizeof(uint32_t));
-			spend(SPENT_UPLOAD, began);
-			SDL_SetTextureScaleMode(panel_textures[side], options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
-			SDL_RenderCopyF(renderer, panel_textures[side], &source, side ? &right : &left);
+				if (menu_help(&title, &text))
+					widgets_draw_help(panel_pixels[1], panel_width, title, text);
+			}
+			for (int side = 0; side < 2; side++)
+			{
+				const Uint64 began = SDL_GetPerformanceCounter();
+
+				SDL_UpdateTexture(panel_textures[side], &source, panel_pixels[side], panel_width * (int)sizeof(uint32_t));
+				spend(SPENT_UPLOAD, began);
+				SDL_SetTextureScaleMode(panel_textures[side], options.smooth ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+				SDL_RenderCopyF(renderer, panel_textures[side], &source, side ? &right : &left);
+			}
+			x += (float)(panel_width + WIDGET_GAP) * scale_x;
+			w = VIDEO_HEIGHT * scale_x;
 		}
-		x += (float)(panel_width + WIDGET_GAP) * scale_x;
-		w = VIDEO_HEIGHT * scale_x;
 	}
 	cx = x + w / 2.0f;
 	cy = y + h / 2.0f;
@@ -1739,6 +1821,13 @@ int main(int argc, char **argv)
 			achievements_load(path);
 			snprintf(path, sizeof(path), "%sdonpachi.stats", paths_folder());
 			stats_load(path);
+			{
+				/* (the areas' best scores: widgets.h) */
+				const char *const stages_problem = widgets_open(NULL);
+
+				if (stages_problem)
+					fprintf(stderr, "donpachi.stages: %s\n", stages_problem);
+			}
 		}
 		snprintf(path, sizeof(path), "%sreplays/", paths_folder());
 		replay_folder(path);
@@ -1863,7 +1952,10 @@ int main(int argc, char **argv)
 		while (SDL_PollEvent(&event))
 		{
 			if (event.type == SDL_RENDER_TARGETS_RESET || event.type == SDL_RENDER_DEVICE_RESET)
+			{
 				crt_reset();    /* (its textures lost: made again) */
+				gadgets_invalidate();    /* (the gadget panels' pictures lost: given whole again) */
+			}
 			if (event.type == SDL_QUIT)
 				running = 0;
 			else if (event.type == SDL_JOYDEVICEADDED)
@@ -2016,6 +2108,9 @@ int main(int argc, char **argv)
 					audio_queue();
 				video_latch_sprites();    /* (VBLANK: the 013 takes the sprites) */
 				hitbox_record();
+				/* (the areas' best scores: from clean games only) */
+				widgets_set_clean(!state_loaded && !training_active && !cheats_any_on() && !options.autobomb
+					&& program_slowdown() && !replay_playing());
 				widgets_frame();
 				if (cheats_any_on() || options.autobomb)
 					state_loaded = true;    /* (an assist: the game doesn't count) */
@@ -2044,7 +2139,7 @@ int main(int argc, char **argv)
 				{
 					const char *const earned = achievements_next_shown();
 
-					if (earned && options.panels)
+					if (earned && options.panels != PANELS_OFF)
 					{
 						widgets_toast(earned, achievements_waiting());
 						ui_sound_play(UI_SOUND_ACHIEVEMENT);

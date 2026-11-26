@@ -31,6 +31,7 @@ const char *const settings_scaling_names[VIDEO_SCALINGS] = { "fit", "integer", "
 const char *const settings_scanline_names[4] = { "off", "light", "medium", "heavy" };
 const char *const settings_crt_names[3] = { "off", "light", "full" };
 const char *const settings_rotate_names[ROTATIONS] = { "none", "right", "left" };
+const char *const settings_panel_names[PANEL_STYLES] = { "off", "classic", "gadgets" };
 const char *const settings_renderer_names[RENDERERS] = { "auto", "direct3d", "direct3d11", "direct3d12", "opengl",
 	"software" };
 
@@ -124,7 +125,7 @@ void settings_defaults(settings *s)
 	s->vsync = false;
 	s->renderer = 0;
 	s->rotate = ROTATE_NONE;
-	s->panels = true;
+	s->panels = PANELS_CLASSIC;
 	s->sound = true;
 	s->volume = 100;
 	s->music_volume = s->effects_volume = s->voices_volume = 100;
@@ -365,7 +366,20 @@ static bool take(settings *s, const char *section, const char *name, char *value
 		if (!SDL_strcasecmp(name, "renderer"))
 			return (s->renderer = name_of(value, settings_renderer_names, RENDERERS)) >= 0 || (s->renderer = 0, false);
 		if (!SDL_strcasecmp(name, "side_panels"))
-			return parse_bool(value, &s->panels);
+		{
+			/* (off, classic or gadgets; true and false as before 0.15.0: true is classic) */
+			bool on;
+
+			if ((s->panels = name_of(value, settings_panel_names, PANEL_STYLES)) >= 0)
+				return true;
+			if (!parse_bool(value, &on))
+			{
+				s->panels = PANELS_CLASSIC;
+				return false;
+			}
+			s->panels = on ? PANELS_CLASSIC : PANELS_OFF;
+			return true;
+		}
 		if (!SDL_strcasecmp(name, "rotate"))
 			return (s->rotate = name_of(value, settings_rotate_names, ROTATIONS)) >= 0
 				|| (s->rotate = ROTATE_NONE, false);
@@ -700,9 +714,11 @@ const char *settings_save(const settings *s, const char *path)
 	fprintf(file, "show_fps = %s\n", bool_text(s->show_fps));
 	fputs("; none, right or left: the picture turned for a monitor on its side (TATE)\n", file);
 	fprintf(file, "rotate = %s\n", settings_rotate_names[s->rotate]);
-	fputs("; the panels beside the picture: the chain's gauge (left), the score against the #1 high score (right);\n"
-		"; not with the picture rotated\n", file);
-	fprintf(file, "side_panels = %s\n\n", bool_text(s->panels));
+	fputs("; the panels beside the picture on a wide screen: off, classic (the chain's gauge, the rank, the bees, the\n"
+		"; score against the #1 high score, the area and its boss) or gadgets (the same and more as blue gadgets, sharp\n"
+		"; at the screen's resolution: the areas against their best scores, the last points scored, the achievements\n"
+		"; nearest); not with the picture rotated\n", file);
+	fprintf(file, "side_panels = %s\n\n", settings_panel_names[s->panels]);
 
 	fputs("[sound]\n", file);
 	fprintf(file, "enabled = %s\n", bool_text(s->sound));

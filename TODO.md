@@ -43,13 +43,20 @@ The sections below: graphics options, the player features, accuracy checks, poli
 
 ## Player features (the owner's ideas)
 
-- [ ] **Gadget-style side panels, as DoDonPachi Recomp's** (owner, 25-11-2026: to try here too, after DoDonPachi's):
+- [x] **Gadget-style side panels, as DoDonPachi Recomp's** (owner, 25-11-2026: to try here too, after DoDonPachi's):
   the blue brushed-metal gadgets agreed for DoDonPachi Recomp (its TODO.md has the design and the owner's picks:
   ship status, chain with hits by weapon, board FPS, the bees as the game's own sprite, score with the second
   loop's line, the stages' scores against their bests, last kill, input, achievements by area; the rank a small bar
   green to red), switchable with today's panels (SIDE PANELS: CLASSIC, GADGETS, OFF). Its font, renderer and
   layout code carried over; DonPachi's own memory for each gadget (achievements.c and widgets.c have most of it:
-  the rank 01A32, the chain's hits 0174E, the bees, the power)
+  the rank 01A32, the chain's hits 0174E, the bees, the power). Done (26-11-2026), from the owner's mockup (a design
+  canvas): left GET POINT (a second for player 2 when both play), RANK, AREAS (the loop's areas against their bests:
+  `donpachi.stages`, widgets_open; clean games only, player 1 alone, no continue: widgets_set_clean), BEES, INPUT;
+  right SCORE, LAST SCORED, SCORE GRAPH, AREA (progress, then the mid-boss's or boss's health), BOARD (the FPS
+  meter's figures in it with F9), ACHIEVEMENTS (the nearest, achievements_goal). No ship gadget, no TIME / BOMBS /
+  LIVES LOST (the owner's mockup left them out). ports/sdl2/gadgets.c, gadget_canvas.c and the font as DoDonPachi
+  Recomp's; each gadget drawn again and uploaded only when it changes (0.3 ms a frame, about 15% of the panels
+  uploaded, checked equal to a whole redraw: GADGETS=K tests/harness/panels_shot)
 
 - [x] **Difficulty in the options** (GAME OPTIONS): EASY / NORMAL / HARD / VERY HARD, the service menu's own setting (EEPROM word 4, bits 8-9); applies on an F3 reset or a restart
 - [x] **The arcade's settings in the options** (owner, 22-11-2026): GAME OPTIONS > ARCADE SETTINGS in place of SERVICE MENU: the test menu's CONFIGURATION but for C BUTTON (GAME OPTIONS > C AUTO FIRE, in use at once), the difficulty (above) and INVERT SCREEN (the port's video has no flip; ROTATE). EEPROM word 4: bit 15 CONTINUE, bit 0 CONTINUE COST, bits 12-13 LIVES (3 5 2 1), bits 10-11 EXTEND, bits 4-5 / 6-7 COIN A / B, bit 3 DEMO SOUND; from the next reset. Games played with any of them (5 lives, an easier extend) still count for high scores, achievements and statistics (owner: not a cheat, an operator's setting on the real board)

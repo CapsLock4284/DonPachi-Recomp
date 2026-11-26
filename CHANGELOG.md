@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.0 (2026-11-25)
+
 ### Added
 - **`--playtest`**: the game plays itself all the way through, as fast as your PC can run it, to check a build:
   both loops, area 10's true last boss and the ending, with every ship (or one: `--playtest B`). Player 1 is kept

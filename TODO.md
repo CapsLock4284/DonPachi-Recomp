@@ -202,6 +202,15 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
   - [ ] Only if needed: built on an older distribution for the releases. A build on Ubuntu 25.10 (WSL) needs only glibc 2.34 (2021: Ubuntu 22.04, Debian 12, Fedora 35 and later), as `make_release.sh` reports; check that number each release, and build on an older Ubuntu if it ever climbs
 
 ## Accuracy, to check later
+- [ ] **The picture line by line, as the board draws it** (owner, 25-11-2026: on the list, not now). DoDonPachi
+  Recomp 0.5.0 draws its picture at the screen's VBLANK, 90 us after the vblank interrupt, as MAME does (checked
+  against MAME's own ddonpach to the pixel). Not here (owner, 25-11-2026): drawn both ways over 20,000 frames,
+  DonPachi's interrupt is still running at the screen's VBLANK now and then (by up to 2 ms) and 331 pictures (2%)
+  differ, the scroll set after it (the background a frame behind the sprites, what fast_timing.c was made to put
+  right), so this port keeps drawing as the interrupt returns (arcade timing) or with fast_timing's look ahead. The
+  board draws line by line as the screen scans, the interrupt's later writes reaching the lines drawn after them:
+  neither point is it. The way: the scroll and palette writes kept with their cycle during the frame, each line drawn
+  with what was set when the board draws it; the sprites as now. In Cave68kSDK's video, for both games
 - [x] DIVU by a constant (done 22-11-2026): the shared core (tools/core, decompiler/expressions.py) writes the 68000's
   "divu.w #n" as C's division, the V60's rule: it loses the remainder (the register's high word) and the 68000's
   overflow (the register unchanged). Found in DoDonPachi Recomp. Now `tools/call_tables.py` (11) keeps the 68000's

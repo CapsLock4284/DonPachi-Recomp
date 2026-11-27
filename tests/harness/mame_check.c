@@ -166,8 +166,14 @@ static unsigned waits_vblank[WAITS_KEPT];
 
 /* (the program's wait, each round: a wait it has made ready, once, as slowdown_check's at_wait; the cycle from the
    reset, MAME's from the power on: compared from a frame both have) */
+static FILE *rounds_out;            /* ROUNDS=A-B: each round of the wait in VBLANKs A to B, as dp_check.lua's rounds.txt */
+static unsigned rounds_from, rounds_to;
+
 static void waits_at(void)
 {
+	if (rounds_out && cave_board.frame >= rounds_from && cave_board.frame <= rounds_to)
+		fprintf(rounds_out, "%u %llu %x\n", (unsigned)cave_board.frame, (unsigned long long)m68k_time,
+			ram_word(0x101262u) & 0xFFu);
 	if (waits_arrived || !(ram_word(0x1011FCu) & 1u))
 		return;
 	waits_arrived = true;
@@ -208,6 +214,11 @@ static void waits_begin(const char *dir, const char *name)
 	snprintf(path, sizeof(path), "%s/%s", dir, strcmp(name, "waits.txt") ? "port_irq.txt" : "irq.txt");
 	irq_out = fopen(path, "w");
 	cave_irq_cause_read = irq_read;
+	if (getenv("ROUNDS") && sscanf(getenv("ROUNDS"), "%u-%u", &rounds_from, &rounds_to) == 2)
+	{
+		snprintf(path, sizeof(path), "%s/%s", dir, strcmp(name, "waits.txt") ? "port_rounds.txt" : "rounds.txt");
+		rounds_out = fopen(path, "w");
+	}
 }
 
 static void waits_end(void)
@@ -220,6 +231,9 @@ static void waits_end(void)
 	if (irq_out)
 		fclose(irq_out);
 	irq_out = NULL;
+	if (rounds_out)
+		fclose(rounds_out);
+	rounds_out = NULL;
 }
 
 typedef struct

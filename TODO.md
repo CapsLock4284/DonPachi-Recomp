@@ -288,7 +288,19 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
       - [ ] Step 2: dp_check.lua 0.3.0 logs the random index at each frame's end (waits.txt) and each read of the
             interrupt's cause and the OKIs' status with its cycle and value (irq.txt); mame_check writes the
             port's (port_irq.txt; runtime/src/machine.c's cave_irq_cause_read, for the tools) and says where the
-            random index first differs. Waiting for the owner's run (3,000 VBLANKs)
+            random index first differs
+      - [x] The owner's run (26-11-2026, 3,000 VBLANKs): the random index parts at the 6th frame of the game from
+            the power on (VBLANK 251, the boot's own screens, no inputs yet): MAME's wait goes round one time fewer
+            about every 5 frames (MAME 251, the port 252; then 2, 3 behind, and so on), while the VBLANK comes every
+            278,016 cycles on both (the interrupt's reads 278,016.05 apart on average in each) and MAME's frames end
+            about 33 cycles sooner and its handler's first read comes about 17 later: MAME has some 50 cycles more
+            to spare each frame, yet fewer rounds. So a round of the wait seems to take MAME's 68000 longer than
+            the port's 46 cycles (now and then, or by a little each time); the port's timing is MAME's 68000 core on
+            the board model (tools/cref), which may not be the core MAME 0.289 runs. With the random numbers apart
+            from the 6th frame, the games keep together only while nothing in them draws on them
+      - [ ] Step 3: dp_check.lua 0.3.1 with DP_ROUNDS=A-B writes rounds.txt, each write of the random index (each
+            round of the wait) with its cycle, and mame_check ROUNDS=A-B the port's (port_rounds.txt: 46 cycles a
+            round, every round). Waiting for the owner's run (400 VBLANKs, DP_ROUNDS=245-400)
 - [ ] **The picture line by line, as the board draws it** (owner, 25-11-2026: on the list, not now). DoDonPachi
   Recomp 0.5.0 draws its picture at the screen's VBLANK, 90 us after the vblank interrupt, as MAME does (checked
   against MAME's own ddonpach to the pixel). Not here (owner, 25-11-2026): drawn both ways over 20,000 frames,

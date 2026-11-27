@@ -2,8 +2,8 @@
 -- Description: DonPachi on the real MAME, for tests/harness/mame_check: MAME's own pictures with the board's video
 --              memories (drawn again by the port), and the inputs it was given (to play the port the same way and
 --              set its sound beside MAME's)
--- Version:     0.3.0 (after DoDonPachi Recomp's tools/mame/ddp_check.lua 0.5.0; 0.2.0: waits.txt, the slowdown;
---              0.3.0: the random index in waits.txt, irq.txt)
+-- Version:     0.3.1 (after DoDonPachi Recomp's tools/mame/ddp_check.lua 0.5.0; 0.2.0: waits.txt, the slowdown;
+--              0.3.0: the random index in waits.txt, irq.txt; 0.3.1: rounds.txt)
 -- Created:     26-11-2026
 --
 -- license:BSD-3-Clause
@@ -38,6 +38,9 @@
 --     irq.txt        each read of the interrupt's cause ($900000-$900007) and of the sound chips' status ($B00000,
 --                    $B00010) for the first DP_IRQ_FRAMES VBLANKs (8,000): "vblank cycle what value" (what: irq0-3,
 --                    oki0-1), where the board answers by the time
+--     rounds.txt     with DP_ROUNDS=A-B (VBLANKs A to B, e.g. 250-260): each write of the random index ($101262,
+--                    each round of the frame's wait and each random number taken), "vblank cycle value": how long
+--                    MAME's 68000 takes for a round of the wait (the port's: 46 cycles)
 -- and MAME writes sound.wav (-wavwrite): its own sound all through, to set beside the port's (mame_check SOUND=1).
 -- It quits at DP_FRAMES VBLANKs (200,000: both loops and the ending, about 58 minutes of the game; 10-20 with
 -- -nothrottle).
@@ -169,7 +172,7 @@ if not log then
 	machine:exit()
 	return
 end
-log:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
+log:write("; dp_check.lua 0.3.1: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
 
 -- The inputs: the port gives inputs(N) after its VBLANK N, for the game's interrupt at the next VBLANK to read.
 -- MAME's frame notifier for VBLANK N comes after that VBLANK's interrupt has read them already, so the inputs worked
@@ -211,7 +214,7 @@ local function cycle_now()
 	return math.floor(now:as_double() * clock + 0.5)
 end
 if waits then
-	waits:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. ", clock " .. clock .. "\n")
+	waits:write("; dp_check.lua 0.3.1: MAME " .. emu.app_version() .. ", " .. emu.romname() .. ", clock " .. clock .. "\n")
 	dp_check_ready = space:install_write_tap(0x1011fc, 0x1011fd, "dp_check_ready", function(offset, data, mask)
 		-- (the word's low byte, $1011FD, bit 0: the wait made ready)
 		if (data & 1) ~= 0 and (mask & 1) ~= 0 then
@@ -234,11 +237,29 @@ local function read_logger(what_of)
 	end
 end
 if irq_file then
-	irq_file:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
+	irq_file:write("; dp_check.lua 0.3.1: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
 	dp_check_irq = space:install_read_tap(0x900000, 0x900007, "dp_check_irq",
 		read_logger(function(offset) return "irq" .. ((offset - 0x900000) // 2) end))
 	dp_check_oki = space:install_read_tap(0xb00000, 0xb00011, "dp_check_oki",
 		read_logger(function(offset) return offset >= 0xb00010 and "oki1" or "oki0" end))
+end
+
+-- ---- each write of the random index, for a few VBLANKs (DP_ROUNDS=A-B) ----
+local rounds_from, rounds_to = string.match(os.getenv("DP_ROUNDS") or "", "^(%d+)-(%d+)$")
+if rounds_from then
+	rounds_from, rounds_to = tonumber(rounds_from), tonumber(rounds_to)
+	local rounds_file = io.open(out .. "/rounds.txt", "w")
+	if rounds_file then
+		rounds_file:write("; dp_check.lua 0.3.1: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
+		dp_check_rounds = space:install_write_tap(0x101262, 0x101263, "dp_check_rounds", function(offset, data, mask)
+			if vblank >= rounds_from and vblank <= rounds_to then
+				rounds_file:write(string.format("%d %d %x\n", vblank, cycle_now(), data & 0xff))
+			elseif vblank > rounds_to and rounds_file then
+				rounds_file:close()
+				rounds_file = nil
+			end
+		end)
+	end
 end
 
 set_inputs(0)

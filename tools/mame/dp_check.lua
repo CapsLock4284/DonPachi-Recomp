@@ -2,7 +2,8 @@
 -- Description: DonPachi on the real MAME, for tests/harness/mame_check: MAME's own pictures with the board's video
 --              memories (drawn again by the port), and the inputs it was given (to play the port the same way and
 --              set its sound beside MAME's)
--- Version:     0.1.0 (after DoDonPachi Recomp's tools/mame/ddp_check.lua 0.5.0)
+-- Version:     0.3.0 (after DoDonPachi Recomp's tools/mame/ddp_check.lua 0.5.0; 0.2.0: waits.txt, the slowdown;
+--              0.3.0: the random index in waits.txt, irq.txt)
 -- Created:     26-11-2026
 --
 -- license:BSD-3-Clause
@@ -28,6 +29,15 @@
 --                    reading $900000 would answer the interrupt) and the work RAM ($100000, 64 KB), each as the 68000
 --                    reads them (big endian); with screen_N.bin beside each (MAME's picture, 32-bit, little endian)
 --                    and screen_size.txt
+--     waits.txt      a line a frame of the game, as it makes its wait for the next ready ($1011FC bit 0, as
+--                    tests/harness/slowdown_check's at_wait): "game_frame vblank cycle mode random", the VBLANKs so
+--                    far, the 68000's cycle from the power on (MAME's time there, at the CPU's own instruction, times
+--                    its clock), the game's mode and its random index ($101263: counted on each round of its wait for
+--                    the frame, so the rounds tell how near the VBLANK the work ended): when each frame's work ended,
+--                    to set beside the port's (mame_check SOUND=1)
+--     irq.txt        each read of the interrupt's cause ($900000-$900007) and of the sound chips' status ($B00000,
+--                    $B00010) for the first DP_IRQ_FRAMES VBLANKs (8,000): "vblank cycle what value" (what: irq0-3,
+--                    oki0-1), where the board answers by the time
 -- and MAME writes sound.wav (-wavwrite): its own sound all through, to set beside the port's (mame_check SOUND=1).
 -- It quits at DP_FRAMES VBLANKs (200,000: both loops and the ending, about 58 minutes of the game; 10-20 with
 -- -nothrottle).
@@ -159,7 +169,7 @@ if not log then
 	machine:exit()
 	return
 end
-log:write("; dp_check.lua 0.1.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
+log:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
 
 -- The inputs: the port gives inputs(N) after its VBLANK N, for the game's interrupt at the next VBLANK to read.
 -- MAME's frame notifier for VBLANK N comes after that VBLANK's interrupt has read them already, so the inputs worked
@@ -178,9 +188,57 @@ local function on_frame()
 	end
 	if vblank >= frames then
 		log:close()
+		if waits then waits:close() end
+		if irq_file then irq_file:close() end
 		emu.print_info("dp_check: done, " .. vblank .. " VBLANKs in " .. out)
 		machine:exit()
 	end
+end
+
+-- ---- the game's frames: its wait made ready ($1011FC bit 0) ----
+local waits = io.open(out .. "/waits.txt", "w")
+local game_frames = 0
+-- DonPachi's 68000, 16 MHz (cave.cpp; the port's CAVE_CPU_CLOCK). MAME 0.289's Lua may have no clock on a device:
+-- the board's own number then
+local clock = 16000000
+if type(cpu.clock) == "number" and cpu.clock > 0 then clock = cpu.clock end
+local attos_per_cycle = 1000000000000000000 // clock
+-- MAME's time now in the 68000's cycles from the power on: in a tap, the running CPU's own, to its instruction
+local function cycle_now()
+	local now = machine.time
+	local ok, cycle = pcall(function() return now.seconds * clock + now.attoseconds // attos_per_cycle end)
+	if ok and type(cycle) == "number" then return cycle end
+	return math.floor(now:as_double() * clock + 0.5)
+end
+if waits then
+	waits:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. ", clock " .. clock .. "\n")
+	dp_check_ready = space:install_write_tap(0x1011fc, 0x1011fd, "dp_check_ready", function(offset, data, mask)
+		-- (the word's low byte, $1011FD, bit 0: the wait made ready)
+		if (data & 1) ~= 0 and (mask & 1) ~= 0 then
+			game_frames = game_frames + 1
+			waits:write(string.format("%d %d %d %x %d\n", game_frames, vblank, cycle_now(), space:read_u16(0x1018ec),
+				space:read_u8(0x101263)))
+		end
+	end)
+end
+
+-- ---- the reads the board answers by the time: the interrupt's cause, the sound chips' status ----
+local irq_frames = tonumber(os.getenv("DP_IRQ_FRAMES") or "8000")
+local irq_file = io.open(out .. "/irq.txt", "w")
+local function read_logger(what_of)
+	return function(offset, data, mask)
+		if irq_file and vblank < irq_frames then
+			irq_file:write(string.format("%d %d %s %x\n", vblank, cycle_now(), what_of(offset), data & mask))
+		end
+		return data
+	end
+end
+if irq_file then
+	irq_file:write("; dp_check.lua 0.3.0: MAME " .. emu.app_version() .. ", " .. emu.romname() .. "\n")
+	dp_check_irq = space:install_read_tap(0x900000, 0x900007, "dp_check_irq",
+		read_logger(function(offset) return "irq" .. ((offset - 0x900000) // 2) end))
+	dp_check_oki = space:install_read_tap(0xb00000, 0xb00011, "dp_check_oki",
+		read_logger(function(offset) return offset >= 0xb00010 and "oki1" or "oki0" end))
 end
 
 set_inputs(0)

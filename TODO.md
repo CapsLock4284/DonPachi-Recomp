@@ -264,9 +264,31 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
       5,550-5,700) the games part for good; the port's slowdown matches MAME's 68000 core on the board model
       (tools/cref/cref_timed) to the frame, so the difference is in MAME's machine. DoDonPachi Recomp found the
       same kind of thing and traced it to MAME's own emulation (its YMZ280B's interrupt held to the sound's
-      updates). Next: dp_check.lua writing waits.txt (each game frame's end in the 68000's cycles: the ready flag,
-      $1011FC bit 0, as slowdown_check's at_wait) as ddp_check.lua 0.3.0 does, and the port's beside it, to see
-      whether the frames' work takes longer in MAME steadily, on busy frames, or at the OKIs' accesses
+      updates)
+      - [x] Step 1 (26-11-2026): dp_check.lua 0.2.0 writes waits.txt, each game frame's end in the 68000's cycles
+            (a write tap on the ready flag, $1011FC bit 0, as ddp_check.lua 0.3.0's; MAME's time there, the CPU's
+            own), and `mame_check` SOUND=1 writes the port's beside it (port_waits.txt, at the wait as
+            slowdown_check's at_wait) and compares them from the ship select to where the games part
+            (waits_compare.txt: the ends' difference in cycles, its largest changes, the frames at another VBLANK).
+            Checked on itself: MAKE=1, 0 cycles at every frame; a copy with MAME's frames made 500 cycles later from
+            one frame and a VBLANK later from another, both found
+      - [x] The owner's run (26-11-2026, 8,000 VBLANKs). The slowdown is only where it shows: the frames' ends
+            part long before any slowdown. Found: (1) through the boot and attract mode MAME's every frame ends 33
+            cycles before the port's (within a few: a steady difference, as DoDonPachi Recomp's -50); a probe with
+            the interrupt's lead at 92 us in place of 90 takes it to 0, so it is about when the interrupt is taken;
+            (2) the inputs: MAME 0.289 reads the controls 1 VBLANK after dp_check.lua logs them and the coin 3 (the
+            coin 2 later than the rest): mame_check now tries the delay, the coin's own and when in the frame they
+            are given (between frames, or at the screen's VBLANK as MAME's notifier) by how long the frames' ends
+            keep together, and with that every frame from the power on ends as MAME's (within 150 cycles) through
+            the coin, the start and the ship select into area 1, for 968 frames; (3) from frame 969 (VBLANK 1,220,
+            area 1, no slowdown yet) MAME's frames end up to 4,000 cycles differently and the difference grows: the
+            games' objects differ (the ship and scores still the same). Not the OKIs' rates (a probe at MAME's
+            whole-number rates: the same). Likely: the random index, counted on each round of the frame's wait
+            (46 cycles), so 33 cycles can change it
+      - [ ] Step 2: dp_check.lua 0.3.0 logs the random index at each frame's end (waits.txt) and each read of the
+            interrupt's cause and the OKIs' status with its cycle and value (irq.txt); mame_check writes the
+            port's (port_irq.txt; runtime/src/machine.c's cave_irq_cause_read, for the tools) and says where the
+            random index first differs. Waiting for the owner's run (3,000 VBLANKs)
 - [ ] **The picture line by line, as the board draws it** (owner, 25-11-2026: on the list, not now). DoDonPachi
   Recomp 0.5.0 draws its picture at the screen's VBLANK, 90 us after the vblank interrupt, as MAME does (checked
   against MAME's own ddonpach to the pixel). Not here (owner, 25-11-2026): drawn both ways over 20,000 frames,

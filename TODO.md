@@ -259,7 +259,7 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
             drifts 53 ppm (about 3 output samples a second) until the next starts. Checked with a probe (a copy of
             the board's description at those rates, not kept): the drift gone, the sounds' starts within 0.2 ms
             of MAME's
-- [ ] **The slowdown against the real MAME** (found 26-11-2026, by the run above): from MAME's VBLANK 4,463 (area
+- [ ] **The slowdown against the real MAME** (found 26-11-2026, by the run above; parked, see the end): from MAME's VBLANK 4,463 (area
       1) MAME's machine slows down a frame where the port doesn't, and after a few more such frames (around
       5,550-5,700) the games part for good; the port's slowdown matches MAME's 68000 core on the board model
       (tools/cref/cref_timed) to the frame, so the difference is in MAME's machine. DoDonPachi Recomp found the
@@ -300,7 +300,21 @@ The Steam Deck and macOS versions were taken off this list (owner, 13-11-2026): 
             from the 6th frame, the games keep together only while nothing in them draws on them
       - [ ] Step 3: dp_check.lua 0.3.1 with DP_ROUNDS=A-B writes rounds.txt, each write of the random index (each
             round of the wait) with its cycle, and mame_check ROUNDS=A-B the port's (port_rounds.txt: 46 cycles a
-            round, every round). Waiting for the owner's run (400 VBLANKs, DP_ROUNDS=245-400)
+            round, every round)
+      - [x] The owner's run (26-11-2026, 400 VBLANKs): MAME's rounds are 46 cycles too, every one (721,950 of
+            them; the 40s and 50s are the random numbers taken in the frame's work). What the boot's frames read
+            of the board (the interrupt's cause, each frame) is the same, value for value, on the same VBLANKs. The
+            work RAM's contents at the power on make no difference (the port's boot frames the same with it
+            filled with 0, $FF or noise). Left: the frames' work itself, read to wait, comes out 10 to 30 cycles
+            apart in some of the boot's frames (both have the same three lengths, 10 and 20 apart, but not on the
+            same frames), and one round fewer follows. Where in the frame: not found yet (the next step would time
+            more points of the frame in both, e.g. each write to the palette and the video registers)
+      - Parked (owner, 26-11-2026): what it changes is the random numbers (counted on the wait's rounds), so
+        the same inputs play out a little differently after a while (some enemies' choices, then the bullets and
+        which frames slow down); the game, its scoring and pictures and sound, and how much slowdown there is,
+        are the same. It matters for MAME input recordings played on the port (see "MAME recordings (.inp)
+        played on the port" below: this is very likely why they drift). Whether MAME or the port is the board's
+        way is not known (DoDonPachi Recomp's turned out to be MAME's own). Take it up again with that item
 - [ ] **The picture line by line, as the board draws it** (owner, 25-11-2026: on the list, not now). DoDonPachi
   Recomp 0.5.0 draws its picture at the screen's VBLANK, 90 us after the vblank interrupt, as MAME does (checked
   against MAME's own ddonpach to the pixel). Not here (owner, 25-11-2026): drawn both ways over 20,000 frames,

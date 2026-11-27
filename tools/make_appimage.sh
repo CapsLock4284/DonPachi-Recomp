@@ -30,7 +30,7 @@
 #      file and the icon, the README, changes and licences in usr/share/doc/donpachi
 #   4. checked as make_release.sh checks its package (an allow list, no ROM set or player's files, what the
 #      programs need), then made into one file by appimagetool (downloaded once: AppImage's own tool)
-# The game keeps its files beside the .AppImage file (ports/sdl2/paths.c), as the .tar.gz's beside the program.
+# The game keeps its files beside the .AppImage file (runtime/port/paths.c), as the .tar.gz's beside the program.
 # The version is CMakeLists.txt's, the one the game shows; CHANGELOG.md must have its section, as for the .tar.gz.
 set -e
 cd "$(dirname "$0")/.."
@@ -141,7 +141,7 @@ for text in README.txt:ports/sdl2/release/README.txt CHANGES.txt:CHANGELOG.md li
 done
 cp runtime/LICENSE.tmnt-runtime "$appdir/usr/share/doc/donpachi/licenses/tmntarcade-runtime.txt"
 cp "$sdl/LICENSE.txt" "$appdir/usr/share/doc/donpachi/licenses/SDL2.txt"
-tr -d '\r' < ports/sdl2/fonts/OFL-ChakraPetch.txt > "$appdir/usr/share/doc/donpachi/licenses/ChakraPetch-OFL.txt"
+tr -d '\r' < runtime/port/fonts/OFL-ChakraPetch.txt > "$appdir/usr/share/doc/donpachi/licenses/ChakraPetch-OFL.txt"
 chmod 755 "$appdir/AppRun" "$appdir/usr/bin/donpachi" "$appdir/usr/bin/libSDL2-2.0.so.0"
 chmod 644 "$appdir/donpachi.png" "$appdir/donpachi.desktop" "$appdir"/usr/share/doc/donpachi/*.txt "$appdir"/usr/share/doc/donpachi/licenses/*
 ln -s donpachi.png "$appdir/.DirIcon"

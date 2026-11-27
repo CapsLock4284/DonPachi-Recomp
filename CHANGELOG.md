@@ -14,6 +14,9 @@ notes). The release zip carries this file as `CHANGES.txt`.
   the sound the same in loudness and in every band from 20 Hz up.
 
 ### Changed
+- **The port's shared parts now come from Cave68kSDK** (its port kit, `runtime/port`): the scalers, the CRT look,
+  the gadget panels' drawing and font, where your files are kept, background saving and the updater, the same code
+  as before (built to the same machine code), now shared with DoDonPachi Recomp.
 - **The classic left panel shows the area scores** in place of TIME, BOMBS, LIVES LOST and the misses for each
   area: the loop's five areas with your score in each (gold for a new best, red when below it, your best to beat
   dimmed for those to come), VS BEST for the area being played, and the session's best score, as the gadgets' AREAS.

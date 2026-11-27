@@ -41,7 +41,7 @@ sdl_license=$(ls build/downloads/sdl2/SDL2-*/LICENSE.txt 2>/dev/null | head -n 1
 [ -n "$sdl_license" ] || sdl_license=/usr/share/doc/libsdl2-2.0-0/copyright
 for from in "$program" ports/sdl2/release/README.txt CHANGELOG.md ports/sdl2/release/NOTICES.txt \
 		ports/sdl2/release/gamecontrollerdb.txt ports/sdl2/release/gamecontrollerdb-LICENSE.txt \
-		ports/sdl2/fonts/OFL-ChakraPetch.txt \
+		runtime/port/fonts/OFL-ChakraPetch.txt \
 		runtime/LICENSE.tmnt-runtime "$sdl_license"; do
 	[ -f "$from" ] || fail "missing: $from (build the Release first?)"
 done
@@ -63,7 +63,7 @@ cp runtime/LICENSE.tmnt-runtime "$out/licenses/tmntarcade-runtime.txt"
 cp "$sdl_license" "$out/licenses/SDL2.txt"
 cp ports/sdl2/release/gamecontrollerdb.txt "$out/gamecontrollerdb.txt"    # (the gamepads' layouts: pads.h)
 cp ports/sdl2/release/gamecontrollerdb-LICENSE.txt "$out/licenses/gamecontrollerdb.txt"
-tr -d '\r' < ports/sdl2/fonts/OFL-ChakraPetch.txt > "$out/licenses/ChakraPetch-OFL.txt"    # (the gadget panels' font)
+tr -d '\r' < runtime/port/fonts/OFL-ChakraPetch.txt > "$out/licenses/ChakraPetch-OFL.txt"    # (the gadget panels' font)
 chmod 755 "$out/donpachi"
 chmod 644 "$out"/*.txt "$out"/licenses/*
 

@@ -231,7 +231,7 @@ DC offset, which the port's speaker filter takes out, and MAME plays each chip a
 
 | Folder | What's in it |
 |---|---|
-| `runtime/` | the board model: memory map, video (tile layers, sprites), sound (two OKI M6295s, NMK112), EEPROM, ROM set reader |
+| `runtime/` | Cave68kSDK: the board model (memory map, video (tile layers, sprites), sound (two OKI M6295s, NMK112), EEPROM, ROM set reader), and its port kit (`runtime/port`: the scalers, CRT look, gadget drawing, file paths, saving and the updater, shared with DoDonPachi Recomp) |
 | `ports/sdl2/` | the game (Windows and Linux): window, menus, settings, training, side panels, save states |
 | `ports/headless/` | a windowless build for testing and frame-by-frame checks |
 | `tools/` | the decompiler's game profile, analysis tools, the reference checker (`tools/cref`), packaging |
@@ -255,8 +255,8 @@ your own machine.
   Gagiu, 2021, MIT license).
 - Bee counts from the [shmups wiki](https://shmups.wiki/library/DonPachi).
 - The gadget side panels' font is [Chakra Petch](https://github.com/cadsondemak/Chakra-Petch) (SIL Open Font
-  License 1.1, Copyright 2018 The Chakra Petch Project Authors: `ports/sdl2/fonts/OFL-ChakraPetch.txt`), its
-  outlines built into the program by `tools/make_gadget_font.py`.
+  License 1.1, Copyright 2018 The Chakra Petch Project Authors: `runtime/port/fonts/OFL-ChakraPetch.txt`), its
+  outlines built into the program by Cave68kSDK's `tools/make_gadget_font.py`.
 
 ## License
 

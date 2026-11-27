@@ -126,13 +126,19 @@ elseif(NOT WIN32)
 	endif()
 endif()
 if(SDL2_FOUND)
+	# (the SDK's port kit, runtime/port: what every game's port shares, as it is; its paths.c takes the game's
+	# names from CAVE_PORT_FOLDER and CAVE_PORT_STEM)
+	set(CAVE_PORT_KIT runtime/port/paths.c runtime/port/updater.c runtime/port/crt.c runtime/port/scaler.c
+		runtime/port/layer_filter.c runtime/port/file_save.c runtime/port/gadget_canvas.c)
 	add_executable(donpachi WIN32 ports/sdl2/main.c ports/sdl2/settings.c ports/sdl2/pads.c ports/sdl2/menu.c ports/sdl2/hitbox.c
 		ports/sdl2/widgets.c ports/sdl2/hiscore.c ports/sdl2/training.c ports/sdl2/rom_drop.c
-		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c ports/sdl2/paths.c ports/sdl2/updater.c
-		ports/sdl2/own_cheats.c ports/sdl2/crt.c ports/sdl2/scaler.c ports/sdl2/autobomb.c ports/sdl2/crash_log.c ports/sdl2/ai_player.c ports/sdl2/layer_filter.c ports/sdl2/file_save.c
-		ports/sdl2/fast_timing.c ports/sdl2/playtest.c ports/sdl2/gadget_canvas.c ports/sdl2/gadgets.c)
+		ports/sdl2/achievements.c ports/sdl2/ui_sound.c ports/sdl2/stats.c ports/sdl2/replay.c
+		ports/sdl2/own_cheats.c ports/sdl2/autobomb.c ports/sdl2/crash_log.c ports/sdl2/ai_player.c
+		ports/sdl2/fast_timing.c ports/sdl2/playtest.c ports/sdl2/gadgets.c ${CAVE_PORT_KIT})
+	target_include_directories(donpachi PRIVATE runtime/port)
 	target_link_libraries(donpachi PRIVATE donpachi_game ${DONPACHI_SDL2})
-	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}")
+	target_compile_definitions(donpachi PRIVATE DONPACHI_VERSION="${PROJECT_VERSION}" CAVE_PORT_FOLDER="DonPachi"
+		CAVE_PORT_STEM="donpachi")
 	add_custom_command(TARGET donpachi POST_BUILD    # (the gamepads' layouts beside the program: pads.h)
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/ports/sdl2/release/gamecontrollerdb.txt
 			$<TARGET_FILE_DIR:donpachi>)

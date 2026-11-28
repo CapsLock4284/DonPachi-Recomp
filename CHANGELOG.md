@@ -6,6 +6,10 @@ notes). The release zip carries this file as `CHANGES.txt`.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.16.0 (2026-11-28)
+
 ### Added
 - **SESSION on the gadget panels**, under INPUT, as in DoDonPachi Recomp: since you started the program, the time
   you've played, the games and credits (each continue, and player 2 joining, is one), and your best score.
